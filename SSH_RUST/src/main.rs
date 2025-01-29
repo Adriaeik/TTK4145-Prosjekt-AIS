@@ -26,9 +26,22 @@ fn main() {
                     }
                 };
                 
+                // Oppdater system og installer nødvendige pakkar
+                let update_command = format!(
+                    "sshpass -p '{}' ssh -X student@{} 'sudo apt update && sudo apt upgrade -y && sudo apt install -y gnome-terminal sshpass cargo x11-xserver-utils xorg'",
+                    ssh_password, ip_address
+                );
+                
+                // println!("Oppdaterer system og installerer avhengigheiter: {}", update_command);
+                // let _ = Command::new("sh")
+                //     .arg("-c")
+                //     .arg(&update_command)
+                //     .output()
+                //     .expect("Feil ved oppdatering av system");
+                
                 // Stopp eventuelle prosessar som allereie køyrer
                 let kill_command = format!(
-                    "sshpass -p '{}' ssh student@{} 'pkill -f Byrokritiet_i_tokio || true'",
+                    "sshpass -p '{}' ssh -X student@{} 'pkill -f Byrokritiet_i_tokio || true'",
                     ssh_password, ip_address
                 );
                 
@@ -40,10 +53,10 @@ fn main() {
                     .expect("Feil ved stopp av eksisterende prosesser");
                 
                 let command = format!(
-                    "sshpass -p '{}' ssh student@{} 'mkdir -p fuckers && cd fuckers && \
+                    "sshpass -p '{}' ssh -X student@{} 'export DISPLAY=:0 && echo DISPLAY=$DISPLAY && mkdir -p fuckers && cd fuckers && \
                     if [ ! -d \"TTK4145-Prosjekt-AIS\" ]; then git clone https://github.com/Adriaeik/TTK4145-Prosjekt-AIS; fi && \
                     cd TTK4145-Prosjekt-AIS && cd Byrokritiet_i_tokio && \
-                    nohup cargo run -- {} {} > output.log 2>&1 &'",
+                    dbus-launch gnome-terminal -- bash -c \"cargo run -- {} {}; exec bash\"'",
                     ssh_password, ip_address, role, id
                 );
                 
