@@ -32,12 +32,12 @@ fn main() {
                     ssh_password, ip_address
                 );
                 
-                // println!("Oppdaterer system og installerer avhengigheiter: {}", update_command);
-                // let _ = Command::new("sh")
-                //     .arg("-c")
-                //     .arg(&update_command)
-                //     .output()
-                //     .expect("Feil ved oppdatering av system");
+                println!("Oppdaterer system og installerer avhengigheiter: {}", update_command);
+                let _ = Command::new("sh")
+                    .arg("-c")
+                    .arg(&update_command)
+                    .output()
+                    .expect("Feil ved oppdatering av system");
                 
                 // Stopp eventuelle prosessar som allereie køyrer
                 let kill_command = format!(
@@ -56,7 +56,7 @@ fn main() {
                     "sshpass -p '{}' ssh -X student@{} 'export DISPLAY=:0 && echo DISPLAY=$DISPLAY && mkdir -p fuckers && cd fuckers && \
                     if [ ! -d \"TTK4145-Prosjekt-AIS\" ]; then git clone https://github.com/Adriaeik/TTK4145-Prosjekt-AIS; fi && \
                     cd TTK4145-Prosjekt-AIS && cd Byrokritiet_i_tokio && \
-                    dbus-launch gnome-terminal -- bash -c \"cargo run -- {} {}; exec bash\"'",
+                    gnome-terminal -- bash -c \"cargo run -- {} {}; exec bash\"'",
                     ssh_password, ip_address, role, id
                 );
                 
