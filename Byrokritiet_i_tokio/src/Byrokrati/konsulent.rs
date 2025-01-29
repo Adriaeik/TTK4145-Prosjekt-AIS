@@ -14,6 +14,17 @@ use std::net::SocketAddr;
 
 static BACKUP_STARTED: AtomicBool = AtomicBool::new(false);
 
+/// Returnerer kommando for å åpne terminal til tilhørende OS         
+///
+/// # Eksempel
+/// ```
+/// let (cmd, args) = get_terminal_command(); 
+/// ```
+/// returnerer:
+/// 
+/// linux -> "gnome-terminal", "--""
+/// 
+/// windows ->  "cmd", "/C", "start"
 fn get_terminal_command() -> (String, Vec<String>) {
     // Detect platform and return appropriate terminal command
     if cfg!(target_os = "windows") {

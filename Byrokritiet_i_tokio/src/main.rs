@@ -64,15 +64,6 @@ async fn main() {
     }
 }
 
-fn get_terminal_command() -> (String, Vec<String>) {
-    // Detect platform and return appropriate terminal command
-    if cfg!(target_os = "windows") {
-        ("cmd".to_string(), vec!["/C".to_string(), "start".to_string()])
-    } else {
-        ("gnome-terminal".to_string(), vec!["--".to_string()])
-    }
-}
-
 
 
 

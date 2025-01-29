@@ -10,7 +10,13 @@ pub struct AnsattPakke {
     pub name: String,
 }
 
-/// Master er for den serveren med ansvar, og slaven kopierer masteren. Kvar master og slave lager sin eigen backup.
+/// De ulike rollene programmet kan ha:
+/// 
+/// MASTER er for den serveren med ansvar 
+/// 
+/// SLAVE er masterprogrammet som ikke har 'token'
+/// 
+/// BACKUP er det lokale backupprogrammet
 #[derive(Clone, PartialEq, Debug)]
 pub enum Rolle {
     MASTER,
@@ -18,14 +24,27 @@ pub enum Rolle {
     BACKUP,
 }
 
+
+/// Pakke med Rolle (se Rolle) og ID (siste tall i IP) for en sjef
 #[derive(Clone, Debug)]
 pub struct SjefPakke {
-    pub id: u8,
     pub rolle: Rolle,
+    pub id: u8,
     // TODO: Lage IP
 }
 
 /// Hentar og analyserer argument frå kommandolinja for å returnere ein `SjefPakke`
+///
+/// # Eksempel
+/// ```
+/// let sjefenpakke = match hent_sjefpakke() {
+/// Ok(sjef) => {sjef}
+/// Err(e) => {
+///     eprintln!("Feil ved henting av SjefPakke: {}", e);
+///     return;
+///     }
+/// };
+/// ```
 pub fn hent_sjefpakke() -> Result<SjefPakke, &'static str> {
     let args: Vec<String> = env::args().collect();
 
