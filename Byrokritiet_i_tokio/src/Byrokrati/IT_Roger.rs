@@ -28,7 +28,7 @@ pub async fn create_reusable_listener(addr: &str) -> TcpListener {
     TcpListener::from_std(socket.into()).expect("Failed to create TcpListener")
 }
 
-pub async fn monitor_backup(last_received: Arc<Mutex<Instant>>, timeout_duration: Duration) {
+pub async fn monitor_backup(last_received: Arc<Mutex<Instant>>, timeout_duration: Duration, id: &str) {
     let mut backup_timer = interval(Duration::from_secs(1));
     backup_timer.tick().await; // Start timer
 
@@ -44,7 +44,7 @@ pub async fn monitor_backup(last_received: Arc<Mutex<Instant>>, timeout_duration
             //log_to_csv("Primary", "Backup Unresponsive", 0);
 
             // Reset BACKUP_STARTED and start a new backup
-            start_backup_with_reset();
+            start_backup_with_reset(id);
 
             let mut last = last_received.lock().await;
             *last = Instant::now();
@@ -52,11 +52,11 @@ pub async fn monitor_backup(last_received: Arc<Mutex<Instant>>, timeout_duration
     }
 }
 
-pub async fn create_and_monitor_backup(addr: &str) {
+pub async fn create_and_monitor_backup(addr: &str, id: &str) {
     let last_received = Arc::new(Mutex::new(Instant::now())); //Usikker på om denne kan puttes i funksjonen
     let timeout_duration = Duration::from_secs(3);
     
-    start_backup();
+    start_backup(id);
     
     //Under starter backupen, og venter til den er startet riktig
     let listener = create_reusable_listener(addr).await;
@@ -66,10 +66,10 @@ pub async fn create_and_monitor_backup(addr: &str) {
     
     //Følger med på om det skjer en timeout basically
     //Lager også ny backup om den feiler
+    let id_kopi: String = id.to_string();
     tokio::spawn(async move {
-        monitor_backup(last_received_clone, timeout_duration).await;
+        monitor_backup(last_received_clone, timeout_duration, &id_kopi).await;
     });  
-
 
     //Sender kontinuerlig worldview til backupen. Den lagrer også tiden når forrige ack skjedde
     //Så monitor_backup kan lage en ny backup på samme port om den blir inresponsive
@@ -77,19 +77,21 @@ pub async fn create_and_monitor_backup(addr: &str) {
         if let Ok((mut socket, _)) = listener.accept().await {
             socket.write_all("Worldview".as_bytes()).await.expect("Failed to send count");
 
+            println!("Backup acka! (er i IT_Roger, create_and_monitor_backup())");
+
             let mut last = last_received.lock().await;
             *last = Instant::now();
         }
     }  
 }
 
-pub fn start_backup() {
+pub fn start_backup(id: &str) {
     if !BACKUP_STARTED.load(Ordering::SeqCst) {
         let (cmd, args) = konsulent::get_terminal_command();
         let mut backup_args = args;
         backup_args.push(env::current_exe().unwrap().to_str().unwrap().to_string());
         backup_args.push("backup".to_string());
-        backup_args.push("2".to_string());
+        backup_args.push(id.to_string());
 
 
         Command::new(cmd)
@@ -102,9 +104,9 @@ pub fn start_backup() {
     }
 }
 
-pub fn start_backup_with_reset() {
+pub fn start_backup_with_reset(id: &str) {
     BACKUP_STARTED.store(false, Ordering::SeqCst);
-    start_backup();
+    start_backup(id);
 }
 
 
