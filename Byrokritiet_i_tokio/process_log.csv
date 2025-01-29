@@ -3506,3 +3506,10 @@ Primary,Counting,5
 Backup,Received,5
 Primary,Counting,6
 Backup,Received,6
+Primary,Backup Started,0
+Primary,Counting,Backup1
+,Received,1
+Primary,Counting,2Backup
+,Received,2
+Primary,BackupCounting,,Received3,
+3
