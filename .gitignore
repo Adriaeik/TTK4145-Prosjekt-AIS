@@ -1,0 +1,45 @@
+# Rust
+/target/
+**/*.rs.bk
+*.json
+*.TAG
+*.lock
+**/target/
+*:Zone.Identifier
+
+# Go
+/bin/
+/pkg/
+**/*.exe
+**/*.exe~
+**/*.dll
+**/*.so
+**/*.dylib
+**/*.test
+
+# C
+*.o
+*.a
+*.so
+*.exe
+
+# D
+*.o
+*.a
+*.so
+*.exe
+
+# Java
+*.class
+*.jar
+*.war
+*.ear
+/target/
+/bin/
+/build/
+
+# PHP
+vendor/
+*.log
+*.cache
+*.tmp
