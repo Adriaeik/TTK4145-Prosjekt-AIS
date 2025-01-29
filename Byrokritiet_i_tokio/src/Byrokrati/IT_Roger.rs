@@ -40,7 +40,7 @@ pub async fn monitor_backup(last_received: Arc<Mutex<Instant>>, timeout_duration
             last.elapsed()
         };
 
-        println!("Millisekunder: {}", elapsed.as_millis());
+        //println!("Millisekunder: {}", elapsed.as_millis());
 
         if elapsed > timeout_duration {
             println!("Backup is unresponsive. Starting a new backup...");
@@ -57,7 +57,7 @@ pub async fn monitor_backup(last_received: Arc<Mutex<Instant>>, timeout_duration
 
 pub async fn create_and_monitor_backup(addr: &str, id: &str) {
     let last_received = Arc::new(Mutex::new(Instant::now())); //Usikker på om denne kan puttes i funksjonen
-    let timeout_duration = Duration::from_secs(1);
+    let timeout_duration = Duration::from_secs(2);
     
     start_backup(id);
     
