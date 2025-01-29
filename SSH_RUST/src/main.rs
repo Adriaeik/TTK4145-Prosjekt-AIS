@@ -17,12 +17,47 @@ fn main() {
                 let role = parts[0];
                 let ip_address = parts[1];
                 
+                // Ekstraher siste byten av IP-adressa for bruk som ID
+                let id = match ip_address.rsplit('.').next() {
+                    Some(last_octet) => last_octet,
+                    None => {
+                        eprintln!("Feil: Kunne ikke ekstrahere siste byte fra IP");
+                        continue;
+                    }
+                };
+                
+                // Oppdater system og installer nødvendige pakkar
+                let update_command = format!(
+                    "sshpass -p '{}' ssh -X student@{} 'sudo apt update && sudo apt upgrade -y && sudo apt install -y gnome-terminal sshpass cargo x11-xserver-utils xorg'",
+                    ssh_password, ip_address
+                );
+                
+                // println!("Oppdaterer system og installerer avhengigheiter: {}", update_command);
+                // let _ = Command::new("sh")
+                //     .arg("-c")
+                //     .arg(&update_command)
+                //     .output()
+                //     .expect("Feil ved oppdatering av system");
+                
+                // Stopp eventuelle prosessar som allereie køyrer
+                let kill_command = format!(
+                    "sshpass -p '{}' ssh -X student@{} 'pkill -f Byrokritiet_i_tokio || true'",
+                    ssh_password, ip_address
+                );
+                
+                println!("Stopper eventuelle kjørende prosesser: {}", kill_command);
+                let _ = Command::new("sh")
+                    .arg("-c")
+                    .arg(&kill_command)
+                    .output()
+                    .expect("Feil ved stopp av eksisterende prosesser");
+                
                 let command = format!(
-                    "sshpass -p '{}' ssh student@{} 'mkdir -p fuckers && cd fuckers && \
+                    "sshpass -p '{}' ssh -X student@{} 'export DISPLAY=:0 && echo DISPLAY=$DISPLAY && mkdir -p fuckers && cd fuckers && \
                     if [ ! -d \"TTK4145-Prosjekt-AIS\" ]; then git clone https://github.com/Adriaeik/TTK4145-Prosjekt-AIS; fi && \
-                    cd TTK4145-Prosjekt-AIS && \
-                    if [ -d \"Byrokritiet_i_tokio\" ]; then cd Byrokritiet_i_tokio && cargo run -- {}; else echo \"Feil: Byrokritiet_i_tokio finnes ikke\"; fi'",
-                    ssh_password, ip_address, role
+                    cd TTK4145-Prosjekt-AIS && cd Byrokritiet_i_tokio && \
+                    dbus-launch gnome-terminal -- bash -c \"cargo run -- {} {}; exec bash\"'",
+                    ssh_password, ip_address, role, id
                 );
                 
                 println!("Kjører kommando: {}", command);
