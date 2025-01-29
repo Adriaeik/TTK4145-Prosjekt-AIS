@@ -122,7 +122,7 @@ pub async fn backup_connection(addr: &str, id: &str) {
     let timeout_duration = Duration::from_secs(3);
     
     loop {
-        match TcpStream::connect("10.24.210.159:8080").await {
+        match TcpStream::connect(addr).await {
             Ok(mut stream) => {
                 let mut buf = String::new();
                 let mut reader = BufReader::new(&mut stream);
@@ -136,7 +136,7 @@ pub async fn backup_connection(addr: &str, id: &str) {
         }
 
         if last_received.elapsed() > timeout_duration {
-            Sjefen::primary_process().await;
+            Sjefen::primary_process(addr).await;
         }
 
         sleep(Duration::from_secs(1)).await;

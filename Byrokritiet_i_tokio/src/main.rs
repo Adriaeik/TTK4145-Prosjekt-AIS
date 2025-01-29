@@ -19,7 +19,7 @@ cargo run -- backup ID -> lager en lokal backup som vil få ID om den tar over
 use Byrokratiet_i_tokio::Byrokrati::Sjefen;
 use Byrokratiet_i_tokio::Byrokrati::Tony;
 use Byrokratiet_i_tokio::Byrokrati::konsulent::*;
-
+use local_ip_address::local_ip;
 
 /// Håndterer start-up initialisering av programrolle
 ///
@@ -49,6 +49,18 @@ async fn main() {
             return; // Avslutt programmet dersom ein feil oppstod
         }
     };
+
+    
+    //Finne IP :)
+    
+    let ip = local_ip().expect("Kunne ikke hente IP");
+    let mut ip_string = ip.to_string(); // Konverter til String
+    ip_string.push_str(":8080");
+
+
+
+
+
     /*Oprette programmet som sin rolle, visst master skal den 
     1) starte ein master_process 
     2) lage sin eigen backup 
@@ -57,11 +69,11 @@ async fn main() {
     */
     if sjefenpakke.rolle == Sjefen::Rolle::BACKUP {
         println!("backup");
-        Tony::backup_process().await;
+        Tony::backup_process(&ip_string).await;
     }
     else {
         println!("master");
-        Sjefen::primary_process().await;
+        Sjefen::primary_process(&ip_string).await;
     }
 }
 

@@ -13,9 +13,11 @@ use socket2::{Socket, Domain, Type, Protocol};
 use std::net::SocketAddr;
 
 
-pub async fn backup_process() {
+pub async fn backup_process(ip: &str) {
+    let ip_copy = ip.to_string();
+    
     tokio::spawn(async move {
-        IT_Roger::backup_connection( "10.24.210.159:8080", "69").await;
+        IT_Roger::backup_connection( &ip_copy, "69").await;
     });
     loop {
         sleep(Duration::from_secs(1)).await; // Sover i 1 sekund
