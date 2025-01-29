@@ -1,7 +1,18 @@
 //! sjefen handterer opretting av master / backup
 //! 
+use super::IT_Roger;
 
+use tokio::time::{sleep, Duration, Instant, interval};
+use tokio::io::{self, AsyncBufReadExt, AsyncWriteExt, BufReader};
+use tokio::net::{TcpListener, TcpStream};
+use tokio::sync::Mutex;
+use std::sync::{Arc, atomic::{AtomicBool, Ordering}};
 use std::env;
+use std::process::Command;
+use std::fs::OpenOptions;
+use std::io::Write;
+use socket2::{Socket, Domain, Type, Protocol};
+use std::net::SocketAddr;
 
 #[derive(Clone, Debug)]
 pub struct AnsattPakke {
@@ -67,6 +78,57 @@ pub fn hent_sjefpakke() -> Result<SjefPakke, &'static str> {
     }
 }
 
+
+pub async fn primary_process() {
+    // Spawn a separate task for å starte backup prosess i ny terminal + håndtere backup responsiveness
+    // Oppdaterer også backup sin worldview
+    tokio::spawn(async move {
+        IT_Roger::create_and_monitor_backup( "255.255.255.255:8080").await;
+    });
+    
+
+    // Må ha en seperate task som hører etter broadcast fra andre mastere her
+    /*
+     funksjonen må ta høyde for IDen din
+        Først hører den etter en broadcast
+        Om den aldri hører en broadcast, start fra deafault settings (en standard worldviewfil i repo)
+        Første broadcast oppdaterer den sin egen worldview, svarer med broadcast med sin egen ID
+        Pass på å sende ID tilbake så funksjoner under kan vite om du er aktiv / passiv master
+
+    OM du ikke har lavest ID:
+        Fortsett og høre etter broadcast, oppdater worldview og ID fra dem, send til riktig channel
+        Svar med en broadcast av din ID så andre mastere vet at du er i systemet
+    Om du har lavest ID:
+        Bytt over til hovedmaster
+        Sende egen worldview + ID på broadcast
+        Hør etter ID-broadcast fra andre så du kan steppe ned om noen med lavere kommer
+    OM du slutter å høre broadcast:
+        Send en error på ID-channel¨
+        Den delen av programmet bør derfor vite om du nå er laveste ID eller ikke
+        Du vil få svar fra en annen tråd på om du nå er hovedmaster eller ikke, og fortsetter derfra
+    */
+
+
+
+
+
+    //Ha løkke som venter på at du har lowest id
+    //loop {
+    //    while !has_lowest_ID {
+            // Sjekk channel om IDen som leses fra broadcast, 
+            // hold styr på alle IDene på systemet, om det er lenge siden en ID har kommet over channel, fjern den
+
+            // Om du får error fra ID-channelen, send tilbake til IT-Roger og
+            // skru på has_lowest_id her og kjør hovedmaster-løkka
+            
+    //    }
+
+        // Her kjører altså det som skjer om man har lowest ID
+        // Burde altså være Master-løkka 
+    //}
+
+    
+}
 
 
 

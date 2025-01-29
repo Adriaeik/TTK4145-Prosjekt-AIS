@@ -25,7 +25,7 @@ static BACKUP_STARTED: AtomicBool = AtomicBool::new(false);
 /// linux -> "gnome-terminal", "--""
 /// 
 /// windows ->  "cmd", "/C", "start"
-fn get_terminal_command() -> (String, Vec<String>) {
+pub fn get_terminal_command() -> (String, Vec<String>) {
     // Detect platform and return appropriate terminal command
     if cfg!(target_os = "windows") {
         ("cmd".to_string(), vec!["/C".to_string(), "start".to_string()])
@@ -34,7 +34,7 @@ fn get_terminal_command() -> (String, Vec<String>) {
     }
 }
 
-fn log_to_csv(role: &str, event: &str, counter: i32) {
+pub fn log_to_csv(role: &str, event: &str, counter: i32) {
     let mut file = OpenOptions::new()
         .create(true)
         .append(true)
