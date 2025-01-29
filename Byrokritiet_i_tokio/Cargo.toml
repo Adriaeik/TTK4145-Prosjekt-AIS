@@ -1,0 +1,16 @@
+[package]
+name = "Byrokratiet_i_tokio"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+driver-rust = { git = "https://github.com/TTK4145/driver-rust", tag = "v0.1.0" }
+crossbeam-channel = "0.5" #ikkje gløym denne
+tokio = {version = "1", features = ["full"]}
+socket2 = "0.4"
+
+[lib]
+path = "src/lib.rs"
+
+
+

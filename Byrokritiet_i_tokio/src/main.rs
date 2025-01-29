@@ -1,0 +1,78 @@
+/*Må lage TCP server -> 3 programmer snakker, alle kjører samme, automatisk velger ut en master
+Programmene lager også en lokal backup i tilfelle hvor programmet krasjer eller lignende -> skriver ut krasjreport til en fil for debugging?
+De 2 andre programmene oppdateres på en smart måte fra masteren, om connection dør mellom programmene velger de automatisk en ny master osv...
+-> Bør være grunnmuren til det vi trenger for backup-systemene våre
+Viktige ting å teste:
+TCP timeout må fikses så det skjer smooth og automatisk
+Programkrasj i master og backups må testes og fikses automatisk
+planen er at lokal master/backup snakker over TCP
+
+Vi trenger 2 av 3 args til programets startup:
+: master
+: backup
+: ID
+
+cargo run -- master ID -> lager ett av hovedprogrammene på en PC med ID (laveste ID blir master)
+cargo run -- backup ID -> lager en lokal backup som vil få ID om den tar over
+*/
+
+use Byrokratiet_i_tokio::Byrokrati::Sjefen::*;
+use Byrokratiet_i_tokio::Byrokrati::konsulent::*;
+
+
+/// Håndterer start-up initialisering av programrolle
+///
+/// # Argumenter
+///
+/// *  `kommando` - (string) master eller backup, initialiserer programmet som en primary eller backup
+/// * `ID` - (u8) initialiserer in ID assosiert med programmet
+///
+/// # Eksempel
+///
+/// ```
+/// cargo run -- master 1 -> Kjører primær prosess med ID: 1
+///  cargo run -- backup 256 -> Feil: Andre argument må være et positivt heltall. (u8)
+/// ```
+
+#[tokio::main] // Hvis du bruker async/await
+async fn main() {
+    // TODO:: INititialiser ein strttup for x antall heisa.
+    /*Initialiser ein sjefpakke basert på argument (Rolle, ID) */
+    let sjefenpakke = match hent_sjefpakke() {
+        Ok(sjef) => {
+            println!("Opprettet SjefPakke: {:?}", sjef);
+            sjef // Returner sjefen dersom alt gjekk bra
+        }
+        Err(e) => {
+            eprintln!("Feil ved henting av SjefPakke: {}", e);
+            return; // Avslutt programmet dersom ein feil oppstod
+        }
+    };
+    /*Oprette programmet som sin rolle, visst master skal den 
+    1) starte ein master_process 
+    2) lage sin eigen backup 
+    3) høre på broadcate og sjekke om det er mastera med lågare ID
+    4) Dersom den har lågast ID skal den starte Bedriftspakker. 
+    */
+    if sjefenpakke.rolle == Rolle::BACKUP {
+        backup_process().await;
+        println!("backup");
+    }
+    else {
+        println!("master");
+        primary_process().await;
+    }
+}
+
+fn get_terminal_command() -> (String, Vec<String>) {
+    // Detect platform and return appropriate terminal command
+    if cfg!(target_os = "windows") {
+        ("cmd".to_string(), vec!["/C".to_string(), "start".to_string()])
+    } else {
+        ("gnome-terminal".to_string(), vec!["--".to_string()])
+    }
+}
+
+
+
+
