@@ -42,7 +42,8 @@ fn main() {
                 let command = format!(
                     "sshpass -p '{}' ssh student@{} 'mkdir -p fuckers && cd fuckers && \
                     if [ ! -d \"TTK4145-Prosjekt-AIS\" ]; then git clone https://github.com/Adriaeik/TTK4145-Prosjekt-AIS; fi && \
-                    cd TTK4145-Prosjekt-AIS && cd Byrokritiet_i_tokio && cargo run -- {} {}'",
+                    cd TTK4145-Prosjekt-AIS && cd Byrokritiet_i_tokio && \
+                    gnome-terminal -- bash -c \"cargo run -- {} {}; exec bash\"'",
                     ssh_password, ip_address, role, id
                 );
                 
