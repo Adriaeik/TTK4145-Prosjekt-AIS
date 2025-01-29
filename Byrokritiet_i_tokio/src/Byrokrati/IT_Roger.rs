@@ -28,7 +28,7 @@ pub async fn create_reusable_listener(addr: &str) -> TcpListener {
     TcpListener::from_std(socket.into()).expect("Failed to create TcpListener")
 }
 
-pub async fn monitor_backup(last_received: Arc<Mutex<Instant>>, timeout_duration: Duration) {
+pub async fn monitor_backup(last_received: Arc<Mutex<Instant>>, timeout_duration: Duration, id: &str) {
     let mut backup_timer = interval(Duration::from_secs(1));
     backup_timer.tick().await; // Start timer
 
@@ -44,7 +44,7 @@ pub async fn monitor_backup(last_received: Arc<Mutex<Instant>>, timeout_duration
             //log_to_csv("Primary", "Backup Unresponsive", 0);
 
             // Reset BACKUP_STARTED and start a new backup
-            start_backup_with_reset();
+            start_backup_with_reset(id);
 
             let mut last = last_received.lock().await;
             *last = Instant::now();
@@ -66,8 +66,9 @@ pub async fn create_and_monitor_backup(addr: &str, id: &str) {
     
     //Følger med på om det skjer en timeout basically
     //Lager også ny backup om den feiler
+    let id_kopi: String = id.to_string();
     tokio::spawn(async move {
-        monitor_backup(last_received_clone, timeout_duration).await;
+        monitor_backup(last_received_clone, timeout_duration, &id_kopi).await;
     });  
 
     //Sender kontinuerlig worldview til backupen. Den lagrer også tiden når forrige ack skjedde
@@ -75,6 +76,8 @@ pub async fn create_and_monitor_backup(addr: &str, id: &str) {
     loop {
         if let Ok((mut socket, _)) = listener.accept().await {
             socket.write_all("Worldview".as_bytes()).await.expect("Failed to send count");
+
+            println!("Backup acka! (er i IT_Roger, create_and_monitor_backup())");
 
             let mut last = last_received.lock().await;
             *last = Instant::now();
@@ -101,9 +104,9 @@ pub fn start_backup(id: &str) {
     }
 }
 
-pub fn start_backup_with_reset() {
+pub fn start_backup_with_reset(id: &str) {
     BACKUP_STARTED.store(false, Ordering::SeqCst);
-    start_backup();
+    start_backup(id);
 }
 
 

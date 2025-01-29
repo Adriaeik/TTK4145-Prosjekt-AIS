@@ -87,8 +87,12 @@ pub async fn primary_process() {
     let id = "14"; //endres til linja under når den tid kommer
     //->>>let id = self.id;
     tokio::spawn(async move {
-        IT_Roger::create_and_monitor_backup( "255.255.255.255:8080", id).await;
+        IT_Roger::create_and_monitor_backup( "10.24.210.159:8080", id).await;
     });
+
+    loop {
+        sleep(Duration::from_secs(1)).await;
+    }
     
 
     // Må ha en seperate task som hører etter broadcast fra andre mastere her

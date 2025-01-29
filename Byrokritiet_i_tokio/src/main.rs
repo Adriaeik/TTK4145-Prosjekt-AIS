@@ -16,7 +16,7 @@ cargo run -- master ID -> lager ett av hovedprogrammene på en PC med ID (lavest
 cargo run -- backup ID -> lager en lokal backup som vil få ID om den tar over
 */
 
-use Byrokratiet_i_tokio::Byrokrati::Sjefen::*;
+use Byrokratiet_i_tokio::Byrokrati::Sjefen;
 use Byrokratiet_i_tokio::Byrokrati::konsulent::*;
 
 
@@ -38,7 +38,7 @@ use Byrokratiet_i_tokio::Byrokrati::konsulent::*;
 async fn main() {
     // TODO:: INititialiser ein strttup for x antall heisa.
     /*Initialiser ein sjefpakke basert på argument (Rolle, ID) */
-    let sjefenpakke = match hent_sjefpakke() {
+    let sjefenpakke = match Sjefen::hent_sjefpakke() {
         Ok(sjef) => {
             println!("Opprettet SjefPakke: {:?}", sjef);
             sjef // Returner sjefen dersom alt gjekk bra
@@ -54,13 +54,13 @@ async fn main() {
     3) høre på broadcate og sjekke om det er mastera med lågare ID
     4) Dersom den har lågast ID skal den starte Bedriftspakker. 
     */
-    if sjefenpakke.rolle == Rolle::BACKUP {
+    if sjefenpakke.rolle == Sjefen::Rolle::BACKUP {
         backup_process().await;
         println!("backup");
     }
     else {
         println!("master");
-        primary_process().await;
+        Sjefen::primary_process().await;
     }
 }
 
