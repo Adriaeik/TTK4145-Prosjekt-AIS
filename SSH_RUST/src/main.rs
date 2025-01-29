@@ -43,7 +43,7 @@ fn main() {
                     "sshpass -p '{}' ssh student@{} 'mkdir -p fuckers && cd fuckers && \
                     if [ ! -d \"TTK4145-Prosjekt-AIS\" ]; then git clone https://github.com/Adriaeik/TTK4145-Prosjekt-AIS; fi && \
                     cd TTK4145-Prosjekt-AIS && cd Byrokritiet_i_tokio && \
-                    gnome-terminal -- bash -c \"cargo run -- {} {}; exec bash\"'",
+                    nohup cargo run -- {} {} > output.log 2>&1 &'",
                     ssh_password, ip_address, role, id
                 );
                 
