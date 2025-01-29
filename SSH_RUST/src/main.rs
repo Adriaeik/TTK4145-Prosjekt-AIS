@@ -5,7 +5,7 @@ use std::path::Path;
 
 fn main() {
     let config_path = "config.txt";
-    let ssh_password = "Sanntid15"; //Hysjjjj
+    let ssh_password = "Sanntid15";
     if let Ok(lines) = read_lines(config_path) {
         for line in lines {
             if let Ok(entry) = line {
@@ -32,7 +32,7 @@ fn main() {
                     ssh_password, ip_address
                 );
                 
-                println!("Oppdaterer system og installerer avhengigheiter: \n {}", update_command);
+                println!("Oppdaterer system og installerer avhengigheiter: {}", update_command);
                 let _ = Command::new("sh")
                     .arg("-c")
                     .arg(&update_command)
@@ -45,22 +45,34 @@ fn main() {
                     ssh_password, ip_address
                 );
                 
-                println!("Stopper eventuelle kjørende prosesser: \n {}", kill_command);
+                println!("Stopper eventuelle kjørende prosesser: {}", kill_command);
                 let _ = Command::new("sh")
                     .arg("-c")
                     .arg(&kill_command)
                     .output()
                     .expect("Feil ved stopp av eksisterende prosesser");
                 
+                // Fjern eksisterande mappe og klon frå bunn
+                let clean_command = format!(
+                    "sshpass -p '{}' ssh -X student@{} 'rm -rf ~/fuckers && mkdir -p ~/fuckers && cd ~/fuckers && \
+                    git clone https://github.com/Adriaeik/TTK4145-Prosjekt-AIS'",
+                    ssh_password, ip_address
+                );
+                
+                println!("Fjernar eksisterande mappe og klonar på nytt: {}", clean_command);
+                let _ = Command::new("sh")
+                    .arg("-c")
+                    .arg(&clean_command)
+                    .output()
+                    .expect("Feil ved sletting og kloning av repo");
+                
                 let command = format!(
-                    "sshpass -p '{}' ssh -X student@{} 'export DISPLAY=:0 && echo DISPLAY=$DISPLAY && mkdir -p fuckers && cd fuckers && \
-                    if [ ! -d \"TTK4145-Prosjekt-AIS\" ]; then git clone https://github.com/Adriaeik/TTK4145-Prosjekt-AIS; fi && \
-                    cd TTK4145-Prosjekt-AIS && cd Byrokritiet_i_tokio && \
+                    "sshpass -p '{}' ssh -X student@{} 'export DISPLAY=:0 && echo DISPLAY=$DISPLAY && cd ~/fuckers/TTK4145-Prosjekt-AIS/Byrokritiet_i_tokio && \
                     gnome-terminal -- bash -c \"cargo run -- {} {}; exec bash\"'",
                     ssh_password, ip_address, role, id
                 );
                 
-                println!("Kjører kommando: \n {}", command);
+                println!("Kjører kommando: {}", command);
                 let output = Command::new("sh")
                     .arg("-c")
                     .arg(&command)
