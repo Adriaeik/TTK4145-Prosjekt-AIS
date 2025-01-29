@@ -91,7 +91,7 @@ pub async fn primary_process() {
     });
 
     loop {
-        sleep(Duration::from_secs(1)).await;
+        sleep(Duration::from_secs(1)).await; // Sover i 1 sekund
     }
     
 

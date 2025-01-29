@@ -17,6 +17,7 @@ cargo run -- backup ID -> lager en lokal backup som vil få ID om den tar over
 */
 
 use Byrokratiet_i_tokio::Byrokrati::Sjefen;
+use Byrokratiet_i_tokio::Byrokrati::Tony;
 use Byrokratiet_i_tokio::Byrokrati::konsulent::*;
 
 
@@ -55,8 +56,8 @@ async fn main() {
     4) Dersom den har lågast ID skal den starte Bedriftspakker. 
     */
     if sjefenpakke.rolle == Sjefen::Rolle::BACKUP {
-        backup_process().await;
         println!("backup");
+        Tony::backup_process().await;
     }
     else {
         println!("master");

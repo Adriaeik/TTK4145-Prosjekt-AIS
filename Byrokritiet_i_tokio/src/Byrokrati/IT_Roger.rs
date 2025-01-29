@@ -1,6 +1,6 @@
 //! IT_Roger Handter LAN - Altså mellom den lokale backup
 
-use super::konsulent;
+use super::{konsulent, Sjefen};
 
 use tokio::time::{sleep, Duration, Instant, interval};
 use tokio::io::{self, AsyncBufReadExt, AsyncWriteExt, BufReader};
@@ -28,6 +28,7 @@ pub async fn create_reusable_listener(addr: &str) -> TcpListener {
     TcpListener::from_std(socket.into()).expect("Failed to create TcpListener")
 }
 
+
 pub async fn monitor_backup(last_received: Arc<Mutex<Instant>>, timeout_duration: Duration, id: &str) {
     let mut backup_timer = interval(Duration::from_secs(1));
     backup_timer.tick().await; // Start timer
@@ -38,6 +39,8 @@ pub async fn monitor_backup(last_received: Arc<Mutex<Instant>>, timeout_duration
             let last = last_received.lock().await;
             last.elapsed()
         };
+
+        println!("Millisekunder: {}", elapsed.as_millis());
 
         if elapsed > timeout_duration {
             println!("Backup is unresponsive. Starting a new backup...");
@@ -54,7 +57,7 @@ pub async fn monitor_backup(last_received: Arc<Mutex<Instant>>, timeout_duration
 
 pub async fn create_and_monitor_backup(addr: &str, id: &str) {
     let last_received = Arc::new(Mutex::new(Instant::now())); //Usikker på om denne kan puttes i funksjonen
-    let timeout_duration = Duration::from_secs(3);
+    let timeout_duration = Duration::from_secs(1);
     
     start_backup(id);
     
@@ -114,4 +117,29 @@ pub fn start_backup_with_reset(id: &str) {
 
 
 
+pub async fn backup_connection(addr: &str, id: &str) {
+    let mut last_received = Instant::now(); //Usikker på om denne kan puttes i funksjonen
+    let timeout_duration = Duration::from_secs(3);
+    
+    loop {
+        match TcpStream::connect("10.24.210.159:8080").await {
+            Ok(mut stream) => {
+                let mut buf = String::new();
+                let mut reader = BufReader::new(&mut stream);
+                if reader.read_line(&mut buf).await.is_ok() {
+                    last_received = Instant::now();
+                }
+            }
+            Err(_) => {
+                // Retry silently
+            }
+        }
+
+        if last_received.elapsed() > timeout_duration {
+            Sjefen::primary_process().await;
+        }
+
+        sleep(Duration::from_secs(1)).await;
+    }  
+}
 

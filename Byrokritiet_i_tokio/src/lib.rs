@@ -1,6 +1,8 @@
 pub mod Byrokrati{
     pub mod Sjefen;
+    pub mod Tony; //Lagersjef
     pub mod konsulent;
+
 //     pub mod Dagligleder;
 //     pub mod Avdelingsleiar;
 //    pub mod MrWorldWide;
