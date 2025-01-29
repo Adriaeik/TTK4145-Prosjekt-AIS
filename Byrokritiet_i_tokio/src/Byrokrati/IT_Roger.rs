@@ -3,14 +3,12 @@
 use super::{konsulent, Sjefen};
 
 use tokio::time::{sleep, Duration, Instant, interval};
-use tokio::io::{self, AsyncBufReadExt, AsyncWriteExt, BufReader};
+use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::Mutex;
 use std::sync::{Arc, atomic::{AtomicBool, Ordering}};
 use std::env;
 use std::process::Command;
-use std::fs::OpenOptions;
-use std::io::Write;
 use socket2::{Socket, Domain, Type, Protocol};
 use std::net::SocketAddr;
 
@@ -29,18 +27,19 @@ pub async fn create_reusable_listener(addr: &str) -> TcpListener {
 }
 
 
+
 pub async fn monitor_backup(last_received: Arc<Mutex<Instant>>, timeout_duration: Duration, id: &str) {
-    let mut backup_timer = interval(Duration::from_secs(1));
+    //let mut backup_timer = interval(Duration::from_secs(3));
     backup_timer.tick().await; // Start timer
 
     loop {
-        backup_timer.tick().await;
+        //backup_timer.tick().await;
         let elapsed = {
             let last = last_received.lock().await;
             last.elapsed()
         };
 
-        //println!("Millisekunder: {}", elapsed.as_millis());
+        //println!("Sekunder: {}", elapsed.as_secs());
 
         if elapsed > timeout_duration {
             println!("Backup is unresponsive. Starting a new backup...");
@@ -77,6 +76,7 @@ pub async fn create_and_monitor_backup(addr: &str, id: &str) {
     //Sender kontinuerlig worldview til backupen. Den lagrer også tiden når forrige ack skjedde
     //Så monitor_backup kan lage en ny backup på samme port om den blir inresponsive
     loop {
+        //print!("Jeg lever i roger -> createandmonitorbackup");
         if let Ok((mut socket, _)) = listener.accept().await {
             socket.write_all("Worldview".as_bytes()).await.expect("Failed to send count");
 
@@ -84,7 +84,9 @@ pub async fn create_and_monitor_backup(addr: &str, id: &str) {
 
             let mut last = last_received.lock().await;
             *last = Instant::now();
+
         }
+        sleep(Duration::from_millis(100)).await;
     }  
 }
 
@@ -105,6 +107,7 @@ pub fn start_backup(id: &str) {
         BACKUP_STARTED.store(true, Ordering::SeqCst);
         konsulent::log_to_csv("Primary", "Backup Started", 0);
     }
+
 }
 
 pub fn start_backup_with_reset(id: &str) {
@@ -139,7 +142,8 @@ pub async fn backup_connection(addr: &str, id: &str) {
             Sjefen::primary_process(addr).await;
         }
 
-        sleep(Duration::from_secs(1)).await;
+        sleep(Duration::from_millis(100)).await;
     }  
+
 }
 

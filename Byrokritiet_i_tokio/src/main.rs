@@ -18,7 +18,6 @@ cargo run -- backup ID -> lager en lokal backup som vil få ID om den tar over
 
 use Byrokratiet_i_tokio::Byrokrati::Sjefen;
 use Byrokratiet_i_tokio::Byrokrati::Tony;
-use Byrokratiet_i_tokio::Byrokrati::konsulent::*;
 use local_ip_address::local_ip;
 
 /// Håndterer start-up initialisering av programrolle

@@ -2,17 +2,8 @@
 //! 
 use super::IT_Roger;
 
-use tokio::time::{sleep, Duration, Instant, interval};
-use tokio::io::{self, AsyncBufReadExt, AsyncWriteExt, BufReader};
-use tokio::net::{TcpListener, TcpStream};
-use tokio::sync::Mutex;
-use std::sync::{Arc, atomic::{AtomicBool, Ordering}};
+use tokio::time::{sleep, Duration};
 use std::env;
-use std::process::Command;
-use std::fs::OpenOptions;
-use std::io::Write;
-use socket2::{Socket, Domain, Type, Protocol};
-use std::net::SocketAddr;
 
 #[derive(Clone, Debug)]
 pub struct AnsattPakke {
@@ -87,15 +78,22 @@ pub async fn primary_process(ip: &str) {
     let ip_copy = ip.to_string();
     
     let id = "14"; //endres til linja under når den tid kommer
+    
+    
+    
+    
     //->>>let id = self.id;
     tokio::spawn(async move {
         IT_Roger::create_and_monitor_backup(&ip_copy, id).await;
     });
+    
 
     loop {
-        sleep(Duration::from_secs(1)).await; // Sover i 1 sekund
+        sleep(Duration::from_millis(100)).await; // Sover i 1 sekund
+        println!("Jeg lever i sjefen.rs primary_process loop");
     }
     
+
 
     // Må ha en seperate task som hører etter broadcast fra andre mastere her
     /*
