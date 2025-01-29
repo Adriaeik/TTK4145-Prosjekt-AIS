@@ -17,12 +17,20 @@ fn main() {
                 let role = parts[0];
                 let ip_address = parts[1];
                 
+                // Ekstraher siste byten av IP-adressa for bruk som ID
+                let id = match ip_address.rsplit('.').next() {
+                    Some(last_octet) => last_octet,
+                    None => {
+                        eprintln!("Feil: Kunne ikke ekstrahere siste byte fra IP");
+                        continue;
+                    }
+                };
+                
                 let command = format!(
                     "sshpass -p '{}' ssh student@{} 'mkdir -p fuckers && cd fuckers && \
                     if [ ! -d \"TTK4145-Prosjekt-AIS\" ]; then git clone https://github.com/Adriaeik/TTK4145-Prosjekt-AIS; fi && \
-                    cd TTK4145-Prosjekt-AIS && \
-                    if [ -d \"Byrokritiet_i_tokio\" ]; then cd Byrokritiet_i_tokio && cargo run -- {}; else echo \"Feil: Byrokritiet_i_tokio finnes ikke\"; fi'",
-                    ssh_password, ip_address, role
+                    cd TTK4145-Prosjekt-AIS && cd Byrokritiet_i_tokio && cargo run -- {} {}'",
+                    ssh_password, ip_address, role, id
                 );
                 
                 println!("Kjører kommando: {}", command);

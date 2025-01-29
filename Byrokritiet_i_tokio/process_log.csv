@@ -3513,3 +3513,24 @@ Primary,Counting,2Backup
 ,Received,2
 Primary,BackupCounting,,Received3,
 3
+Primary,Backup Started,0
+Primary,Counting,1
+Backup,Received,1
+Primary,Counting,2
+Backup,Received,2
+Primary,Counting,3
+Backup,Received,3
+Primary,Counting,4
+Backup,Received,4
+Primary,Counting,5
+Backup,Received,5
+Primary,Counting,6
+Backup,Received,6
+Primary,Counting,7
+Backup,Received,7
+Primary,Counting,8
+Backup,Received,8
+Primary,Counting,9
+Backup,Received,9
+BackupPrimary,Received,,Counting10,
+10
