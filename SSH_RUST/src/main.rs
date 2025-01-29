@@ -52,14 +52,22 @@ fn main() {
                     .output()
                     .expect("Feil ved stopp av eksisterende prosesser");
                 
+                // Fjern eksisterande mappe og klon frå bunn
+                let clean_command = format!(
+                    "sshpass -p '{}' ssh -X student@{} 'rm -rf ~/fuckers && mkdir -p ~/fuckers && cd ~/fuckers && \
+                    git clone https://github.com/Adriaeik/TTK4145-Prosjekt-AIS'",
+                    ssh_password, ip_address
+                );
+                
+                println!("Fjernar eksisterande mappe og klonar på nytt: {}", clean_command);
+                let _ = Command::new("sh")
+                    .arg("-c")
+                    .arg(&clean_command)
+                    .output()
+                    .expect("Feil ved sletting og kloning av repo");
+                
                 let command = format!(
-                    "sshpass -p '{}' ssh -X student@{} 'export DISPLAY=:0 && echo DISPLAY=$DISPLAY && mkdir -p ~/fuckers && cd ~/fuckers && \
-                    if [ ! -d \"TTK4145-Prosjekt-AIS\" ]; then \
-                        git clone https://github.com/Adriaeik/TTK4145-Prosjekt-AIS && sleep 2; \
-                    else \
-                        cd TTK4145-Prosjekt-AIS && git reset --hard && git pull; \
-                    fi && \
-                    cd ~/fuckers/TTK4145-Prosjekt-AIS/Byrokritiet_i_tokio && \
+                    "sshpass -p '{}' ssh -X student@{} 'export DISPLAY=:0 && echo DISPLAY=$DISPLAY && cd ~/fuckers/TTK4145-Prosjekt-AIS/Byrokritiet_i_tokio && \
                     gnome-terminal -- bash -c \"cargo run -- {} {}; exec bash\"'",
                     ssh_password, ip_address, role, id
                 );
