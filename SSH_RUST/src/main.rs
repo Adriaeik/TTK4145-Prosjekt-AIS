@@ -26,6 +26,19 @@ fn main() {
                     }
                 };
                 
+                // Stopp eventuelle prosessar som allereie køyrer
+                let kill_command = format!(
+                    "sshpass -p '{}' ssh student@{} 'pkill -f Byrokritiet_i_tokio || true'",
+                    ssh_password, ip_address
+                );
+                
+                println!("Stopper eventuelle kjørende prosesser: {}", kill_command);
+                let _ = Command::new("sh")
+                    .arg("-c")
+                    .arg(&kill_command)
+                    .output()
+                    .expect("Feil ved stopp av eksisterende prosesser");
+                
                 let command = format!(
                     "sshpass -p '{}' ssh student@{} 'mkdir -p fuckers && cd fuckers && \
                     if [ ! -d \"TTK4145-Prosjekt-AIS\" ]; then git clone https://github.com/Adriaeik/TTK4145-Prosjekt-AIS; fi && \
