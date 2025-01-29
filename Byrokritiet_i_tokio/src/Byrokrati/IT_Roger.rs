@@ -30,7 +30,7 @@ pub async fn create_reusable_listener(addr: &str) -> TcpListener {
 
 pub async fn monitor_backup(last_received: Arc<Mutex<Instant>>, timeout_duration: Duration, id: &str) {
     //let mut backup_timer = interval(Duration::from_secs(3));
-    backup_timer.tick().await; // Start timer
+    //backup_timer.tick().await; // Start timer
 
     loop {
         //backup_timer.tick().await;
@@ -56,7 +56,7 @@ pub async fn monitor_backup(last_received: Arc<Mutex<Instant>>, timeout_duration
 
 pub async fn create_and_monitor_backup(addr: &str, id: &str) {
     let last_received = Arc::new(Mutex::new(Instant::now())); //Usikker på om denne kan puttes i funksjonen
-    let timeout_duration = Duration::from_secs(2);
+    let timeout_duration = Duration::from_secs(1);
     
     start_backup(id);
     
@@ -122,7 +122,7 @@ pub fn start_backup_with_reset(id: &str) {
 
 pub async fn backup_connection(addr: &str, id: &str) {
     let mut last_received = Instant::now(); //Usikker på om denne kan puttes i funksjonen
-    let timeout_duration = Duration::from_secs(3);
+    let timeout_duration = Duration::from_secs(1);
     
     loop {
         match TcpStream::connect(addr).await {

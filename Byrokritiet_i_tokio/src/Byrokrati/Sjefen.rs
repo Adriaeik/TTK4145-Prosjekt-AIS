@@ -90,7 +90,7 @@ pub async fn primary_process(ip: &str) {
 
     loop {
         sleep(Duration::from_millis(100)).await; // Sover i 1 sekund
-        println!("Jeg lever i sjefen.rs primary_process loop");
+        //println!("Jeg lever i sjefen.rs primary_process loop");
     }
     
 
