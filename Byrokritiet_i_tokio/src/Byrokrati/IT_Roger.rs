@@ -52,11 +52,11 @@ pub async fn monitor_backup(last_received: Arc<Mutex<Instant>>, timeout_duration
     }
 }
 
-pub async fn create_and_monitor_backup(addr: &str) {
+pub async fn create_and_monitor_backup(addr: &str, id: &str) {
     let last_received = Arc::new(Mutex::new(Instant::now())); //Usikker på om denne kan puttes i funksjonen
     let timeout_duration = Duration::from_secs(3);
     
-    start_backup();
+    start_backup(id);
     
     //Under starter backupen, og venter til den er startet riktig
     let listener = create_reusable_listener(addr).await;
@@ -70,7 +70,6 @@ pub async fn create_and_monitor_backup(addr: &str) {
         monitor_backup(last_received_clone, timeout_duration).await;
     });  
 
-
     //Sender kontinuerlig worldview til backupen. Den lagrer også tiden når forrige ack skjedde
     //Så monitor_backup kan lage en ny backup på samme port om den blir inresponsive
     loop {
@@ -83,13 +82,13 @@ pub async fn create_and_monitor_backup(addr: &str) {
     }  
 }
 
-pub fn start_backup() {
+pub fn start_backup(id: &str) {
     if !BACKUP_STARTED.load(Ordering::SeqCst) {
         let (cmd, args) = konsulent::get_terminal_command();
         let mut backup_args = args;
         backup_args.push(env::current_exe().unwrap().to_str().unwrap().to_string());
         backup_args.push("backup".to_string());
-        backup_args.push("2".to_string());
+        backup_args.push(id.to_string());
 
 
         Command::new(cmd)

@@ -79,11 +79,15 @@ pub fn hent_sjefpakke() -> Result<SjefPakke, &'static str> {
 }
 
 
+// denne funksjonen må inn i impl sjefen for å få tilgang til egen id og worldview og alt andre etterhver
 pub async fn primary_process() {
     // Spawn a separate task for å starte backup prosess i ny terminal + håndtere backup responsiveness
     // Oppdaterer også backup sin worldview
+    
+    let id = "14"; //endres til linja under når den tid kommer
+    //->>>let id = self.id;
     tokio::spawn(async move {
-        IT_Roger::create_and_monitor_backup( "255.255.255.255:8080").await;
+        IT_Roger::create_and_monitor_backup( "255.255.255.255:8080", id).await;
     });
     
 
