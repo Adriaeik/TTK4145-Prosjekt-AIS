@@ -152,6 +152,7 @@ pub async fn primary_process(ip: &str) {
         if let IfAddr::V4(ipv4) = iface.addr {
             println!("Fant IPv4-adresse: {}", ipv4.ip);
             ethernet_ip = ipv4.ip.to_string(); 
+            break;
         }
     }
 

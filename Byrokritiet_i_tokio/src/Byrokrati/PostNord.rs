@@ -10,12 +10,10 @@ use std::sync::Arc;
 
 
 pub async fn publiser_nyhetsbrev(self_ip: &str) -> tokio::io::Result<()> {
-    let self_ip = "192.168.1.69";
-    let self_port = "50762"; //Vet ikke helt om denne burde være en standard?
+    let port = "50000";
 
-
-    let listener = TcpListener::bind(format!("{}:{}", self_ip, self_port)).await?;
-    println!("Nyhetsbrev oppretta på {}:{}", self_ip, self_port);
+    let listener = TcpListener::bind(format!("{}:{}", self_ip, port)).await?;
+    println!("Nyhetsbrev oppretta på {:?}:{}", self_ip, port);
 
     let (tx, _) = broadcast::channel::<String>(3); //Kunne vel i teorien vært 1
     let tx = Arc::new(tx);
@@ -28,6 +26,7 @@ pub async fn publiser_nyhetsbrev(self_ip: &str) -> tokio::io::Result<()> {
         //Les nyeste worldview fra rx????
 
 
+        println!("noen koblet til");
 
 
         let (mut socket, _) = listener.accept().await?;  // Nå kan vi kalle accept() på listeneren
@@ -98,6 +97,9 @@ pub async fn abboner_master_nyhetsbrev(master_ip: SocketAddr) -> tokio::io::Resu
 
     //les inn string til master ip fra channel her først
 
+    let ip_string = master_ip.to_string(); // Konverter til String
+    println!("IP: {}", ip_string);
+
     let mut stream = TcpStream::connect(master_ip).await?;
     let mut buf = [0; 1024];
     println!("Har kobla til en master på ip: {:?}", master_ip);
@@ -113,14 +115,4 @@ pub async fn abboner_master_nyhetsbrev(master_ip: SocketAddr) -> tokio::io::Resu
     }
 
     Ok(())
-
-    // -> 
-    //     - connect til master
-    //     - hør på porten, gjør det som trengs med worldview
-    //         - oppdater den på en tråd til Tony
-    //         - tony sier hva som skjer her basert på worldview
-        
-
-
-
 }
