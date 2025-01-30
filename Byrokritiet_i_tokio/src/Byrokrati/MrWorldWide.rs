@@ -31,6 +31,8 @@ pub async fn start_broadcaster(id: &str, tx_is_master: mpsc::Sender<bool>, tx_ma
         Ok(Ok((len, addr))) => {
             master_address = Some(addr);
             message = Some(String::from_utf8_lossy(&buf[..len]));
+
+            println!("Mottok UPD-broadcast fra: {:?}", master_address);
         }
         Ok(Err(e)) => {
             println!("Feil ved mottak initListenBroadcast (MrWorldwide.rs, start_broadcaster): {}", e);

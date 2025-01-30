@@ -11,7 +11,7 @@ use std::sync::Arc;
 
 pub async fn publiser_nyhetsbrev(self_ip: &str) -> tokio::io::Result<()> {
 
-    let self_port = "6969"; //Vet ikke helt om denne burde være en standard?
+    let self_port = "6779"; //Vet ikke helt om denne burde være en standard?
 
 
     let listener = TcpListener::bind(format!("{}:{}", self_ip, self_port)).await?;
