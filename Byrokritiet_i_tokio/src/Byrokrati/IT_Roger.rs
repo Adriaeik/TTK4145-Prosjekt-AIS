@@ -58,11 +58,13 @@ pub async fn create_and_monitor_backup(addr: &str, id: &str) {
     let last_received = Arc::new(Mutex::new(Instant::now())); //Usikker på om denne kan puttes i funksjonen
     let timeout_duration = Duration::from_secs(1);
     
+
     start_backup(id);
     
     //Under starter backupen, og venter til den er startet riktig
     let listener = create_reusable_listener(addr).await;
     
+    println!("3");
 
     let last_received_clone = Arc::clone(&last_received);
     

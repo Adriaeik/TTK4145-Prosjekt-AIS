@@ -1,6 +1,7 @@
 //! sjefen handterer opretting av master / backup
 //! 
 use super::IT_Roger;
+use super::MrWorldWide;
 
 use tokio::time::{sleep, Duration};
 use std::env;
@@ -70,23 +71,44 @@ pub fn hent_sjefpakke() -> Result<SjefPakke, &'static str> {
 }
 
 
-// denne funksjonen må inn i impl sjefen for å få tilgang til egen id og worldview og alt andre etterhver
+// denne funksjonen må inn i impl sjefen for å få tilgang til egen id og worldview og alt andre etterhver 
+
+/// Basically sjefen sin main loop
+/// 
+/// Vil starte en tråd som oppretter og følger med på egen backup
+/// 
+/// Etterhvert skal den også høre/sende UDP broadcast til nettverket, med ID
+/// Skal bruke det til å koble seg opp med TCP til andre mastere på nettet for deling av worldview
+/// Denne burde også være en impl til sjefen for å droppe argumenter
+/// 
+/// Skal etter det fikse selve styresystemet (om du har lavest ID) 
+///
 pub async fn primary_process(ip: &str) {
     // Spawn a separate task for å starte backup prosess i ny terminal + håndtere backup responsiveness
     // Oppdaterer også backup sin worldview
 
     let ip_copy = ip.to_string();
     
-    let id = "14"; //endres til linja under når den tid kommer
-    
+    let id = "1";
     
     
     
     //->>>let id = self.id;
+    //Lager en tokio task som holder styr på backup, har også en tråd i seg som kjører IT_Roger sine funksjoner for å snakke med den
     tokio::spawn(async move {
         IT_Roger::create_and_monitor_backup(&ip_copy, id).await;
     });
     
+
+
+    //Lager en tokio task som først hører etter broadcast, og kobler seg på nettverket. Om ingen broadcast på et sekund ? ish så starter den som hovedmaster
+    tokio::spawn(async move {
+        match MrWorldWide::start_broadcaster(id).await {
+            Ok(_) => {},
+            Err(e) => eprintln!("Feil i MrWorldWide::start_broadcaster: {}", e),  
+        }
+    });
+
 
     loop {
         sleep(Duration::from_millis(100)).await; // Sover i 1 sekund
