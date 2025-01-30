@@ -102,6 +102,7 @@ pub async fn abboner_master_nyhetsbrev(master_ip: SocketAddr) -> tokio::io::Resu
     }
 
     let port = "50000";
+    println!("Prøver å koble på: {}:{}", iponly, port);
 
     let mut stream = TcpStream::connect(format!("{}:{}", iponly, port)).await?;
     let mut buf = [0; 1024];
