@@ -54,7 +54,7 @@ async fn main() {
     
     let ip = local_ip().expect("Kunne ikke hente IP");
     let mut ip_string = ip.to_string(); // Konverter til String
-    ip_string.push_str(":6278");
+    ip_string.push_str(":6278"); //Port er fri
 
 
 
