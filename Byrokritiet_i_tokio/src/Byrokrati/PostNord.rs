@@ -97,10 +97,11 @@ pub async fn abboner_master_nyhetsbrev(master_ip: SocketAddr) -> tokio::io::Resu
 
     //les inn string til master ip fra channel her først
 
-    let ip_string = master_ip.to_string(); // Konverter til String
-    println!("IP: {}", ip_string);
+    let mut ip_string = master_ip.to_string(); // Konverter til String
+    ip_string.split_once(':');
+    let port = "50000";
 
-    let mut stream = TcpStream::connect(master_ip).await?;
+    let mut stream = TcpStream::connect(format!("{}:{}", ip_string, port)).await?;
     let mut buf = [0; 1024];
     println!("Har kobla til en master på ip: {:?}", master_ip);
 
