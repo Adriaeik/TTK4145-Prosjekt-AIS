@@ -95,7 +95,7 @@ async fn start_master_broadcaster(_id: &str) -> tokio::io::Result<()> {
     loop {
         udp_socket.send_to("Gruppe25".to_string().as_bytes(), &broadcast_addr).await?;
         sleep(Duration::from_millis(100)).await;
-        //println!("Broadcaster ID: {}", "Gruppe25");
+        println!("Broadcaster ID: {}", "Gruppe25");
     }
 
 }
