@@ -150,14 +150,15 @@ pub async fn primary_process(ip: &str) {
     let mut ethernet_ip: String = "feil_ip".to_string();
     for iface in ifaces {
         if let IfAddr::V4(ipv4) = iface.addr {
-            println!("Fant IPv4-adresse: {}", ipv4.ip);
+            println!("Fant IPv4-adresse: {}, localip: {}", ipv4.ip, ip);
             ethernet_ip = ipv4.ip.to_string(); 
-            break;
+            
         }
     }
 
+    let ip_copy2 = ip.to_string();
     tokio::spawn(async move {
-        match PostNord::publiser_nyhetsbrev(&ethernet_ip).await {
+        match PostNord::publiser_nyhetsbrev(&ip_copy2).await {
             Ok(_) => {},
             Err(e) => eprintln!("Feil i PostNord::publiser_nyhetsbrev: {}", e),  
         }
