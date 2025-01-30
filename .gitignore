@@ -43,3 +43,4 @@ vendor/
 *.log
 *.cache
 *.tmp
+Byrokritiet_i_tokio/process_log.csv
