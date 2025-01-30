@@ -3,9 +3,11 @@
 use super::IT_Roger;
 use super::MrWorldWide;
 use super::PostNord;
+use std::net::SocketAddr;
 
 use tokio::time::{sleep, Duration};
 use std::env;
+use tokio::sync::mpsc;
 
 #[derive(Clone, Debug)]
 pub struct AnsattPakke {
@@ -102,14 +104,26 @@ pub async fn primary_process(ip: &str) {
     });
     
 
-
+    let (tx_is_master, mut rx_is_main) = mpsc::channel::<bool>(1);
+    let (tx_master_ip, mut rx_master_ip) = mpsc::channel::<SocketAddr>(1);
     //Lager en tokio task som først hører etter broadcast, og kobler seg på nettverket. Om ingen broadcast på et sekund ? ish så starter den som hovedmaster
     tokio::spawn(async move {
-        match MrWorldWide::start_broadcaster(id).await {
+        match MrWorldWide::start_broadcaster(id, tx_is_master).await {
             Ok(_) => {},
             Err(e) => eprintln!("Feil i MrWorldWide::start_broadcaster: {}", e),  
         }
     });
+
+    let mut is_main: bool;
+    while let Some(msg) = rx_is_main.recv().await {
+        is_main = msg;
+    }
+
+
+    match is_main {
+        true => {},
+        false => handle_false(),        
+    }
 
 
     loop {

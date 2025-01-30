@@ -5,10 +5,11 @@ use tokio::time::{sleep, timeout, Duration};
 use std::net::SocketAddr;
 use std::borrow::Cow;
 use socket2::{Socket, Domain, Type};
+use tokio::sync::mpsc;
 
 
 
-pub async fn start_broadcaster(id: &str) -> tokio::io::Result<()> {
+pub async fn start_broadcaster(id: &str, tx_is_master: mpsc::Sender<bool>) -> tokio::io::Result<()> {
     //Første runde: hør etter kun én broadcast for å se om andre heiser er på nettverket!
     let mut master_address: Option<SocketAddr> = None;
     let mut message: Option<Cow<'_, str>> = None;
@@ -55,6 +56,7 @@ pub async fn start_broadcaster(id: &str) -> tokio::io::Result<()> {
     // starter å broadcaste egen id hvis nettverket er tomt 
     // Kobler seg til master på TCP hvis det er en master på nettverket
     if empty_network {
+        tx_is_master.send(true).await;
         start_master_broadcaster(id).await?;
     }
     else{
@@ -98,6 +100,7 @@ async fn start_master_broadcaster(id: &str) -> tokio::io::Result<()> {
 async fn connect_to_master_TCP(addr: SocketAddr) -> tokio::io::Result<()> {
     //Send melding til sjefen (bruk channel) at han skal si fra til PostNord (en annen channel) at vi vil koble oss på master sin TCP på 'addr'
 
+    
     println!("Her skal jeg koble til master på TCP; addresse: {}:?", addr);
 
     Ok(())
