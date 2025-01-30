@@ -64,7 +64,6 @@ pub async fn create_and_monitor_backup(addr: &str, id: &str) {
     //Under starter backupen, og venter til den er startet riktig
     let listener = create_reusable_listener(addr).await;
     
-    println!("3");
 
     let last_received_clone = Arc::clone(&last_received);
     
@@ -82,7 +81,7 @@ pub async fn create_and_monitor_backup(addr: &str, id: &str) {
         if let Ok((mut socket, _)) = listener.accept().await {
             socket.write_all("Worldview".as_bytes()).await.expect("Failed to send count");
 
-            println!("Backup acka! (er i IT_Roger, create_and_monitor_backup())");
+            //println!("Backup acka! (er i IT_Roger, create_and_monitor_backup())");
 
             let mut last = last_received.lock().await;
             *last = Instant::now();
@@ -107,7 +106,7 @@ pub fn start_backup(id: &str) {
             .expect("Failed to start backup process");
 
         BACKUP_STARTED.store(true, Ordering::SeqCst);
-        konsulent::log_to_csv("Primary", "Backup Started", 0);
+        //konsulent::log_to_csv("Primary", "Backup Started", 0);
     }
 
 }

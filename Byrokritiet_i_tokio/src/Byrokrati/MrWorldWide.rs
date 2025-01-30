@@ -72,7 +72,7 @@ async fn start_master_broadcaster(id: &str) -> tokio::io::Result<()> {
     loop {
         socket.send_to("Gruppe23".to_string().as_bytes(), &broadcast_addr).await?;
         sleep(Duration::from_millis(100)).await;
-        println!("Broadcaster ID: {}", "Gruppe23");
+        //println!("Broadcaster ID: {}", "Gruppe23");
     }
 
 }
