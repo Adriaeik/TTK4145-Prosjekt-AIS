@@ -66,6 +66,10 @@ pub async fn start_broadcaster(id: &str) -> tokio::io::Result<()> {
 
 
 async fn start_master_broadcaster(id: &str) -> tokio::io::Result<()> {
+    //Send melding til sjefen (bruk channel) at netverket er tomt, vi må gjøre det som trengs da
+
+
+
     let addr: &str = "255.255.255.255:42069"; 
     let addr2: &str = "0.0.0.0:0";
     let broadcast_addr: SocketAddr = addr.parse().map_err(|e| {
@@ -92,8 +96,8 @@ async fn start_master_broadcaster(id: &str) -> tokio::io::Result<()> {
 }
 
 async fn connect_to_master_TCP(addr: SocketAddr) -> tokio::io::Result<()> {
-    //Koble til master her og hent worldview
-    //Finne en måte å svare med egen ID om den er lavere enn master sin
+    //Send melding til sjefen (bruk channel) at han skal si fra til PostNord (en annen channel) at vi vil koble oss på master sin TCP på 'addr'
+
     println!("Her skal jeg koble til master på TCP; addresse: {}:?", addr);
 
     Ok(())

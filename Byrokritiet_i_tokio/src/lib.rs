@@ -1,6 +1,7 @@
 pub mod Byrokrati{
     pub mod Sjefen;
     pub mod Tony; //Lagersjef
+    pub mod PostNord;
     pub mod konsulent;
 
 //     pub mod Dagligleder;
