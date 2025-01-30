@@ -3,63 +3,127 @@
 
 
 use std::net::SocketAddr;
+use tokio::net::{TcpStream, TcpListener};
+use tokio::sync::broadcast;
+use tokio::io::{AsyncWriteExt, AsyncReadExt};
+use std::sync::Arc;
 
-use tokio::net::TcpSocket;
 
-use super::Tony;
+async fn publiser_nyhetsbrev() -> tokio::io::Result<()> {
+    let self_id = "69.69.69.69:420";
 
-fn make_socket(addr: SocketAddr) -> TcpSocket {
-    let socket = TcpSocket::new_v4().unwrap();
-    socket.set_reuseaddr(true).unwrap(); // allow to reuse the addr both for connect and listen
-    socket.set_reuseport(true).unwrap(); // same for the port
-    socket.bind(addr).unwrap();
-    socket
+    let self_ip = "10.20.30.40"; //kjent, ta inn som argument
+    let self_port = "6969"; //Vet ikke helt om denne burde være en standard?
+
+
+    let listener = TcpListener::bind(format!("{}:{}", self_ip, self_port)).await?;
+    println!("Nyhetsbrev oppretta på {}:{}", self_ip, self_port);
+
+    let (tx, _) = broadcast::channel::<String>(3); //Kunne vel i teorien vært 1
+    let tx = Arc::new(tx);
+
+
+
+    // Håndter alle innkommende tilkoblinger
+    loop {
+        //Må legge til:
+        //Les nyeste worldview fra rx????
+
+
+
+
+        let (mut socket, _) = listener.accept().await?;  // Nå kan vi kalle accept() på listeneren
+        let mut tx = Arc::clone(&tx); // Klon senderen for bruk i ny oppgave
+
+        // Start en ny oppgave for hver klient
+        tokio::spawn(async move {
+            let rx = tx.subscribe(); // Opprett en ny receiver for hver klient
+            if let Err(e) = send_nyhetsbrev(socket, rx).await {
+                eprintln!("Feil i kommunikasjon med klient: {}", e);
+            }
+        });
+    }
+
 }
 
-async fn is_peer_connected(addr: SocketAddr) -> bool {
-    make_socket("127.0.0.1:0".parse().unwrap())
-        .connect(dbg!(addr))
-        .await
-        .is_ok()
+
+async fn send_nyhetsbrev(mut socket: TcpStream, mut rx: broadcast::Receiver<String>) -> Result<(), Box<dyn std::error::Error>> {
+    // Håndter kommunikasjonen med klienten her.
+    
+    let mut buf = [0; 10];
+    loop {
+        tokio::select! {
+            // Lytt på meldinger fra broadcast-kanalen
+            msg = rx.recv() => {
+                match msg {
+                    Ok(message) => {
+                        // Send melding til klienten
+                        if let Err(e) = socket.write_all(message.as_bytes()).await {
+                            eprintln!("Feil ved sending til klient i send_nyhetsbrev(): {}", e);
+                            return Err(Box::new(e));
+                        }
+                    }
+                    Err(e) => {
+                        eprintln!("Feil ved mottak fra broadcast-kanal: {}", e);
+                        return Err(Box::new(e));
+                    }
+                }
+            }
+            
+            // Les ack
+            result = socket.read(&mut buf) => {
+                match result {
+                    Ok(0) => {
+                        println!("Koblingen er lukket av klienten.");
+                        return Ok(()); // Klienten har koblet fra
+                    }
+                    Ok(_) => {
+                        // Her kan du behandle innkommende data fra klienten om nødvendig.
+                        // Eksempel: logge data som ble mottatt
+                        println!("Mottok fra klient: {}", String::from_utf8_lossy(&buf));
+                    }
+                    Err(e) => {
+                        eprintln!("Feil ved lesing fra klient: {}", e);
+                        return Err(Box::new(e));
+                    }
+                }
+            }
+        }
+    }
 }
 
-async fn main() {
-    let my_addr: SocketAddr = "127.0.0.1:8080".parse().unwrap(); //kjent
-    let master_addr: SocketAddr = "127.0.0.1:8081".parse().unwrap(); //kjent fra udp broadcast
-
-    // let (my_addr, peer_addr) = if !is_peer_connected(my_addr).await {
-    //     // we are the first
-    //     (my_addr, peer_addr)
-    // } else {
-    //     // found a peer, swap addr
-    //     (peer_addr, my_addr)
-    // };
-
-    // // hvis vi er første på nettet -> den under
-    // let listener = make_socket(my_addr).listen(1024).unwrap();
-
-    // dbg!(&listener);
 
 
+async fn abboner_master_nyhetsbrev() -> tokio::io::Result<()> {
+    // let my_addr: SocketAddr = "127.0.0.1:8080".parse().unwrap(); //kjent
+    // let master_addr: SocketAddr = "127.0.0.1:8081".parse().unwrap(); //kjent fra udp broadcast
 
-    -> 
-        - connect til master
-        - hør på porten, gjør det som trengs med worldview
-            - oppdater den på en tråd til Tony
-            - tony sier hva som skjer her basert på worldview
+    let master_ip = "69.69.69.69:420";
+    //les inn string til master ip fra channel her først
+    let master_addr: SocketAddr = master_ip.parse().expect("Ugyldig IP-adresse til master (postnord.rs, abboner_master_nyhetsbrev)");
+
+    let mut stream = TcpStream::connect(master_addr).await?;
+    let mut buf = [0; 1024];
+
+    loop {
+        let bytes_read = stream.read(&mut buf).await?;
+        if bytes_read == 0 {
+            println!("Serveren stengte tilkoblingen.");
+            break;
+        }
+        let message = String::from_utf8_lossy(&buf[..bytes_read]);
+        println!("Melding fra server: {}", message);
+    }
+
+    Ok(())
+
+    // -> 
+    //     - connect til master
+    //     - hør på porten, gjør det som trengs med worldview
+    //         - oppdater den på en tråd til Tony
+    //         - tony sier hva som skjer her basert på worldview
         
 
 
-    loop {
-        let socket_out = make_socket(my_addr);
-        tokio::select! {
-                evt = listener.accept() => {
-                    let (socket, addr) = evt.unwrap();
-                    println!("Incoming connection from: {}", addr);
-                    dbg!(socket);
-                },
 
-                _evt = socket_out.connect(peer_addr) => {}
-        }
-    }
 }
