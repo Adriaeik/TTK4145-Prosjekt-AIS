@@ -13,7 +13,7 @@ pub async fn publiser_nyhetsbrev(self_ip: &str) -> tokio::io::Result<()> {
     let port = "50000";
 
     let listener = TcpListener::bind(format!("{}:{}", self_ip, port)).await?;
-    println!("Nyhetsbrev oppretta på {:?}:{}", self_ip, port);
+    println!("Nyhetsbrev oppretta på {}:{}", self_ip, port);
 
     let (tx, _) = broadcast::channel::<String>(3); //Kunne vel i teorien vært 1
     let tx = Arc::new(tx);
@@ -24,9 +24,6 @@ pub async fn publiser_nyhetsbrev(self_ip: &str) -> tokio::io::Result<()> {
     loop {
         //Må legge til:
         //Les nyeste worldview fra rx????
-
-
-        println!("noen koblet til");
 
 
         let (mut socket, _) = listener.accept().await?;  // Nå kan vi kalle accept() på listeneren
@@ -97,11 +94,16 @@ pub async fn abboner_master_nyhetsbrev(master_ip: SocketAddr) -> tokio::io::Resu
 
     //les inn string til master ip fra channel her først
 
-    let mut ip_string = master_ip.to_string(); // Konverter til String
-    ip_string.split_once(':');
+    let ip_string = master_ip.to_string(); // Konverter til String
+    let mut iponly: &str = "a";
+    match ip_string.split_once(':') {
+        Some((ip, _)) => {iponly = ip;}
+        None => {}
+    }
+
     let port = "50000";
 
-    let mut stream = TcpStream::connect(format!("{}:{}", ip_string, port)).await?;
+    let mut stream = TcpStream::connect(format!("{}:{}", iponly, port)).await?;
     let mut buf = [0; 1024];
     println!("Har kobla til en master på ip: {:?}", master_ip);
 
