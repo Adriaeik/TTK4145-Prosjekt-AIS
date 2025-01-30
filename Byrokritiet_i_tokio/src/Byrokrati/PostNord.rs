@@ -9,10 +9,8 @@ use tokio::io::{AsyncWriteExt, AsyncReadExt};
 use std::sync::Arc;
 
 
-async fn publiser_nyhetsbrev() -> tokio::io::Result<()> {
-    let self_id = "69.69.69.69:420";
+pub async fn publiser_nyhetsbrev(self_ip: &str) -> tokio::io::Result<()> {
 
-    let self_ip = "10.20.30.40"; //kjent, ta inn som argument
     let self_port = "6969"; //Vet ikke helt om denne burde være en standard?
 
 
@@ -94,7 +92,7 @@ async fn send_nyhetsbrev(mut socket: TcpStream, mut rx: broadcast::Receiver<Stri
 
 
 
-async fn abboner_master_nyhetsbrev() -> tokio::io::Result<()> {
+pub async fn abboner_master_nyhetsbrev(master_ip: SocketAddr) -> tokio::io::Result<()> {
     // let my_addr: SocketAddr = "127.0.0.1:8080".parse().unwrap(); //kjent
     // let master_addr: SocketAddr = "127.0.0.1:8081".parse().unwrap(); //kjent fra udp broadcast
 

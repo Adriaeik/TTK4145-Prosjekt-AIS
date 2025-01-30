@@ -2,7 +2,9 @@
 //! 
 use super::IT_Roger;
 use super::MrWorldWide;
+use super::Tony;
 use super::PostNord;
+use super::Vara;
 use std::net::SocketAddr;
 
 use tokio::time::{sleep, Duration};
@@ -108,22 +110,49 @@ pub async fn primary_process(ip: &str) {
     let (tx_master_ip, mut rx_master_ip) = mpsc::channel::<SocketAddr>(1);
     //Lager en tokio task som først hører etter broadcast, og kobler seg på nettverket. Om ingen broadcast på et sekund ? ish så starter den som hovedmaster
     tokio::spawn(async move {
-        match MrWorldWide::start_broadcaster(id, tx_is_master).await {
+        match MrWorldWide::start_broadcaster(id, tx_is_master, tx_master_ip).await {
             Ok(_) => {},
             Err(e) => eprintln!("Feil i MrWorldWide::start_broadcaster: {}", e),  
         }
     });
+    
+    
+    
+    
+    let mut master_ip: SocketAddr;
+    loop {
+        if let Some(addr) = rx_master_ip.recv().await {
+            master_ip = addr;
+            break; // Gå videre etter første gyldige melding
+        }
+        // Hvis `None`, venter den bare til neste melding uten å avslutte
+    }
 
-    let mut is_main: bool;
-    while let Some(msg) = rx_is_main.recv().await {
-        is_main = msg;
+    let mut is_main = true;
+    loop {
+        if let Some(msg) = rx_is_main.recv().await {
+            is_main = msg;
+            break; // Gå videre etter første gyldige melding
+        }
+        // Hvis `None`, venter den bare til neste melding uten å avslutte
+    }
+
+    if is_main == false {
+        Vara::vara_process(ip, master_ip).await;
+        println!("vara_process avslutta?? burde vel ikke det? (sjefen.rs, primary_process())");
+        return; 
     }
 
 
-    match is_main {
-        true => {},
-        false => handle_false(),        
-    }
+
+
+    let ip_copy2 = ip.to_string();
+    tokio::spawn(async move {
+        match PostNord::publiser_nyhetsbrev(&ip_copy2).await {
+            Ok(_) => {},
+            Err(e) => eprintln!("Feil i PostNord::publiser_nyhetsbrev: {}", e),  
+        }
+    });
 
 
     loop {

@@ -9,7 +9,7 @@ use tokio::sync::mpsc;
 
 
 
-pub async fn start_broadcaster(id: &str, tx_is_master: mpsc::Sender<bool>) -> tokio::io::Result<()> {
+pub async fn start_broadcaster(id: &str, tx_is_master: mpsc::Sender<bool>, tx_master_ip: mpsc::Sender<SocketAddr>) -> tokio::io::Result<()> {
     //Første runde: hør etter kun én broadcast for å se om andre heiser er på nettverket!
     let mut master_address: Option<SocketAddr> = None;
     let mut message: Option<Cow<'_, str>> = None;
@@ -56,55 +56,48 @@ pub async fn start_broadcaster(id: &str, tx_is_master: mpsc::Sender<bool>) -> to
     // starter å broadcaste egen id hvis nettverket er tomt 
     // Kobler seg til master på TCP hvis det er en master på nettverket
     if empty_network {
-        tx_is_master.send(true).await;
+        tx_master_ip.send(socket_addr).await.unwrap(); //ubrukelig, så programmet ikke henger
+        tx_is_master.send(true).await.unwrap();
+
+
         start_master_broadcaster(id).await?;
     }
     else{
-        connect_to_master_TCP(Option::expect(master_address, "Burde aldri skrives. Denne kjøres kun om vi har fått en adresse (MrWorldWide.rs, start_broadcaster())")).await?;
+        tx_master_ip.send(master_address.unwrap()).await.unwrap();
+        tx_is_master.send(false).await.unwrap();
     }
     
     Ok(())
 }
 
 
-async fn start_master_broadcaster(id: &str) -> tokio::io::Result<()> {
+async fn start_master_broadcaster(_id: &str) -> tokio::io::Result<()> {
     //Send melding til sjefen (bruk channel) at netverket er tomt, vi må gjøre det som trengs da
-
-
-
-    let addr: &str = "255.255.255.255:42069"; 
+    let addr: &str = "255.255.255.255:42069"; //🎯 
     let addr2: &str = "0.0.0.0:0";
-    let broadcast_addr: SocketAddr = addr.parse().map_err(|e| {
-        std::io::Error::new(std::io::ErrorKind::InvalidInput, e)
-    })?; // UDP-broadcast adresse
-    let socket_addr: SocketAddr = addr2.parse().expect("Ugyldig adresse");
-    
 
+
+
+    let broadcast_addr: SocketAddr = addr.parse().expect("ugyldig adresse"); // UDP-broadcast adresse
+    let socket_addr: SocketAddr = addr2.parse().expect("Ugyldig adresse");
     let socket = Socket::new(Domain::IPV4, Type::DGRAM, None)?;
     
-
+    
     socket.set_reuse_address(true)?;
     socket.set_broadcast(true)?;
     socket.bind(&socket_addr.into())?;
     let udp_socket = UdpSocket::from_std(socket.into())?;
-
-
+    
+    
+    
     loop {
         udp_socket.send_to("Gruppe25".to_string().as_bytes(), &broadcast_addr).await?;
         sleep(Duration::from_millis(100)).await;
-        println!("Broadcaster ID: {}", "Gruppe25");
+        //println!("Broadcaster ID: {}", "Gruppe25");
     }
 
 }
 
-async fn connect_to_master_TCP(addr: SocketAddr) -> tokio::io::Result<()> {
-    //Send melding til sjefen (bruk channel) at han skal si fra til PostNord (en annen channel) at vi vil koble oss på master sin TCP på 'addr'
-
-    
-    println!("Her skal jeg koble til master på TCP; addresse: {}:?", addr);
-
-    Ok(())
-}
 
 
 
