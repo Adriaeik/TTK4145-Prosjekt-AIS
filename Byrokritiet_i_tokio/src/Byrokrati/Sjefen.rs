@@ -10,6 +10,7 @@ use std::net::SocketAddr;
 use tokio::time::{sleep, Duration};
 use std::env;
 use tokio::sync::mpsc;
+use get_if_addrs::{get_if_addrs, IfAddr};
 
 #[derive(Clone, Debug)]
 pub struct AnsattPakke {
@@ -145,10 +146,17 @@ pub async fn primary_process(ip: &str) {
 
 
 
+    let ifaces = get_if_addrs().expect("Kunne ikke hente nettverkskort");
+    let mut ethernet_ip: String = "feil_ip".to_string();
+    for iface in ifaces {
+        if let IfAddr::V4(ipv4) = iface.addr {
+            println!("Fant IPv4-adresse: {}", ipv4.ip);
+            ethernet_ip = ipv4.ip.to_string(); 
+        }
+    }
 
-    let ip_copy2 = ip.to_string();
     tokio::spawn(async move {
-        match PostNord::publiser_nyhetsbrev(&ip_copy2).await {
+        match PostNord::publiser_nyhetsbrev(&ethernet_ip).await {
             Ok(_) => {},
             Err(e) => eprintln!("Feil i PostNord::publiser_nyhetsbrev: {}", e),  
         }

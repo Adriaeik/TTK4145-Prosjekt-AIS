@@ -10,8 +10,8 @@ use std::sync::Arc;
 
 
 pub async fn publiser_nyhetsbrev(self_ip: &str) -> tokio::io::Result<()> {
-
-    let self_port = "6779"; //Vet ikke helt om denne burde være en standard?
+    let self_ip = "192.168.1.69";
+    let self_port = "50762"; //Vet ikke helt om denne burde være en standard?
 
 
     let listener = TcpListener::bind(format!("{}:{}", self_ip, self_port)).await?;
@@ -96,12 +96,11 @@ pub async fn abboner_master_nyhetsbrev(master_ip: SocketAddr) -> tokio::io::Resu
     // let my_addr: SocketAddr = "127.0.0.1:8080".parse().unwrap(); //kjent
     // let master_addr: SocketAddr = "127.0.0.1:8081".parse().unwrap(); //kjent fra udp broadcast
 
-    let master_ip = "69.69.69.69:420";
     //les inn string til master ip fra channel her først
-    let master_addr: SocketAddr = master_ip.parse().expect("Ugyldig IP-adresse til master (postnord.rs, abboner_master_nyhetsbrev)");
 
-    let mut stream = TcpStream::connect(master_addr).await?;
+    let mut stream = TcpStream::connect(master_ip).await?;
     let mut buf = [0; 1024];
+    println!("Har kobla til en master på ip: {:?}", master_ip);
 
     loop {
         let bytes_read = stream.read(&mut buf).await?;

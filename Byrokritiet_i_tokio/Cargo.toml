@@ -9,6 +9,7 @@ crossbeam-channel = "0.5" #ikkje gløym denne
 tokio = {version = "1", features = ["full"]}
 socket2 = "0.4"
 local-ip-address = "0.5"
+get_if_addrs = "0.5"
 
 [lib]
 path = "src/lib.rs"
