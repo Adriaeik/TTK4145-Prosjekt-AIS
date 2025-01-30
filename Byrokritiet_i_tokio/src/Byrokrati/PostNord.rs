@@ -10,7 +10,7 @@ use std::sync::Arc;
 
 
 pub async fn publiser_nyhetsbrev(self_ip: &str) -> tokio::io::Result<()> {
-    let test_ip = "0.0.0.0";
+    let test_ip = "10.24.152.183";
     let port = "50000";
 
     let listener = TcpListener::bind(format!("{}:{}", test_ip, port)).await?;
@@ -106,7 +106,7 @@ pub async fn abboner_master_nyhetsbrev(master_ip: SocketAddr) -> tokio::io::Resu
     println!("Prøver å koble på: {}:{}", iponly, port);
 
     // let mut stream = TcpStream::connect(format!("{}:{}", iponly, port)).await?;
-    let mut stream = TcpStream::connect(format!("127.0.0.1:{}", port)).await?;
+    let mut stream = TcpStream::connect(format!("10.24.152.183:{}", port)).await?;
     let mut buf = [0; 1024];
     println!("Har kobla til en master på ip: {:?}", master_ip);
 
