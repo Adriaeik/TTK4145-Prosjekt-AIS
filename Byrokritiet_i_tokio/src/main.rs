@@ -67,11 +67,9 @@ async fn main() {
     4) Dersom den har lågast ID skal den starte Bedriftspakker. 
     */
     if sjefenpakke.rolle == Sjefen::Rolle::BACKUP {
-        println!("backup");
         Tony::backup_process(&ip_string).await;
     }
     else {
-        println!("master");
         Sjefen::primary_process(&ip_string).await;
     }
 }

@@ -84,6 +84,7 @@ pub fn hent_sjefpakke() -> Result<SjefPakke, &'static str> {
 /// Skal etter det fikse selve styresystemet (om du har lavest ID) 
 ///
 pub async fn primary_process(ip: &str) {
+    println!("En sjef er starta");
     // Spawn a separate task for å starte backup prosess i ny terminal + håndtere backup responsiveness
     // Oppdaterer også backup sin worldview
 

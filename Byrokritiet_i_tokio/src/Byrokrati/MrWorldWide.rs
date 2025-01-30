@@ -39,7 +39,7 @@ pub async fn start_broadcaster(id: &str) -> tokio::io::Result<()> {
     //Muligens en bedre å gjøre dette på, så den ikke gir opp om første meldingen ikke er gruppe23
     //Hvis den ikke er det (enten noe annet eller ingenting) går den videre uten å gjøre noe
     match &message {
-        Some(msg) if msg == "Gruppe23" => empty_network = false,
+        Some(msg) if msg == "Gruppe25" => empty_network = false,
         None => {},
         _ => {eprintln!("Fikk melding, men ikke vår gruppe. hvis denne meldingen kommer sjekk kommentar over. noe må gjøres. (MrWorldwide.rs, start_broadcaster)");}
     }
@@ -70,7 +70,7 @@ async fn start_master_broadcaster(id: &str) -> tokio::io::Result<()> {
     socket.set_broadcast(true)?;
 
     loop {
-        socket.send_to("Gruppe23".to_string().as_bytes(), &broadcast_addr).await?;
+        socket.send_to("Gruppe25".to_string().as_bytes(), &broadcast_addr).await?;
         sleep(Duration::from_millis(100)).await;
         //println!("Broadcaster ID: {}", "Gruppe23");
     }

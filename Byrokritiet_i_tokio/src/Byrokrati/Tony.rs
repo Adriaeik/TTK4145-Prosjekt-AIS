@@ -4,6 +4,7 @@ use tokio::time::{sleep, Duration};
 
 
 pub async fn backup_process(ip: &str) {
+    println!("En Tony er starta");
     let ip_copy = ip.to_string();
 
     tokio::spawn(async move {
