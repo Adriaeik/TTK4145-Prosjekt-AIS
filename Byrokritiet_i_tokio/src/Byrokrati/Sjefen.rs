@@ -1,13 +1,7 @@
 //! sjefen handterer opretting av master / backup
 //! 
-use crate::Byrokrati::konsulent::id_fra_ip;
+use crate::config;
 
-use super::IT_Roger;
-use super::MrWorldWide;
-use super::Tony;
-use super::PostNord;
-use super::Vara;
-use std::net::SocketAddr;
 
 use tokio::time::{sleep, Duration};
 use std::env;
@@ -17,6 +11,7 @@ use std::sync::Arc;
 use tokio::sync::broadcast;
 use std::net::IpAddr;
 use tokio::macros::support::Pin;
+use tokio::sync::Mutex;
 
 #[derive(Clone, Debug)]
 pub struct AnsattPakke {
@@ -123,13 +118,20 @@ impl Sjefen{
     /// Skal etter det fikse selve styresystemet (om du har lavest ID) 
     ///
     pub fn primary_process(&mut self) -> Pin<Box<dyn Future<Output = tokio::io::Result<()>> + Send>> {
+        // let shutdown_flag = Arc::new(AtomicBool::new(false));  
+
+
+
         let mut self_copy = self.copy();
         Box::pin(async move {
             println!("En sjef er starta");        
             let self_backup = self_copy.copy_for_backup();
             //Lager en tokio task som holder styr på backup, har også en tråd i seg som kjører IT_Roger sine funksjoner for å snakke med den
             // Må sjekke om man allerede har en bakcup
-            tokio::spawn(async move {
+
+
+        
+            let backup_task = tokio::spawn(async move {
                 self_backup.create_and_monitor_backup().await;
             });
             
@@ -146,9 +148,11 @@ impl Sjefen{
             // });
             
             match self_copy.listen_to_network().await {
-                Ok(addr) => if addr.to_string() == "0.0.0.0" {self_copy.rolle = Rolle::MASTER}
+                Ok(addr) => if addr.to_string() == config::BC_LISTEN_ADDR {self_copy.rolle = Rolle::MASTER;
+                                                                                    println!("Jeg ble master, sjefen.rs linje 156");}
                                     else {self_copy.rolle = Rolle::SLAVE;
-                                    self_copy.master_ip = addr;},
+                                    self_copy.master_ip = addr;
+                                    println!("Jeg ble slave, kobler til {}", addr);},
                 Err(e) => eprintln!("feil i sjefen.rs primary_process() listen_to_network(): {}", e),
             }
             
@@ -197,11 +201,15 @@ impl Sjefen{
             let (tx, _) = broadcast::channel::<String>(3); //Kunne vel i teorien vært 1
             let tx = Arc::new(tx);
             let /*mut */ tx_clone = Arc::clone(&tx); // Klon senderen for bruk i ny oppgave
-
             let self_copy_clone = self_copy.copy();
+
+            let nyhetsbrev_ferdig_flag = Arc::new(Mutex::new(false));
+            let nff_clone = Arc::clone(&nyhetsbrev_ferdig_flag);
             let nyhetsbrev_task = tokio::spawn(async move {
                 match self_copy_clone.publiser_nyhetsbrev(tx_clone).await {
                     Ok(_) => {
+                        let mut nff = nff_clone.lock().await;
+                        *nff = true;
                         println!("går ut av publiser nyhetsbrev");
 
                     }, //Må si fra at du nå er slave
@@ -215,22 +223,34 @@ impl Sjefen{
             let worldview = format!("Worldview:{}", self_copy.ip);
             //For nå:
             // sender Worldview:{id}
-            while self_copy.rolle == Rolle::MASTER {
-                let tx_clone_for_send = Arc::clone(&tx); // Klon senderen på nytt for sending
-                let worldview_clone = worldview.clone();
-                tokio::spawn(async move {
-                    if let Err(e) = tx_clone_for_send.send(worldview_clone) {
-                        // Hvis det er feil, betyr det at ingen abonnenter er tilgjengelige
-                        //println!("Ingen abonnenter tilgjengelig for å motta meldingen: {}", e);
-                    }
-                });
-                sleep(Duration::from_millis(100)).await; // Sover i 1 sekund
-                //println!("Jeg lever i sjefen.rs primary_process loop");
-            }
+            let send_to_broadcast = tokio::spawn( async move {
+                while self_copy.rolle == Rolle::MASTER {
+                    let tx_clone_for_send = Arc::clone(&tx); // Klon senderen på nytt for sending
+                    let worldview_clone = worldview.clone();
+                    tokio::spawn(async move {
+                        if let Err(e) = tx_clone_for_send.send(worldview_clone) {
+                            // Hvis det er feil, betyr det at ingen abonnenter er tilgjengelige
+                            //println!("Ingen abonnenter tilgjengelig for å motta meldingen: {}", e);
+                        }
+                    });
+                    sleep(Duration::from_millis(100)).await; // Sover i 1 sekund
+                    //println!("Jeg lever i sjefen.rs primary_process loop");
+                }
+            });
+
+            println!("1");
             nyhetsbrev_task.await?;
+            let nff = nyhetsbrev_ferdig_flag.lock().await;
+            if *nff { self_copy.rolle = Rolle::SLAVE;}
+            println!("2");
             broadcast_task.abort();
-            
+            println!("3");
+            send_to_broadcast.abort();
+            println!("4");
+            //backup_task.abort();
+            println!("5");
             self_copy.rolle = Rolle::SLAVE;
+            println!("Starter på nytt");
             self_copy.primary_process().await?;
     
     
