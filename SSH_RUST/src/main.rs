@@ -37,7 +37,7 @@ fn main() {
                     ssh_password, ip_address
                 );
                 
-                println!("\n \t Oppdaterer system og installerer avhengigheiter: {}", update_command);
+                println!("\nOppdaterer system og installerer avhengigheiter: \n \t  {}", update_command);
                 let _ = Command::new("sh")
                     .arg("-c")
                     .arg(&update_command)
@@ -52,7 +52,7 @@ fn main() {
                         else cd TTK4145-Prosjekt-AIS && git stash && git pull origin main; fi'",
                         ssh_password, ip_address
                     );
-                    println!("\n \t Oppdaterer repo: {}", update_repo_command);
+                    println!("\nOppdaterer repo: {}", update_repo_command);
                     let _ = Command::new("sh")
                         .arg("-c")
                         .arg(&update_repo_command)
@@ -65,7 +65,7 @@ fn main() {
                     "sshpass -p '{}' ssh -X student@{} 'export DISPLAY=:0 && gnome-terminal -- bash -c \"elevatorserver; exec bash\"'",
                     ssh_password, ip_address
                 );
-                println!("\n \t Starter elevatorserver i ny terminal: {}", elevator_server_command);
+                println!("\nStarter elevatorserver i ny terminal: \n \t  {}", elevator_server_command);
                 let _ = Command::new("sh")
                     .arg("-c")
                     .arg(&elevator_server_command)
@@ -79,7 +79,7 @@ fn main() {
                         ssh_password, ip_address, role, id
                     );
                     
-                    println!("\n \t Kjører programmet i ny terminal: {}", command);
+                    println!("\nKjører programmet i ny terminal: \n \t  {}", command);
                     let output = Command::new("sh")
                         .arg("-c")
                         .arg(&command)
