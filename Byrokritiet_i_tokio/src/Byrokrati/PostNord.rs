@@ -88,6 +88,8 @@ async fn send_nyhetsbrev(self_id: u8, mut socket: TcpStream, mut rx: broadcast::
                             return Err(Box::new(e));
                         }
                         if peer_id < self_id {
+                            //Husk å stenge broadcast tråder ogsånt før man starter reset. Prøvde å gjøre det uten  å
+                            //stenge tråder og den åpna en milliarer trillioner backuper igjen
                             println!("Klienten har lavere ip, nå må jeg slutte å være master!");
                         }
                     }
@@ -178,7 +180,8 @@ pub async fn abboner_master_nyhetsbrev(master_ip: SocketAddr, self_ip: &str) -> 
         if self_id < master_id {
             println!("Jeg har lavere ID enn master, jeg må bli master!!!!");
             loop {
-                tokio::time::sleep(Duration::from_secs(1)).await;
+                //Husk å stenge broadcast tråder ogsånt før man starter reset. Prøvde å gjøre det uten  å
+                //stenge tråder og den åpna en milliarer trillioner backuper igjen
             }
         }
     }
