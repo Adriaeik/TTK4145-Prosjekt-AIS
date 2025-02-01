@@ -59,6 +59,15 @@ fn main() {
                         .output()
                         .expect("Feil ved oppdatering av repo");
                 }
+                // drep pågåande program
+                let kill_command = format!("pkill -f {}", "Byrokritiet_i_tokio"); // Erstatt med korrekt prosessnavn
+                println!("\nDreper evt. pågåande program: \n \t  {}", kill_command);
+                let _ = Command::new("sh")
+                    .arg("-c")
+                    .arg(&kill_command)
+                    .output()
+                    .expect("Feil ved forsøk på å drepe eksisterande prosessar");
+
                 
                 // Start elevatorserver i ny terminal utan dbus
                 let elevator_server_command = format!(
