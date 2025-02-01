@@ -87,6 +87,7 @@ impl Sjefen::Sjefen {
         send_task.abort();
         Ok(())
     }
+    
 
 
     async fn send_nyhetsbrev(&self, mut socket: TcpStream, mut rx: broadcast::Receiver<String>) -> tokio::io::Result<()> {
