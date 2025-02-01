@@ -158,7 +158,7 @@ pub async fn abboner_master_nyhetsbrev(master_ip: SocketAddr, self_ip: &str) -> 
     }
     println!("Masteren har id: {}", master_id);
 
-    let self_id_option = id_fra_ip(&self_ip.ip().to_string());
+    let self_id_option = id_fra_ip(&self_ip.to_string());
     let mut self_id: u8 = u8::MAX;
     match self_id_option {
         Some(value) => {
