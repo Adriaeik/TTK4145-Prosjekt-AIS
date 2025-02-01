@@ -40,13 +40,20 @@ pub fn log_to_csv(role: &str, event: &str, counter: i32) {
 /// ```
 /// returnerer d
 /// 
-pub fn id_fra_ip(ip: &str) -> Option<String> {
+pub fn id_fra_ip(ip: &str) -> Option<u8> {
+    //For å returnere string
+    // let ips = ip.split('.')           // Del på punktum
+    //     .nth(3)              // Hent den 4. delen (d)
+    //     .map(|s| s.split(':') // Del på kolon
+    //         .next()          // Ta kun første delen før kolon
+    //         .unwrap_or("")   // Hvis ingen kolon finnes, bruk tom streng
+    //         .to_string());    // Konverter til String
+
     ip.split('.')           // Del på punktum
         .nth(3)              // Hent den 4. delen (d)
-        .map(|s| s.split(':') // Del på kolon
-            .next()          // Ta kun første delen før kolon
-            .unwrap_or("")   // Hvis ingen kolon finnes, bruk tom streng
-            .to_string())    // Konverter til String
+        .and_then(|s| s.split(':')  // Del på kolon hvis det er en port etter IP-en
+            .next())         // Ta kun første delen før kolon
+        .and_then(|s| s.parse::<u8>().ok())  // Forsøk å parse til u8
 }
 
 

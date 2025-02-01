@@ -8,9 +8,9 @@ pub async fn vara_process(ip: &str, master_ip: SocketAddr){
 
 
     
-
+    let ip_copy = ip.to_string();
     tokio::spawn(async move {
-        match PostNord::abboner_master_nyhetsbrev(master_ip).await {
+        match PostNord::abboner_master_nyhetsbrev(master_ip, &ip_copy).await {
             Ok(_) => {},
             Err(e) => eprintln!("Feil i PostNord::abboner_master_nyhetsbrev: {}", e),  
         }
