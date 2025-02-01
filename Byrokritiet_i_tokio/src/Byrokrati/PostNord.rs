@@ -35,6 +35,7 @@ impl Sjefen::Sjefen {
         let break_flag_clone = Arc::clone(&break_flag);
         
         let self_copy = self.copy();
+
         let send_task= tokio::spawn(async move {
             loop {
                 match listener.accept().await {
@@ -75,7 +76,7 @@ impl Sjefen::Sjefen {
             let break_flag_clone2 = Arc::clone(&break_flag_clone);
             loop {
                 let flag = break_flag_clone2.lock().await;
-                println!("break_flagget er: {}", *flag);
+                //println!("break_flagget er: {}", *flag);
                 if *flag {
                     println!("Går ut av postnord.rs publiser_nyhetsbrev() nå!");
                     return 
@@ -83,6 +84,7 @@ impl Sjefen::Sjefen {
                 tokio::time::sleep(Duration::from_millis(100)).await;
             }
         });
+
         flag_task.await.unwrap();
         send_task.abort();
         Ok(())

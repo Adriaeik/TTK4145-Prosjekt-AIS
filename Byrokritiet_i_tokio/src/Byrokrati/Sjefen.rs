@@ -201,7 +201,10 @@ impl Sjefen{
             let self_copy_clone = self_copy.copy();
             let nyhetsbrev_task = tokio::spawn(async move {
                 match self_copy_clone.publiser_nyhetsbrev(tx_clone).await {
-                    Ok(_) => {}, //Må si fra at du nå er slave
+                    Ok(_) => {
+                        println!("går ut av publiser nyhetsbrev");
+
+                    }, //Må si fra at du nå er slave
                     Err(e) => eprintln!("Feil i PostNord::publiser_nyhetsbrev: {}", e),  
                 }
             });
@@ -227,6 +230,7 @@ impl Sjefen{
             nyhetsbrev_task.await?;
             broadcast_task.abort();
             
+            self_copy.rolle = Rolle::SLAVE;
             self_copy.primary_process().await?;
     
     
