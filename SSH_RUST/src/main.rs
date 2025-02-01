@@ -73,7 +73,7 @@ fn main() {
                     .expect("Feil ved start av elevatorserver");
                 
                 // Hopp over programstart om `--only_elev` er sett
-                if only_elev {
+                if !only_elev {
                     let command = format!(
                         "sshpass -p '{}' ssh -X student@{} 'export DISPLAY=:0 && gnome-terminal -- bash -c \"cd ~/fuckers/TTK4145-Prosjekt-AIS/Byrokritiet_i_tokio && cargo run -- {} {}; exec bash\"'",
                         ssh_password, ip_address, role, id
@@ -101,4 +101,3 @@ where
     let file = File::open(filename)?;
     Ok(io::BufReader::new(file).lines())
 }
-//eg vart ikkje updata
