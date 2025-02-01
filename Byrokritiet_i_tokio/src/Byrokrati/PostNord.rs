@@ -19,54 +19,51 @@ use super::konsulent::id_fra_ip;
 
 impl Sjefen::Sjefen {
 
-    pub async fn publiser_nyhetsbrev(&self, mut tx: Arc<broadcast::Sender<String>>) -> tokio::io::Result<()> {
-       
-
-
+    pub async fn publiser_nyhetsbrev(
+        &self,
+        mut tx: Arc<broadcast::Sender<String>>,
+        stop_flag: Arc<Mutex<bool>>
+    ) -> tokio::io::Result<()> {
         let listener = TcpListener::bind(format!("{}:{}", self.ip, config::PN_PORT)).await?;
         println!("Nyhetsbrev oppretta på {}:{}", self.ip.to_string(), config::PN_PORT);
-
-        // let (tx, _) = broadcast::channel::<String>(3); //Kunne vel i teorien vært 1
-        // let tx = Arc::new(tx);
         
-        // Håndter alle innkommende tilkoblinger
-        
-        
-        
-        let break_flag = Arc::new(Mutex::new(false));
         loop {
-            let (socket, _) = listener.accept().await?;  // Nå kan vi kalle accept() på listeneren
-            println!("Noen kobla til: {} (PostNord.rs, publiser_nyhetsbrev())", socket.peer_addr().unwrap());
-            let break_flag_clone = Arc::clone(&break_flag);
-            
-            let tx_clone = Arc::clone(&tx); // Klon senderen for bruk i ny oppgave
-            // Start en ny oppgave for hver klient
-            let self_copy = self.copy();
-            tokio::spawn(async move {
-                let rx = tx_clone.subscribe(); // Opprett en ny receiver for hver klient
-                match self_copy.send_nyhetsbrev(socket, rx).await {
-                    Ok(_) => {
-                        // Når en oppgave er vellykket, sender vi signal til alle andre oppgaver
-                        println!("En lavere IP er registrert");
-                        let _ = tx_clone.send("DØ!".to_string());  
-
-                        // Endre break_flag ved å låse Mutex
-                        let mut flag = break_flag_clone.lock().await;
-                        *flag = true;
+            tokio::select! {
+                Ok((socket, _)) = listener.accept() => {
+                    println!("Noen kobla til: {} (PostNord.rs, publiser_nyhetsbrev())", socket.peer_addr().unwrap());
+                    
+                    let tx_clone = Arc::clone(&tx);
+                    let stop_flag_clone = Arc::clone(&stop_flag);
+                    let self_copy = self.copy();
+                    
+                    tokio::spawn(async move {
+                        let rx = tx_clone.subscribe();
+                        match self_copy.send_nyhetsbrev(socket, rx).await {
+                            Ok(_) => {
+                                println!("En lavere IP er registrert");
+                                let _ = tx_clone.send("DØ!".to_string());
+                                
+                                let mut flag = stop_flag_clone.lock().await;
+                                *flag = true;
+                            }
+                            Err(e) => eprintln!("Feil i kommunikasjon med klient: {}", e),
+                        }
+                    });
+                },
+                _ = async {
+                    let flag = stop_flag.lock().await;
+                    if *flag {
+                        println!("Går ut av postnord.rs publiser_nyhetsbrev() nå!");
+                        return;
                     }
-                    Err(e) => eprintln!("Feil i kommunikasjon med klient: {}", e),
+                } => {
+                    break;
                 }
-                
-            });
-
-            let flag = break_flag.lock().await;
-            if *flag {
-                println!("Går ut av postnord.rs publiser_nyhetsbrev() nå!");
-                break;
             }
         }
         Ok(())
     }
+    
 
 
     async fn send_nyhetsbrev(&self, mut socket: TcpStream, mut rx: broadcast::Receiver<String>) -> tokio::io::Result<()> {
