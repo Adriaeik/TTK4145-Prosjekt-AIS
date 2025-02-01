@@ -32,4 +32,23 @@ pub fn log_to_csv(role: &str, event: &str, counter: i32) {
     writeln!(file, "{},{},{}", role, event, counter).expect("Failed to write to log file");
 }
 
+/// Henter IDen din fra IPen
+/// 
+/// # Eksempel
+/// ```
+/// let id = id_fra_ip("a.b.c.d:e");
+/// ```
+/// returnerer d
+/// 
+pub fn id_fra_ip(ip: &str) -> Option<String> {
+    ip.split('.')           // Del på punktum
+        .nth(3)              // Hent den 4. delen (d)
+        .map(|s| s.split(':') // Del på kolon
+            .next()          // Ta kun første delen før kolon
+            .unwrap_or("")   // Hvis ingen kolon finnes, bruk tom streng
+            .to_string())    // Konverter til String
+}
+
+
+
 

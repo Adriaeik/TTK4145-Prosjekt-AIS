@@ -1,5 +1,7 @@
 //! sjefen handterer opretting av master / backup
 //! 
+use crate::Byrokrati::konsulent::id_fra_ip;
+
 use super::IT_Roger;
 use super::MrWorldWide;
 use super::Tony;
@@ -173,11 +175,28 @@ pub async fn primary_process(ip: &str) {
         }
     });
 
+    
 
+    //Hent ID (siste tall i IP)
+    let id = id_fra_ip(ip);
+    let mut worldview: String;
+    match id {
+        Some(value) => {
+            worldview = format!("Worldview:{}", value);
+            println!("IDen din er: {}", value);
+        }
+        None => {
+            println!("Ingen gyldig ID funnet.");
+            worldview = "Koble deg på internett din tulling (sjefen.rs primary_process())".to_string();
+        }
+    }
+    //For nå:
+    // sender Worldview:{id}
     loop {
         let tx_clone_for_send = Arc::clone(&tx); // Klon senderen på nytt for sending
+        let worldview_clone = worldview.clone();
         tokio::spawn(async move {
-            if let Err(e) = tx_clone_for_send.send("Worldview!!!!".to_string()) {
+            if let Err(e) = tx_clone_for_send.send(worldview_clone) {
                 // Hvis det er feil, betyr det at ingen abonnenter er tilgjengelige
                 println!("Ingen abonnenter tilgjengelig for å motta meldingen: {}", e);
             }
