@@ -2,6 +2,7 @@
 // Dette programmet gir deg 3 sekund på å lukke vinduer
 use std::fs::OpenOptions;
 use std::io::Write;
+use std::net::IpAddr;
 
 /// Returnerer kommando for å åpne terminal til tilhørende OS         
 ///
@@ -40,7 +41,7 @@ pub fn log_to_csv(role: &str, event: &str, counter: i32) {
 /// ```
 /// returnerer d
 /// 
-pub fn id_fra_ip(ip: &str) -> Option<u8> {
+pub fn id_fra_ip(ip: IpAddr) -> u8 {
     //For å returnere string
     // let ips = ip.split('.')           // Del på punktum
     //     .nth(3)              // Hent den 4. delen (d)
@@ -48,13 +49,25 @@ pub fn id_fra_ip(ip: &str) -> Option<u8> {
     //         .next()          // Ta kun første delen før kolon
     //         .unwrap_or("")   // Hvis ingen kolon finnes, bruk tom streng
     //         .to_string());    // Konverter til String
-
-    ip.split('.')           // Del på punktum
+    let ip_str = ip.to_string();
+    let mut ip_int = u8::MAX;
+    let id_str = ip_str.split('.')           // Del på punktum
         .nth(3)              // Hent den 4. delen (d)
         .and_then(|s| s.split(':')  // Del på kolon hvis det er en port etter IP-en
             .next())         // Ta kun første delen før kolon
-        .and_then(|s| s.parse::<u8>().ok())  // Forsøk å parse til u8
-}
+        .and_then(|s| s.parse::<u8>().ok());  // Forsøk å parse til u8
+
+    match id_str {
+        Some(value) => {
+            ip_int = value;
+        }
+        None => {
+            println!("Ingen gyldig ID funnet. (konsulent.rs, id_fra_ip())");
+        }
+    }
+    ip_int
+
+    }
 
 
 

@@ -9,7 +9,7 @@ use tokio::sync::mpsc;
 
 
 
-pub async fn start_broadcaster(id: &str, tx_is_master: mpsc::Sender<bool>, tx_master_ip: mpsc::Sender<SocketAddr>) -> tokio::io::Result<()> {
+pub async fn start_broadcaster(id: u8, tx_is_master: mpsc::Sender<bool>, tx_master_ip: mpsc::Sender<SocketAddr>) -> tokio::io::Result<()> {
     //Første runde: hør etter kun én broadcast for å se om andre heiser er på nettverket!
     let mut master_address: Option<SocketAddr> = None;
     let mut message: Option<Cow<'_, str>> = None;
@@ -73,7 +73,7 @@ pub async fn start_broadcaster(id: &str, tx_is_master: mpsc::Sender<bool>, tx_ma
 }
 
 
-async fn start_master_broadcaster(_id: &str) -> tokio::io::Result<()> {
+async fn start_master_broadcaster(_id: u8) -> tokio::io::Result<()> {
     //Send melding til sjefen (bruk channel) at netverket er tomt, vi må gjøre det som trengs da
     let addr: &str = "255.255.255.255:42069"; //🎯 
     let addr2: &str = "0.0.0.0:0";

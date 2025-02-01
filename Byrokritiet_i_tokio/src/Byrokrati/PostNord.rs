@@ -9,42 +9,26 @@ use tokio::net::{TcpStream, TcpListener};
 use tokio::sync::broadcast;
 use tokio::io::{AsyncWriteExt, AsyncReadExt};
 use std::sync::Arc;
+use std::net::IpAddr;
 
 use super::konsulent::id_fra_ip;
 
 
-pub async fn publiser_nyhetsbrev(self_ip: &str, mut tx: Arc<broadcast::Sender<String>>) -> tokio::io::Result<()> {
+pub async fn publiser_nyhetsbrev(self_ip: IpAddr, mut tx: Arc<broadcast::Sender<String>>) -> tokio::io::Result<()> {
     let port = "50000";
 
 
-    let mut iponly: &str = "a";
-    match self_ip.split_once(':') {
-        Some((ip, _)) => {iponly = ip;}
-        None => {}
-    }
-
-    let listener = TcpListener::bind(format!("{}:{}", iponly, port)).await?;
-    println!("Nyhetsbrev oppretta på {}:{}", self_ip, port);
+    let listener = TcpListener::bind(format!("{}:{}", self_ip, port)).await?;
+    println!("Nyhetsbrev oppretta på {}:{}", self_ip.to_string(), port);
 
     // let (tx, _) = broadcast::channel::<String>(3); //Kunne vel i teorien vært 1
     // let tx = Arc::new(tx);
     
-    let self_id_option = id_fra_ip(self_ip);
-    let mut self_id: u8 = u8::MAX;
-    match self_id_option {
-        Some(value) => {
-            self_id = value;
-        }
-        None => {
-            println!("Ingen gyldig ID funnet. (postnord.rs, send_nyhetsbrev())");
-        }
-    }
-
-
+    let self_id = id_fra_ip(self_ip);
     // Håndter alle innkommende tilkoblinger
     loop {
-        let (mut socket, _) = listener.accept().await?;  // Nå kan vi kalle accept() på listeneren
-        let mut tx_clone = Arc::clone(&tx); // Klon senderen for bruk i ny oppgave
+        let (socket, _) = listener.accept().await?;  // Nå kan vi kalle accept() på listeneren
+        let tx_clone = Arc::clone(&tx); // Klon senderen for bruk i ny oppgave
         // Start en ny oppgave for hver klient
         tokio::spawn(async move {
             let rx = tx_clone.subscribe(); // Opprett en ny receiver for hver klient
@@ -60,17 +44,7 @@ pub async fn publiser_nyhetsbrev(self_ip: &str, mut tx: Arc<broadcast::Sender<St
 async fn send_nyhetsbrev(self_id: u8, mut socket: TcpStream, mut rx: broadcast::Receiver<String>) -> Result<(), Box<dyn std::error::Error>> {
     // Håndter kommunikasjonen med klienten her.
     let peer_addr = socket.peer_addr().unwrap();
-    let peer_id_option = id_fra_ip(&peer_addr.ip().to_string());
-    let mut peer_id: u8 = u8::MAX;
-
-    match peer_id_option {
-        Some(value) => {
-            peer_id = value;
-        }
-        None => {
-            println!("Ingen gyldig ID funnet. (postnord.rs, send_nyhetsbrev())");
-        }
-    }
+    let peer_id = id_fra_ip(peer_addr.ip());
     println!("Den nye klienten har id: {}", peer_id);
 
 
@@ -124,7 +98,7 @@ async fn send_nyhetsbrev(self_id: u8, mut socket: TcpStream, mut rx: broadcast::
 
 
 
-pub async fn abboner_master_nyhetsbrev(master_ip: SocketAddr, self_ip: &str) -> tokio::io::Result<()> {
+pub async fn abboner_master_nyhetsbrev(master_ip: SocketAddr, self_ip: IpAddr) -> tokio::io::Result<()> {
     // let my_addr: SocketAddr = "127.0.0.1:8080".parse().unwrap(); //kjent
     // let master_addr: SocketAddr = "127.0.0.1:8081".parse().unwrap(); //kjent fra udp broadcast
 
@@ -138,7 +112,6 @@ pub async fn abboner_master_nyhetsbrev(master_ip: SocketAddr, self_ip: &str) -> 
     }
     let port = "50000";
     println!("Prøver å koble på: {}:{}", iponly, port);
-
     //NB!!!!
     // Må teste litt på sanntidslabben om riktig ip blir sent i udp_broadcasten, eller om man må sende den som en melding i udp broadcasten
     let mut stream = TcpStream::connect(format!("{}:{}",iponly, port)).await?;
@@ -146,26 +119,10 @@ pub async fn abboner_master_nyhetsbrev(master_ip: SocketAddr, self_ip: &str) -> 
     println!("Har kobla til en master på ip: {}:{}", iponly, port);
 
 
-    let master_id_option = id_fra_ip(&master_ip.ip().to_string());
-    let mut master_id: u8 = u8::MAX;
-    match master_id_option {
-        Some(value) => {
-            master_id = value;
-        }
-        None => {
-            println!("Ingen gyldig ID funnet. (postnord.rs, abboner_master_nyhetsbrev())");
-        }
-    }
+    let master_id = id_fra_ip(master_ip.ip());
     println!("Masteren har id: {}", master_id);
 
-    let self_id_option = id_fra_ip(&self_ip.to_string());
-    let mut self_id: u8 = u8::MAX;
-    match self_id_option {
-        Some(value) => {
-            self_id = value;
-        }
-        None => {}
-    }
+    let self_id = id_fra_ip(self_ip);
     println!("Jeg har id: {}", self_id);
 
 

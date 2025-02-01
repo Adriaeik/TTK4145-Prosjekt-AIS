@@ -18,6 +18,8 @@ cargo run -- backup ID -> lager en lokal backup som vil få ID om den tar over
 
 use Byrokratiet_i_tokio::Byrokrati::Sjefen;
 use Byrokratiet_i_tokio::Byrokrati::Tony;
+use Byrokratiet_i_tokio::Byrokrati::konsulent;
+
 
 use local_ip_address::local_ip;
 
@@ -67,11 +69,18 @@ async fn main() {
     3) høre på broadcate og sjekke om det er mastera med lågare ID
     4) Dersom den har lågast ID skal den starte Bedriftspakker. 
     */
-    if sjefenpakke.rolle == Sjefen::Rolle::BACKUP {
-        Tony::backup_process(&ip_string).await;
+    let id = konsulent::id_fra_ip(ip);
+    let sjefen = Sjefen::Sjefen {
+        ip: ip,
+        id: id,
+        rolle: sjefenpakke.rolle,
+    };
+
+    if sjefen.rolle == Sjefen::Rolle::BACKUP {
+        sjefen.backup_process().await;
     }
     else {
-        Sjefen::primary_process(&ip_string).await;
+        sjefen.primary_process().await;
     }
 }
 
