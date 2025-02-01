@@ -21,8 +21,6 @@ impl Sjefen::Sjefen {
 
     pub async fn publiser_nyhetsbrev(&self, mut tx: Arc<broadcast::Sender<String>>) -> tokio::io::Result<()> {
        
-
-
         let listener = TcpListener::bind(format!("{}:{}", self.ip, config::PN_PORT)).await?;
         println!("Nyhetsbrev oppretta på {}:{}", self.ip.to_string(), config::PN_PORT);
 
@@ -34,37 +32,59 @@ impl Sjefen::Sjefen {
         
         
         let break_flag = Arc::new(Mutex::new(false));
-        loop {
-            let (socket, _) = listener.accept().await?;  // Nå kan vi kalle accept() på listeneren
-            println!("Noen kobla til: {} (PostNord.rs, publiser_nyhetsbrev())", socket.peer_addr().unwrap());
-            let break_flag_clone = Arc::clone(&break_flag);
-            
-            let tx_clone = Arc::clone(&tx); // Klon senderen for bruk i ny oppgave
-            // Start en ny oppgave for hver klient
-            let self_copy = self.copy();
-            tokio::spawn(async move {
-                let rx = tx_clone.subscribe(); // Opprett en ny receiver for hver klient
-                match self_copy.send_nyhetsbrev(socket, rx).await {
-                    Ok(_) => {
-                        // Når en oppgave er vellykket, sender vi signal til alle andre oppgaver
-                        println!("En lavere IP er registrert");
-                        let _ = tx_clone.send("DØ!".to_string());  
+        let break_flag_clone = Arc::clone(&break_flag);
+        
+        let self_copy = self.copy();
+        let send_task= tokio::spawn(async move {
+            loop {
+                match listener.accept().await {
 
-                        // Endre break_flag ved å låse Mutex
-                        let mut flag = break_flag_clone.lock().await;
-                        *flag = true;
+                    Ok((socket, _)) => {
+                        println!("Noen kobla til: {} (PostNord.rs, publiser_nyhetsbrev())", socket.peer_addr().unwrap());
+                        let break_flag_clone = Arc::clone(&break_flag);
+                        let tx_clone = Arc::clone(&tx); // Klon senderen for bruk i ny oppgave
+
+                        // Start en ny oppgave for hver klient
+                        let self_copy2 = self_copy.copy();
+                        tokio::spawn(async move {
+                            let rx = tx_clone.subscribe(); // Opprett en ny receiver for hver klient
+                            match self_copy2.send_nyhetsbrev(socket, rx).await {
+                                Ok(_) => {
+                                    // Når en oppgave er vellykket, sender vi signal til alle andre oppgaver
+                                    let _ = tx_clone.send("DØ!".to_string());  
+                                    
+                                    // Endre break_flag ved å låse Mutex
+                                    let mut flag = break_flag_clone.lock().await;
+                                    *flag = true;
+                                    println!("En lavere IP er registrert");
+                                }
+                                Err(e) => eprintln!("Feil i kommunikasjon med klient: {}", e),
+                            }
+                        });
+                    } 
+                    Err(e) => {
+                        // Håndter feilen som kan oppstå i accept()
+                        eprintln!("Feil ved tilkobling: {}", e);
                     }
-                    Err(e) => eprintln!("Feil i kommunikasjon med klient: {}", e),
+                    
                 }
-                
-            });
-
-            let flag = break_flag.lock().await;
-            if *flag {
-                println!("Går ut av postnord.rs publiser_nyhetsbrev() nå!");
-                break;
             }
-        }
+        });
+
+        let flag_task = tokio::spawn(async move {
+            let break_flag_clone2 = Arc::clone(&break_flag_clone);
+            loop {
+                let flag = break_flag_clone2.lock().await;
+                println!("break_flagget er: {}", *flag);
+                if *flag {
+                    println!("Går ut av postnord.rs publiser_nyhetsbrev() nå!");
+                    return 
+                }
+                tokio::time::sleep(Duration::from_millis(100)).await;
+            }
+        });
+        flag_task.await.unwrap();
+        send_task.abort();
         Ok(())
     }
 
