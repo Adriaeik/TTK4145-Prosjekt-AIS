@@ -4,6 +4,7 @@ use super::{konsulent, Sjefen};
 use crate::config;
 
 
+use crossbeam_channel::Sender;
 use tokio::time::{sleep, Duration, Instant};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::{TcpListener, TcpStream};
@@ -13,7 +14,7 @@ use std::env;
 use std::process::Command;
 use socket2::{Socket, Domain, Type, Protocol};
 use std::net::SocketAddr;
-use std::net::IpAddr;
+use tokio::sync::mpsc;
 
 
 static BACKUP_STARTED: AtomicBool = AtomicBool::new(false);
@@ -59,6 +60,8 @@ impl Sjefen::Sjefen {
         }
     }
 
+    
+
     pub async fn create_and_monitor_backup(&self) {
         let last_received = Arc::new(Mutex::new(Instant::now())); //Usikker på om denne kan puttes i funksjonen
         let timeout_duration = Duration::from_secs(1);
@@ -75,7 +78,7 @@ impl Sjefen::Sjefen {
         //Følger med på om det skjer en timeout basically
         //Lager også ny backup om den feiler
         let self_clone = self.copy();
-        tokio::spawn(async move {
+        let manitor_task = tokio::spawn(async move {
             self_clone.monitor_backup(last_received_clone, timeout_duration).await;
         });  
 
@@ -84,7 +87,8 @@ impl Sjefen::Sjefen {
         loop {
             //print!("Jeg lever i roger -> createandmonitorbackup");
             if let Ok((mut socket, _)) = listener.accept().await {
-                socket.write_all("Worldview".as_bytes()).await.expect("Failed to send count");
+
+                socket.write_all("Worldview:slave".as_bytes()).await.expect("Failed to send count");
 
                 //println!("Backup acka! (er i IT_Roger, create_and_monitor_backup())");
 
@@ -125,7 +129,7 @@ impl Sjefen::Sjefen {
 
 
 
-    pub async fn backup_connection(&mut self) {
+    pub async fn backup_connection(&mut self, tx: mpsc::Sender<String>) {
         let mut last_received = Instant::now(); //Usikker på om denne kan puttes i funksjonen
         let timeout_duration = Duration::from_secs(1);
         
@@ -136,6 +140,16 @@ impl Sjefen::Sjefen {
                     let mut buf = String::new();
                     let mut reader = BufReader::new(&mut stream);
                     if reader.read_line(&mut buf).await.is_ok() {
+                        let trimmed_buf = buf.trim().to_string();
+                        
+                        if let Some(b) = trimmed_buf.split(':').nth(1).map(|b| b.to_string()) {
+                            if b == "slave" {
+                                self.rolle = Sjefen::Rolle::SLAVE;
+                            } else if b == "master" {
+                                self.rolle = Sjefen::Rolle::MASTER;
+                            }
+                        }
+                        tx.send(trimmed_buf.clone()).await.unwrap();
                         last_received = Instant::now();
                     }
                 }
