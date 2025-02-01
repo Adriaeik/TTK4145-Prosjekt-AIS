@@ -70,7 +70,7 @@ async fn main() {
     4) Dersom den har lågast ID skal den starte Bedriftspakker. 
     */
     let id = konsulent::id_fra_ip(ip);
-    let sjefen = Sjefen::Sjefen {
+    let mut sjefen = Sjefen::Sjefen {
         ip: ip,
         id: id,
         rolle: sjefenpakke.rolle,

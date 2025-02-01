@@ -10,7 +10,7 @@ impl Sjefen::Sjefen {
     pub async fn backup_process(&self) {
         println!("En Tony er starta");
 
-        let self_copy = self.copy();
+        let mut self_copy = self.copy();
         tokio::spawn(async move {
             self_copy.backup_connection().await;
         });

@@ -1,4 +1,5 @@
 pub mod Byrokrati{
+    
     pub mod Sjefen;
     pub mod Vara;
     pub mod Tony; //Lagersjef
@@ -12,3 +13,6 @@ pub mod Byrokrati{
     pub mod IT_Roger;
 //     pub mod Alenemor;
 }
+
+pub mod config;
+

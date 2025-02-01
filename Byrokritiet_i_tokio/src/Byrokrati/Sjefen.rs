@@ -76,7 +76,7 @@ pub fn hent_sjefpakke() -> Result<SjefPakke, &'static str> {
         
         let rolle = match command.as_str() {
             "backup" => Rolle::BACKUP,
-            "master" => Rolle::MASTER,
+            "master" => Rolle::SLAVE,
             _ => return Err("Ugyldig kommando. Bruk 'backup' eller 'master'."),
         };
 
@@ -117,7 +117,7 @@ impl Sjefen{
     /// 
     /// Skal etter det fikse selve styresystemet (om du har lavest ID) 
     ///
-    pub async fn primary_process(&self) {
+    pub async fn primary_process(&mut self) {
         println!("En sjef er starta");        
         let self_backup = self.copy_for_backup();
         //Lager en tokio task som holder styr på backup, har også en tråd i seg som kjører IT_Roger sine funksjoner for å snakke med den
@@ -129,9 +129,9 @@ impl Sjefen{
         let (tx_is_master, mut rx_is_main) = mpsc::channel::<bool>(1);
         let (tx_master_ip, mut rx_master_ip) = mpsc::channel::<SocketAddr>(1);
         //Lager en tokio task som først hører etter broadcast, og kobler seg på nettverket. Om ingen broadcast på et sekund ? ish så starter den som hovedmaster
-        let id_clone = self.id.clone();
+        let self_copy = self.copy();
         tokio::spawn(async move {
-            match MrWorldWide::start_broadcaster(id_clone, tx_is_master, tx_master_ip).await {
+            match self_copy.start_broadcaster(tx_is_master, tx_master_ip).await {
                 Ok(_) => {},
                 Err(e) => eprintln!("Feil i MrWorldWide::start_broadcaster: {}", e),  
             }
@@ -159,10 +159,11 @@ impl Sjefen{
         }
 
         if is_main == false {
-            Vara::vara_process(self.ip, master_ip).await;
+            self.vara_process(master_ip).await;
             println!("vara_process avslutta?? burde vel ikke det? (sjefen.rs, primary_process())");
             return; 
         }
+        self.rolle = Rolle::MASTER;
 
 
 
@@ -181,9 +182,9 @@ impl Sjefen{
         let tx = Arc::new(tx);
         let mut tx_clone = Arc::clone(&tx); // Klon senderen for bruk i ny oppgave
 
-        let ip_clone = self.ip.clone();
+        let self_copy = self.copy();
         tokio::spawn(async move {
-            match PostNord::publiser_nyhetsbrev(ip_clone, tx_clone).await {
+            match self_copy.publiser_nyhetsbrev(tx_clone).await {
                 Ok(_) => {},
                 Err(e) => eprintln!("Feil i PostNord::publiser_nyhetsbrev: {}", e),  
             }

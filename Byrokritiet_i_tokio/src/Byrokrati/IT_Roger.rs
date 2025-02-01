@@ -1,6 +1,8 @@
 //! IT_Roger Handter LAN - Altså mellom den lokale backup
 
 use super::{konsulent, Sjefen};
+use crate::config;
+
 
 use tokio::time::{sleep, Duration, Instant};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
@@ -20,7 +22,7 @@ static BACKUP_STARTED: AtomicBool = AtomicBool::new(false);
 
 impl Sjefen::Sjefen {
     pub async fn create_reusable_listener(&self) -> TcpListener {
-        let socket_addr: SocketAddr = SocketAddr::new(self.ip, 8082);
+        let socket_addr: SocketAddr = SocketAddr::new(self.ip, config::BCU_PORT);
         let socket = Socket::new(Domain::IPV4, Type::STREAM, Some(Protocol::TCP)).expect("Failed to create socket");
         socket.set_reuse_address(true).expect("Failed to set reuse address");
         socket.bind(&socket_addr.into()).expect("Failed to bind socket");
@@ -123,11 +125,11 @@ impl Sjefen::Sjefen {
 
 
 
-    pub async fn backup_connection(&self) {
+    pub async fn backup_connection(&mut self) {
         let mut last_received = Instant::now(); //Usikker på om denne kan puttes i funksjonen
         let timeout_duration = Duration::from_secs(1);
         
-        let addr_string = format!("{}:{}", self.ip.to_string(), 8082);
+        let addr_string = format!("{}:{}", self.ip.to_string(), config::BCU_PORT);
         loop {
             match TcpStream::connect(addr_string.clone()).await {
                 Ok(mut stream) => {

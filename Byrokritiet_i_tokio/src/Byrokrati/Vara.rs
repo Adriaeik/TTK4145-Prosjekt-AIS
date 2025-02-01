@@ -1,16 +1,17 @@
 //! slave
 use tokio::time::{sleep, Duration};
 use std::net::SocketAddr;
-use super::PostNord;
+use super::{PostNord, Sjefen};
 use std::net::IpAddr;
 
 
-pub async fn vara_process(self_ip: IpAddr, master_ip: SocketAddr){
+impl Sjefen::Sjefen {
+    pub async fn vara_process(&self, master_ip: SocketAddr){
 
 
-    
+    let mut self_copy = self.copy();
     tokio::spawn(async move {
-        match PostNord::abboner_master_nyhetsbrev(master_ip, self_ip).await {
+        match self_copy.abboner_master_nyhetsbrev(master_ip).await {
             Ok(_) => {},
             Err(e) => eprintln!("Feil i PostNord::abboner_master_nyhetsbrev: {}", e),  
         }
@@ -24,6 +25,6 @@ pub async fn vara_process(self_ip: IpAddr, master_ip: SocketAddr){
     
 
 }
-
+}
 
 
