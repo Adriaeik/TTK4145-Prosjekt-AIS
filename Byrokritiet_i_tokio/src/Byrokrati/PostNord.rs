@@ -107,17 +107,14 @@ pub async fn abboner_master_nyhetsbrev(master_ip: SocketAddr) -> tokio::io::Resu
         Some((ip, _)) => {iponly = ip;}
         None => {}
     }
-
     let port = "50000";
     println!("Prøver å koble på: {}:{}", iponly, port);
 
-    // let mut stream = TcpStream::connect(format!("{}:{}", iponly, port)).await?;
-
     ///NB!!!!
     /// Må teste litt på sanntidslabben om riktig ip blir sent i udp_broadcasten, eller om man må sende den som en melding i udp broadcasten
-    let mut stream = TcpStream::connect(format!("{}:{}",master_ip, port)).await?;
+    let mut stream = TcpStream::connect(format!("{}:{}",iponly, port)).await?;
     let mut buf = [0; 1024];
-    println!("Har kobla til en master på ip: {:?}", master_ip);
+    println!("Har kobla til en master på ip: {}:{}", iponly, port);
 
     loop {
         let bytes_read = stream.read(&mut buf).await?;
