@@ -139,7 +139,7 @@ impl Sjefen::Sjefen {
             if self.id < master_id {
                 println!("Jeg har lavere ID enn master, jeg må bli master!!!!");
                 //Må kanskje passe på å lukke tidligere tråder?
-                self.primary_process();
+                self.primary_process().await;
             }
         }
 
