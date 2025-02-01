@@ -167,7 +167,7 @@ impl Sjefen::Sjefen {
         loop {
             udp_socket.send_to("Gruppe25".to_string().as_bytes(), &broadcast_addr).await?;
             sleep(Duration::from_millis(100)).await;
-            //println!("Broadcaster ID: {}", "Gruppe25");
+            println!("Broadcaster ID: {}", "Gruppe25");
         }
 
     }
