@@ -8,8 +8,8 @@ fn main() {
     let config_path = "config.txt";
     let ssh_password = "Sanntid15";
     let args: Vec<String> = env::args().collect();
-    let update_repo = args.contains(&"--update_repo".to_string());
-    let only_elev = args.contains(&"--only_elev".to_string());
+    let update_repo = args.contains(&"update_repo".to_string());
+    let only_elev = args.contains(&"only_elev".to_string());
     
     if let Ok(lines) = read_lines(config_path) {
         for line in lines {
