@@ -10,6 +10,7 @@ use tokio::net::{TcpStream, TcpListener};
 use tokio::sync::broadcast;
 use tokio::io::{AsyncWriteExt, AsyncReadExt};
 use std::sync::Arc;
+use tokio::sync::Mutex;
 use std::net::IpAddr;
 use super::Sjefen;
 use super::Vara;
@@ -32,11 +33,11 @@ impl Sjefen::Sjefen {
         
         
         
-        let mut break_flag: bool = false;
+        let break_flag = Arc::new(Mutex::new(false));
         loop {
             let (socket, _) = listener.accept().await?;  // Nå kan vi kalle accept() på listeneren
             println!("Noen kobla til: {} (PostNord.rs, publiser_nyhetsbrev())", socket.peer_addr().unwrap());
-            
+            let break_flag_clone = Arc::clone(&break_flag);
             
             let tx_clone = Arc::clone(&tx); // Klon senderen for bruk i ny oppgave
             // Start en ny oppgave for hver klient
@@ -46,15 +47,21 @@ impl Sjefen::Sjefen {
                 match self_copy.send_nyhetsbrev(socket, rx).await {
                     Ok(_) => {
                         // Når en oppgave er vellykket, sender vi signal til alle andre oppgaver
-                        let _ = tx_clone.send("DØ!".to_string());  // Send signal til alle andre oppgaver om å stoppe
-                        break_flag = true;
+                        println!("En lavere IP er registrert");
+                        let _ = tx_clone.send("DØ!".to_string());  
+
+                        // Endre break_flag ved å låse Mutex
+                        let mut flag = break_flag_clone.lock().await;
+                        *flag = true;
                     }
                     Err(e) => eprintln!("Feil i kommunikasjon med klient: {}", e),
                 }
                 
             });
 
-            if break_flag {
+            let flag = break_flag.lock().await;
+            if *flag {
+                println!("Går ut av postnord.rs publiser_nyhetsbrev() nå!");
                 break;
             }
         }
