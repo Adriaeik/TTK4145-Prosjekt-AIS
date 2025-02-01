@@ -12,6 +12,7 @@ use tokio::io::{AsyncWriteExt, AsyncReadExt};
 use std::sync::Arc;
 use std::net::IpAddr;
 use super::Sjefen;
+use super::Vara;
 
 use super::konsulent::id_fra_ip;
 
@@ -27,25 +28,41 @@ impl Sjefen::Sjefen {
         // let (tx, _) = broadcast::channel::<String>(3); //Kunne vel i teorien vært 1
         // let tx = Arc::new(tx);
         
-        let self_id = id_fra_ip(self.ip);
         // Håndter alle innkommende tilkoblinger
+        
+        
+        
+        let mut break_flag: bool = false;
         loop {
             let (socket, _) = listener.accept().await?;  // Nå kan vi kalle accept() på listeneren
+            println!("Noen kobla til: {} (PostNord.rs, publiser_nyhetsbrev())", socket.peer_addr().unwrap());
+            
+            
             let tx_clone = Arc::clone(&tx); // Klon senderen for bruk i ny oppgave
             // Start en ny oppgave for hver klient
             let self_copy = self.copy();
             tokio::spawn(async move {
                 let rx = tx_clone.subscribe(); // Opprett en ny receiver for hver klient
-                if let Err(e) = self_copy.send_nyhetsbrev(socket, rx).await {
-                    eprintln!("Feil i kommunikasjon med klient: {}", e);
+                match self_copy.send_nyhetsbrev(socket, rx).await {
+                    Ok(_) => {
+                        // Når en oppgave er vellykket, sender vi signal til alle andre oppgaver
+                        let _ = tx_clone.send("DØ!".to_string());  // Send signal til alle andre oppgaver om å stoppe
+                        break_flag = true;
+                    }
+                    Err(e) => eprintln!("Feil i kommunikasjon med klient: {}", e),
                 }
+                
             });
-        }
 
+            if break_flag {
+                break;
+            }
+        }
+        Ok(())
     }
 
 
-    async fn send_nyhetsbrev(&self, mut socket: TcpStream, mut rx: broadcast::Receiver<String>) -> Result<(), Box<dyn std::error::Error>> {
+    async fn send_nyhetsbrev(&self, mut socket: TcpStream, mut rx: broadcast::Receiver<String>) -> tokio::io::Result<()> {
         // Håndter kommunikasjonen med klienten her.
         let peer_addr = socket.peer_addr().unwrap();
         let peer_id = id_fra_ip(peer_addr.ip());
@@ -60,20 +77,27 @@ impl Sjefen::Sjefen {
                 msg = rx.recv() => {
                     match msg {
                         Ok(message) => {
+                            if message == "DØ!" {
+                                break;
+                            }
                             // Send melding til klienten
                             if let Err(e) = socket.write_all(message.as_bytes()).await {
                                 eprintln!("Feil ved sending til klient i send_nyhetsbrev(): {}", e);
-                                return Err(Box::new(e));
+                                return Err(e);
                             }
                             if peer_id < self.id {
                                 //Husk å stenge broadcast tråder ogsånt før man starter reset. Prøvde å gjøre det uten  å
                                 //stenge tråder og den åpna en milliarer trillioner backuper igjen
                                 println!("Klienten har lavere ip, nå må jeg slutte å være master!");
+
+                                //Returner noe som tilsier at du skal bli slave her
+                                break;
+
                             }
                         }
                         Err(e) => {
                             eprintln!("Feil ved mottak fra broadcast-kanal: {}", e);
-                            return Err(Box::new(e));
+                            return Err(std::io::Error::new(std::io::ErrorKind::Other, e.to_string()));
                         }
                     }
                 }
@@ -92,37 +116,32 @@ impl Sjefen::Sjefen {
                         }
                         Err(e) => {
                             eprintln!("Feil ved lesing fra klient: {}", e);
-                            return Err(Box::new(e));
+                            return Err(e);
                         }
                     }
                 }
             }
         }
+        Ok(())
     }
 
 
-
-    pub async fn abboner_master_nyhetsbrev(&mut self, master_ip: SocketAddr) -> tokio::io::Result<()> {
+    pub async fn abboner_master_nyhetsbrev(&mut self) -> tokio::io::Result<()> {
         // let my_addr: SocketAddr = "127.0.0.1:8080".parse().unwrap(); //kjent
         // let master_addr: SocketAddr = "127.0.0.1:8081".parse().unwrap(); //kjent fra udp broadcast
 
         //les inn string til master ip fra channel her først
 
-        let ip_string = master_ip.to_string(); // Konverter til String
-        let mut iponly: &str = "a";
-        match ip_string.split_once(':') {
-            Some((ip, _)) => {iponly = ip;}
-            None => {}
-        }
-        println!("Prøver å koble på: {}:{}", iponly, config::PN_PORT);
+        
+        println!("Prøver å koble på: {}:{}", self.master_ip, config::PN_PORT);
         //NB!!!!
         // Må teste litt på sanntidslabben om riktig ip blir sent i udp_broadcasten, eller om man må sende den som en melding i udp broadcasten
-        let mut stream = TcpStream::connect(format!("{}:{}",iponly, config::PN_PORT)).await?;
+        let mut stream = TcpStream::connect(format!("{}:{}", self.master_ip, config::PN_PORT)).await?;
         let mut buf = [0; 1024];
-        println!("Har kobla til en master på ip: {}:{}", iponly, config::PN_PORT);
+        println!("Har kobla til en master på ip: {}:{}", self.master_ip, config::PN_PORT);
 
 
-        let master_id = id_fra_ip(master_ip.ip());
+        let master_id = id_fra_ip(self.master_ip);
         println!("Masteren har id: {}", master_id);
 
         println!("Jeg har id: {}", self.id);
@@ -139,11 +158,12 @@ impl Sjefen::Sjefen {
             if self.id < master_id {
                 println!("Jeg har lavere ID enn master, jeg må bli master!!!!");
                 //Må kanskje passe på å lukke tidligere tråder?
-                self.primary_process().await;
+                self.rolle = Sjefen::Rolle::MASTER;
+                //self.primary_process().await;
+                break;
             }
         }
 
         Ok(())
     }
-
 }

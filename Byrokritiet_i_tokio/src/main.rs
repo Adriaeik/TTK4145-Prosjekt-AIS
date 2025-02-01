@@ -74,6 +74,7 @@ async fn main() {
         ip: ip,
         id: id,
         rolle: sjefenpakke.rolle,
+        master_ip: ip,
     };
 
     if sjefen.rolle == Sjefen::Rolle::BACKUP {

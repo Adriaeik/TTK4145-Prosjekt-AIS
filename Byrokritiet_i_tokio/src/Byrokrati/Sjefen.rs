@@ -12,9 +12,11 @@ use std::net::SocketAddr;
 use tokio::time::{sleep, Duration};
 use std::env;
 use tokio::sync::mpsc;
+use tokio::macros::support::Future;
 use std::sync::Arc;
 use tokio::sync::broadcast;
 use std::net::IpAddr;
+use tokio::macros::support::Pin;
 
 #[derive(Clone, Debug)]
 pub struct AnsattPakke {
@@ -50,6 +52,7 @@ pub struct Sjefen {
     pub ip: IpAddr,
     pub id: u8,
     pub rolle: Rolle,
+    pub master_ip: IpAddr
 }
 
 
@@ -95,6 +98,7 @@ impl Sjefen{
             ip: self.ip,
             id: self.id,
             rolle: Rolle::BACKUP,
+            master_ip: self.master_ip,
         }
     }
 
@@ -103,6 +107,7 @@ impl Sjefen{
             ip: self.ip,
             id: self.id,
             rolle: self.rolle,
+            master_ip: self.master_ip,
         }
     }
 
@@ -117,100 +122,118 @@ impl Sjefen{
     /// 
     /// Skal etter det fikse selve styresystemet (om du har lavest ID) 
     ///
-    pub async fn primary_process(&mut self) {
-        println!("En sjef er starta");        
-        let self_backup = self.copy_for_backup();
-        //Lager en tokio task som holder styr på backup, har også en tråd i seg som kjører IT_Roger sine funksjoner for å snakke med den
-        tokio::spawn(async move {
-            self_backup.create_and_monitor_backup().await;
-        });
-        
-
-        let (tx_is_master, mut rx_is_main) = mpsc::channel::<bool>(1);
-        let (tx_master_ip, mut rx_master_ip) = mpsc::channel::<SocketAddr>(1);
-        //Lager en tokio task som først hører etter broadcast, og kobler seg på nettverket. Om ingen broadcast på et sekund ? ish så starter den som hovedmaster
-        let self_copy = self.copy();
-        tokio::spawn(async move {
-            match self_copy.start_broadcaster(tx_is_master, tx_master_ip).await {
-                Ok(_) => {},
-                Err(e) => eprintln!("Feil i MrWorldWide::start_broadcaster: {}", e),  
-            }
-        });
-        
-        
-        
-        
-        let mut master_ip: SocketAddr;
-        loop {
-            if let Some(addr) = rx_master_ip.recv().await {
-                master_ip = addr;
-                break; // Gå videre etter første gyldige melding
-            }
-            // Hvis `None`, venter den bare til neste melding uten å avslutte
-        }
-
-        let mut is_main = true;
-        loop {
-            if let Some(msg) = rx_is_main.recv().await {
-                is_main = msg;
-                break; // Gå videre etter første gyldige melding
-            }
-            // Hvis `None`, venter den bare til neste melding uten å avslutte
-        }
-
-        if is_main == false {
-            self.vara_process(master_ip).await;
-            println!("vara_process avslutta?? burde vel ikke det? (sjefen.rs, primary_process())");
-            return; 
-        }
-        self.rolle = Rolle::MASTER;
-
-
-
-        // let ifaces = get_if_addrs().expect("Kunne ikke hente nettverkskort");
-        // let mut ethernet_ip: String = "feil_ip".to_string();
-        // for iface in ifaces {
-        //     if let IfAddr::V4(ipv4) = iface.addr {
-        //         println!("Fant IPv4-adresse: {}, localip: {}", ipv4.ip, ip);
-        //         ethernet_ip = ipv4.ip.to_string(); 
-        //     }
-        // }
-
-        
-        /*Lag channel å sende worldview på*/
-        let (tx, _) = broadcast::channel::<String>(3); //Kunne vel i teorien vært 1
-        let tx = Arc::new(tx);
-        let mut tx_clone = Arc::clone(&tx); // Klon senderen for bruk i ny oppgave
-
-        let self_copy = self.copy();
-        tokio::spawn(async move {
-            match self_copy.publiser_nyhetsbrev(tx_clone).await {
-                Ok(_) => {},
-                Err(e) => eprintln!("Feil i PostNord::publiser_nyhetsbrev: {}", e),  
-            }
-        });
-
-        
-
-        //Hent ID (siste tall i IP)
-        let id = id_fra_ip(self.ip);
-        let worldview = format!("Worldview:{}", self.ip);
-        //For nå:
-        // sender Worldview:{id}
-        loop {
-            let tx_clone_for_send = Arc::clone(&tx); // Klon senderen på nytt for sending
-            let worldview_clone = worldview.clone();
+    pub fn primary_process(&mut self) -> Pin<Box<dyn Future<Output = tokio::io::Result<()>> + Send>> {
+        let mut self_copy = self.copy();
+        Box::pin(async move {
+            println!("En sjef er starta");        
+            let self_backup = self_copy.copy_for_backup();
+            //Lager en tokio task som holder styr på backup, har også en tråd i seg som kjører IT_Roger sine funksjoner for å snakke med den
+            // Må sjekke om man allerede har en bakcup
             tokio::spawn(async move {
-                if let Err(e) = tx_clone_for_send.send(worldview_clone) {
-                    // Hvis det er feil, betyr det at ingen abonnenter er tilgjengelige
-                    println!("Ingen abonnenter tilgjengelig for å motta meldingen: {}", e);
+                self_backup.create_and_monitor_backup().await;
+            });
+            
+
+            // let (tx_is_master, mut rx_is_main) = mpsc::channel::<bool>(1);
+            // let (tx_master_ip, mut rx_master_ip) = mpsc::channel::<SocketAddr>(1);
+            //Lager en tokio task som først hører etter broadcast, og kobler seg på nettverket. Om ingen broadcast på et sekund ? ish så starter den som hovedmaster
+            // let self_copy = self.copy();
+            // let broadcast_task = tokio::spawn(async move {
+            //     match self_copy.start_broadcaster(tx_is_master, tx_master_ip).await {
+            //         Ok(_) => {},
+            //         Err(e) => eprintln!("Feil i MrWorldWide::start_broadcaster: {}", e),  
+            //     }
+            // });
+            
+            match self_copy.listen_to_network().await {
+                Ok(addr) => if addr.to_string() == "0.0.0.0" {self_copy.rolle = Rolle::MASTER}
+                                    else {self_copy.rolle = Rolle::SLAVE;
+                                    self_copy.master_ip = addr;},
+                Err(e) => eprintln!("feil i sjefen.rs primary_process() listen_to_network(): {}", e),
+            }
+            
+            
+            
+            // let mut master_ip: SocketAddr;
+            // loop {
+            //     if let Some(addr) = rx_master_ip.recv().await {
+            //         master_ip = addr;
+            //         break; // Gå videre etter første gyldige melding
+            //     }
+            //     //Hvis `None`, venter den bare til neste melding uten å avslutte
+            // }
+
+            // loop {
+            //     if let Some(msg) = rx_is_main.recv().await {
+            //         is_main = msg;
+            //         break; // Gå videre etter første gyldige melding
+            //     }
+            //     // Hvis `None`, venter den bare til neste melding uten å avslutte
+            // }
+            if self_copy.rolle == Rolle::SLAVE {
+                let mut self_copy_clone = self_copy.copy();
+                let vent = tokio::spawn(async move {
+                    match self_copy_clone.abboner_master_nyhetsbrev().await {
+                        Ok(_) => {},
+                        Err(e) => eprintln!("Feil i PostNord::abboner_master_nyhetsbrev: {}", e),  
+                    }
+                });
+                vent.await.unwrap();
+            }
+
+
+            self_copy.rolle = Rolle::MASTER;
+
+
+            let self_copy_clone = self_copy.copy();
+            let broadcast_task = tokio::spawn(async move {
+                match self_copy_clone.start_master_broadcaster().await {
+                    Ok(_) => {},
+                    Err(e) => eprintln!("Feil i MrWorldWide::start_broadcaster: {}", e),  
                 }
             });
-            sleep(Duration::from_millis(100)).await; // Sover i 1 sekund
-            //println!("Jeg lever i sjefen.rs primary_process loop");
-        }
-        
+            
+            /*Lag channel å sende worldview på*/
+            let (tx, _) = broadcast::channel::<String>(3); //Kunne vel i teorien vært 1
+            let tx = Arc::new(tx);
+            let /*mut */ tx_clone = Arc::clone(&tx); // Klon senderen for bruk i ny oppgave
 
+            let self_copy_clone = self_copy.copy();
+            let nyhetsbrev_task = tokio::spawn(async move {
+                match self_copy_clone.publiser_nyhetsbrev(tx_clone).await {
+                    Ok(_) => {}, //Må si fra at du nå er slave
+                    Err(e) => eprintln!("Feil i PostNord::publiser_nyhetsbrev: {}", e),  
+                }
+            });
+
+            
+
+            //Hent ID (siste tall i IP)
+            let worldview = format!("Worldview:{}", self_copy.ip);
+            //For nå:
+            // sender Worldview:{id}
+            while self_copy.rolle == Rolle::MASTER {
+                let tx_clone_for_send = Arc::clone(&tx); // Klon senderen på nytt for sending
+                let worldview_clone = worldview.clone();
+                tokio::spawn(async move {
+                    if let Err(e) = tx_clone_for_send.send(worldview_clone) {
+                        // Hvis det er feil, betyr det at ingen abonnenter er tilgjengelige
+                        //println!("Ingen abonnenter tilgjengelig for å motta meldingen: {}", e);
+                    }
+                });
+                sleep(Duration::from_millis(100)).await; // Sover i 1 sekund
+                //println!("Jeg lever i sjefen.rs primary_process loop");
+            }
+            nyhetsbrev_task.await?;
+            broadcast_task.abort();
+            
+            self_copy.primary_process().await?;
+    
+    
+            Ok(())
+            
+        })
+        
 
         // Må ha en seperate task som hører etter broadcast fra andre mastere her
         /*
