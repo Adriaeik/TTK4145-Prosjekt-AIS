@@ -32,12 +32,26 @@ fn main() {
                     ssh_password, ip_address
                 );
                 
-                println!("Oppdaterer system og installerer avhengigheiter: {}", update_command);
+                println!("\n \t Oppdaterer system og installerer avhengigheiter: {}", update_command);
                 let _ = Command::new("sh")
                     .arg("-c")
                     .arg(&update_command)
                     .output()
                     .expect("Feil ved oppdatering av system");
+              
+                // Pull/ oppdater main branch
+                let update_repo_command = format!(
+                    "sshpass -p '{}' ssh -X student@{} 'mkdir -p ~/fuckers && cd ~/fuckers && \
+                    if [ ! -d TTK4145-Prosjekt-AIS ]; then git clone https://github.com/Adriaeik/TTK4145-Prosjekt-AIS; \
+                    else cd TTK4145-Prosjekt-AIS && git stash && git pull origin main; fi'",
+                    ssh_password, ip_address
+                );
+                println!("\n \t Oppdaterer repo: {}", update_repo_command);
+                let _ = Command::new("sh")
+                    .arg("-c")
+                    .arg(&update_repo_command)
+                    .output()
+                    .expect("Feil ved oppdatering av repo");
                 
                 // Stopp eventuelle prosessar som allereie køyrer
                 let kill_command = format!(
@@ -45,7 +59,7 @@ fn main() {
                     ssh_password, ip_address
                 );
                 
-                println!("Stopper eventuelle kjørende prosesser: {}", kill_command);
+                println!("\n \t Stopper eventuelle kjørende prosesser: {}", kill_command);
                 let _ = Command::new("sh")
                     .arg("-c")
                     .arg(&kill_command)
@@ -58,7 +72,7 @@ fn main() {
                     ssh_password, ip_address
                 );
                 
-                println!("Starter elevatorserver i ny terminal: {}", elevator_server_command);
+                println!("\n \t Starter elevatorserver i ny terminal: {}", elevator_server_command);
                 let _ = Command::new("sh")
                     .arg("-c")
                     .arg(&elevator_server_command)
@@ -71,7 +85,7 @@ fn main() {
                     ssh_password, ip_address, role, id
                 );
                 
-                println!("Kjører programmet i ny terminal: {}", command);
+                println!("\n \t Kjører programmet i ny terminal: {}", command);
                 let output = Command::new("sh")
                     .arg("-c")
                     .arg(&command)
