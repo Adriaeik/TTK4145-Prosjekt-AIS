@@ -9,7 +9,7 @@ use tokio::io::{AsyncWriteExt, AsyncReadExt};
 use std::sync::Arc;
 
 
-pub async fn publiser_nyhetsbrev(self_ip: &str) -> tokio::io::Result<()> {
+pub async fn publiser_nyhetsbrev(self_ip: &str, mut tx: Arc<broadcast::Sender<String>>) -> tokio::io::Result<()> {
     let port = "50000";
 
 
@@ -22,23 +22,19 @@ pub async fn publiser_nyhetsbrev(self_ip: &str) -> tokio::io::Result<()> {
     let listener = TcpListener::bind(format!("{}:{}", iponly, port)).await?;
     println!("Nyhetsbrev oppretta på {}:{}", self_ip, port);
 
-    let (tx, _) = broadcast::channel::<String>(3); //Kunne vel i teorien vært 1
-    let tx = Arc::new(tx);
+    // let (tx, _) = broadcast::channel::<String>(3); //Kunne vel i teorien vært 1
+    // let tx = Arc::new(tx);
 
 
 
     // Håndter alle innkommende tilkoblinger
     loop {
-        //Må legge til:
-        //Les nyeste worldview fra rx????
-
-
         let (mut socket, _) = listener.accept().await?;  // Nå kan vi kalle accept() på listeneren
-        let mut tx = Arc::clone(&tx); // Klon senderen for bruk i ny oppgave
+        let mut tx_clone = Arc::clone(&tx); // Klon senderen for bruk i ny oppgave
 
         // Start en ny oppgave for hver klient
         tokio::spawn(async move {
-            let rx = tx.subscribe(); // Opprett en ny receiver for hver klient
+            let rx = tx_clone.subscribe(); // Opprett en ny receiver for hver klient
             if let Err(e) = send_nyhetsbrev(socket, rx).await {
                 eprintln!("Feil i kommunikasjon med klient: {}", e);
             }

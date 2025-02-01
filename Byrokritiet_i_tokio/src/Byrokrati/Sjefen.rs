@@ -11,6 +11,8 @@ use tokio::time::{sleep, Duration};
 use std::env;
 use tokio::sync::mpsc;
 use get_if_addrs::{get_if_addrs, IfAddr};
+use std::sync::Arc;
+use tokio::sync::broadcast;
 
 #[derive(Clone, Debug)]
 pub struct AnsattPakke {
@@ -155,9 +157,17 @@ pub async fn primary_process(ip: &str) {
     //     }
     // }
 
+    
+    /*Lag channel å sende worldview på*/
+    let (tx, _) = broadcast::channel::<String>(3); //Kunne vel i teorien vært 1
+    let tx = Arc::new(tx);
+    let mut tx_clone = Arc::clone(&tx); // Klon senderen for bruk i ny oppgave
+
+
+
     let ip_copy2 = ip.to_string();
     tokio::spawn(async move {
-        match PostNord::publiser_nyhetsbrev(&ip_copy2).await {
+        match PostNord::publiser_nyhetsbrev(&ip_copy2, tx_clone).await {
             Ok(_) => {},
             Err(e) => eprintln!("Feil i PostNord::publiser_nyhetsbrev: {}", e),  
         }
@@ -165,6 +175,13 @@ pub async fn primary_process(ip: &str) {
 
 
     loop {
+        let tx_clone_for_send = Arc::clone(&tx); // Klon senderen på nytt for sending
+        tokio::spawn(async move {
+            if let Err(e) = tx_clone_for_send.send("Worldview!!!!".to_string()) {
+                // Hvis det er feil, betyr det at ingen abonnenter er tilgjengelige
+                println!("Ingen abonnenter tilgjengelig for å motta meldingen: {}", e);
+            }
+        });
         sleep(Duration::from_millis(100)).await; // Sover i 1 sekund
         //println!("Jeg lever i sjefen.rs primary_process loop");
     }
