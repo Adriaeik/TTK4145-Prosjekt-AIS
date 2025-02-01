@@ -148,7 +148,8 @@ impl Sjefen{
             match self_copy.listen_to_network().await {
                 Ok(addr) => if addr.to_string() == "0.0.0.0" {self_copy.rolle = Rolle::MASTER}
                                     else {self_copy.rolle = Rolle::SLAVE;
-                                    self_copy.master_ip = addr;},
+                                    self_copy.master_ip = addr;
+                                    self_copy.abboner_master_nyhetsbrev().await?;},
                 Err(e) => eprintln!("feil i sjefen.rs primary_process() listen_to_network(): {}", e),
             }
             
