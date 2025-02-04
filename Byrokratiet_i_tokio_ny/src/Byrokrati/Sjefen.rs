@@ -128,14 +128,14 @@ impl Sjefen{
 
         //Nå vet du at du skal bli master. Du må fikse WorldView basert på det du vet (egen heis, osv.)
         let mut worldview = WorldView::WorldView::default();
-        let mut heis = WorldView::AlenemorDel::default();
+        let mut mor = WorldView::AlenemorDel::default();
         
         let self_id = konsulent::id_fra_ip(self.ip);
         
-        heis.heis_id = self_id;
+        mor.heis_id = self_id;
 
         worldview.master_id = self_id;
-        worldview.add_heis(heis);
+        worldview.rapporter_annsettelse_av_mor(mor);
 
         let worldview_serialised = WorldView::serialize_worldview(&worldview);
         match worldview_serialised {

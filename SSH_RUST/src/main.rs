@@ -60,7 +60,7 @@ fn main() {
                         .expect("Feil ved oppdatering av repo");
                 }
                 // drep pågåande program
-                let kill_command = format!("pkill -f {}", "Byrokritiet_i_tokio"); // Erstatt med korrekt prosessnavn
+                let kill_command = format!("pkill -f {}", "Byrokratiet_i_tokio_ny"); // Erstatt med korrekt prosessnavn
                 println!("\nDreper evt. pågåande program: \n \t  {}", kill_command);
                 let _ = Command::new("sh")
                     .arg("-c")
@@ -84,7 +84,7 @@ fn main() {
                 // Hopp over programstart om `--only_elev` er sett
                 if !only_elev {
                     let command = format!(
-                        "sshpass -p '{}' ssh -X student@{} 'export DISPLAY=:0 && gnome-terminal -- bash -c \"cd ~/fuckers/TTK4145-Prosjekt-AIS/Byrokritiet_i_tokio && cargo run -- {} {}; exec bash\"'",
+                        "sshpass -p '{}' ssh -X student@{} 'export DISPLAY=:0 && gnome-terminal -- bash -c \"cd ~/fuckers/TTK4145-Prosjekt-AIS/Byrokratiet_i_tokio_ny && cargo run -- {} {}; exec bash\"'",
                         ssh_password, ip_address, role, id
                     );
                     
