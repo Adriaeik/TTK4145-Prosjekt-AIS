@@ -53,8 +53,7 @@ async fn main() {
     
     //Init av tx til worldviewchannel
     let (tx, _) = broadcast::channel::<Vec<u8>>(1);
-    let tx_arc = Arc::new(tx);
-    let worldview_channel = WorldViewChannel::WorldViewChannel {tx: tx_arc};
+    let worldview_channel = WorldViewChannel::WorldViewChannel {tx: tx};
     
     
     

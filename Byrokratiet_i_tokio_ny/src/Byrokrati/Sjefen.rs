@@ -182,9 +182,8 @@ impl Sjefen{
         // bacup vil aldri kjøre denne funksjonen. startes kun fra master/slav_process
         let wv_channel_clone = WorldViewChannel::WorldViewChannel{tx: wv_channel.tx.clone()};
         if self.ip == *self.master_ip.lock().await {
-            let shutdown_tx_clone = shutdown_tx.clone();
             
-            match self.master_process(wv_channel_clone, shutdown_tx_clone).await {
+            match self.master_process(wv_channel_clone, shutdown_tx.clone()).await {
                 Ok(_) => {Ok(())},
                 Err(e) => {
                     eprintln!("Feil i master_process: {:?}", e);
@@ -194,7 +193,7 @@ impl Sjefen{
             
         }
         else {
-            self.slave_process(wv_channel_clone);
+            self.slave_process(wv_channel_clone, shutdown_tx.clone()).await;
             return Ok(())
         }
      
@@ -237,8 +236,12 @@ impl Sjefen{
 
     }
     
-    async fn slave_process(&self, wv_channel: WorldViewChannel::WorldViewChannel, shutdown_tx: broadcast::Sender<u8>) {
-        self.abboner_master_nyhetsbrev(shutdown_tx.clone().subscribe()).await;      
+    async fn slave_process(&self, wv_channel: WorldViewChannel::WorldViewChannel, shutdown_tx: broadcast::Sender<u8>) -> tokio::io::Result<()> {
+        let abboner_task = self.clone().abboner_master_nyhetsbrev(shutdown_tx.clone().subscribe()).await;
+
+        loop {
+            
+        }      
     }
 
 

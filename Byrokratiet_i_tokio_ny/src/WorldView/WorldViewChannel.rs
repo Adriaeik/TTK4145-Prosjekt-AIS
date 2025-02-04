@@ -28,7 +28,7 @@ pub async fn request_worldview() {
 
 
 pub struct WorldViewChannel {
-    pub tx: Arc<broadcast::Sender<Vec<u8>>>,
+    pub tx: broadcast::Sender<Vec<u8>>,
 }
 
 impl Clone for WorldViewChannel {
