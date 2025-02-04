@@ -1,6 +1,6 @@
 //! Globale verdier osv
 
-pub static PN_PORT: u16 = 6969; // Port for TCP mellom mastere
+pub static PN_PORT: u16 = u16::MAX; // Port for TCP mellom mastere
 pub static BCU_PORT: u16 = 8082; // Port for TCP mellom lokal master/backup
 pub static DUMMY_PORT: u16 = 42069; // Port fro sending / mottak av UDP broadcast
 

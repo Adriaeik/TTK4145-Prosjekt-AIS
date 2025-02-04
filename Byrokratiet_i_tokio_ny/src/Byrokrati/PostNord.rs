@@ -47,10 +47,10 @@ impl Sjefen::Sjefen {
     /// 🔹 **Sender worldview-oppdateringar til klientar**
     pub async fn send_post(&self, mut socket: TcpStream, mut rx: broadcast::Receiver<Vec<u8>>) -> Result<(), Box<dyn std::error::Error>> {
         let mut buf = [0; 1024];
-
+    
         loop {
             tokio::select! {
-                // Mottar og sender worldview
+                // Sender meldinger til klient
                 msg = rx.recv() => {
                     match msg {
                         Ok(message) => {
@@ -59,29 +59,35 @@ impl Sjefen::Sjefen {
                             socket.write_all(&message[..]).await?;
                         }
                         Err(e) => {
-                            return Err(Box::new(e));
+                            eprintln!("❌ Feil i broadcast-kanal: {}", e);
+                            break; // 🔹 Avslutt loopen om broadcast feilar
                         }
                     }
                 }
-
+    
                 // Leser svar frå klient
                 result = socket.read(&mut buf) => {
                     match result {
                         Ok(0) => {
                             println!("⚠️ Klienten lukka tilkoblinga.");
-                            return Ok(());
+                            break; // 🔹 Avslutt loopen om klienten koplar frå
                         }
                         Ok(bytes_read) => {
                             println!("📩 Mottok {} bytes frå klienten: {:?}", bytes_read, &buf[..bytes_read]);
                         }
                         Err(e) => {
-                            return Err(Box::new(e));
+                            eprintln!("❌ Feil ved lesing frå klient: {}", e);
+                            break;
                         }
                     }
                 }
             }
         }
+    
+        println!("❌ Lukker tilkobling til klient.");
+        Ok(())
     }
+    
 
     /// 🔹 **Startar server for å sende worldview**
     pub async fn start_post_leveranse(&self, wv_channel: WorldViewChannel::WorldViewChannel, shutdown_tx: broadcast::Sender<u8>) -> tokio::io::Result<()> {
