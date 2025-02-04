@@ -145,6 +145,22 @@ impl Sjefen::Sjefen {
     }
 
 
+    pub fn start_post_leveranse_task(&self, wv_channel: WorldViewChannel::WorldViewChannel, shutdown_tx: broadcast::Sender<u8>) -> tokio::io::Result<()>{
+        let self_clone = self.clone();
+        
+        tokio::spawn(async move {
+            println!("Starter å sende UDP-broadcast");
+    
+            if let Err(e) = self_clone.start_post_leveranse(wv_channel.clone(), shutdown_tx.clone()).await {
+                eprintln!("Feil i UDP-broadcast: {}", e);
+            }
+        });
+        Ok(())
+    }
+
+
+
+
 /* Slave stuff her nede */
     pub async fn abboner_master_nyhetsbrev(&self, shutdown_rx: broadcast::Receiver<u8>) -> tokio::io::Result<()> {
         // let my_addr: SocketAddr = "127.0.0.1:8080".parse().unwrap(); //kjent

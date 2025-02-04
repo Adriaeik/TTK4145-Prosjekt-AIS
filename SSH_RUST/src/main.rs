@@ -37,12 +37,12 @@ fn main() {
                     ssh_password, ip_address
                 );
                 
-                println!("\nOppdaterer system og installerer avhengigheiter: \n \t  {}", update_command);
-                let _ = Command::new("sh")
-                    .arg("-c")
-                    .arg(&update_command)
-                    .output()
-                    .expect("Feil ved oppdatering av system");
+                // println!("\nOppdaterer system og installerer avhengigheiter: \n \t  {}", update_command);
+                // let _ = Command::new("sh")
+                //     .arg("-c")
+                //     .arg(&update_command)
+                //     .output()
+                //     .expect("Feil ved oppdatering av system");
                 
                 // Oppdater repo om `--update_repo` er sett
                 if update_repo {

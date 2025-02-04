@@ -218,7 +218,7 @@ impl Sjefen{
         //let wv_rx = wv_channel.tx.clone().subscribe();
         // 1) start TCP -> publiser nyhetsbrev
         let wv_channel_clone = WorldViewChannel::WorldViewChannel{tx: wv_channel.tx.clone()};
-        let post_handle = self.start_post_leveranse(/*Arc*/wv_channel_clone, shutdown_tx.clone());
+        let post_handle = self.start_post_leveranse_task(/*Arc*/wv_channel_clone, shutdown_tx.clone());
 
         let udp_handle = self.start_udp_broadcast_task(shutdown_tx.clone());
         /*
@@ -240,7 +240,7 @@ impl Sjefen{
         let abboner_task = self.clone().abboner_master_nyhetsbrev(shutdown_tx.clone().subscribe()).await;
 
         loop {
-            
+
         }      
     }
 
