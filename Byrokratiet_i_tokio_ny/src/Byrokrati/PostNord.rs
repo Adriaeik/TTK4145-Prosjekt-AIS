@@ -59,13 +59,14 @@ impl Sjefen::Sjefen {
 
         let mut buf = [0; 10];
         loop {
+            tokio::time::sleep(Duration::from_micros(100)).await;
             WorldViewChannel::request_worldview().await;
             tokio::select! {
                 msg = rx.recv() => match msg {
                     Ok(wv_msg) => {
                         if let Err(e) = socket.write_all(&wv_msg).await {
                             eprintln!("feil ved sending til klient i send_post: {} ",e);
-                            //return Err(e);
+                            return Err(e);
                         }
                     }
                     Err(e) =>{
@@ -191,7 +192,7 @@ impl Sjefen::Sjefen {
                 break;
             }
             let message = String::from_utf8_lossy(&buf[..bytes_read]);
-            println!("Melding fra server: {}", message);
+            println!(" Melding fra server: {}", message);
             if self.id < master_id {
                 println!("Jeg har lavere ID enn master, jeg må bli master!!!!");
                 //Må kanskje passe på å lukke tidligere tråder?
