@@ -1,3 +1,4 @@
+///! Broadcaster sin IP til heile verden, så alle kan sjå
 use tokio::net::UdpSocket;
 use tokio::time::{sleep, timeout, Duration};
 use std::net::{IpAddr, SocketAddr};

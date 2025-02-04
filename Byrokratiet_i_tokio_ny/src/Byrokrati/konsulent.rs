@@ -1,4 +1,6 @@
-/*Konsulenten tar seg av */
+/*Konsulenten veit naturlegvis ikkje kva jobben hans egentlig er, 
+og du må ikkje finne på å spørre han om kva jobben hans innebærer*/
+
 // Dette programmet gir deg 3 sekund på å lukke vinduer
 use std::fs::OpenOptions;
 use std::io::Write;
