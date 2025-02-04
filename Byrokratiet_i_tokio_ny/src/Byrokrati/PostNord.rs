@@ -57,13 +57,13 @@ impl Sjefen::Sjefen {
         //postman Pat
     pub async fn send_post(&self, mut socket: tokio::net::TcpStream, mut rx: broadcast::Receiver<Vec<u8>>) -> tokio::io::Result<()> {  
 
-        let mut buf = [0; 10];
+        let mut buf = [0; 1024];
         loop {
             
             tokio::select! {
                 msg = rx.recv() => match msg {
                     Ok(wv_msg) => {
-                        if let Err(e) = socket.write_all("Hei fra master".as_bytes()).await {
+                        if let Err(e) = socket.write_all(&wv_msg[..]).await {
                             eprintln!("feil ved sending til klient i send_post: {} ",e);
                             return Err(e);
                         }
