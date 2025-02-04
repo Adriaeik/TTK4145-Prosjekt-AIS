@@ -63,6 +63,7 @@ impl Sjefen::Sjefen {
             tokio::select! {
                 msg = rx.recv() => match msg {
                     Ok(wv_msg) => {
+                        println!("msg: {:?}", &wv_msg[..]);
                         if let Err(e) = socket.write_all(&wv_msg[..]).await {
                             eprintln!("feil ved sending til klient i send_post: {} ",e);
                             return Err(e);
@@ -190,8 +191,8 @@ impl Sjefen::Sjefen {
                 println!("Serveren stengte tilkoblingen.");
                 break;
             }
-            let message = String::from_utf8_lossy(&buf[..bytes_read]);
-            println!(" Melding fra server: {}", message);
+            // let message = String::from_utf8_lossy(&buf[..bytes_read]);
+            println!(" Melding fra server: {:?}", &buf);
             if self.id < master_id {
                 println!("Jeg har lavere ID enn master, jeg må bli master!!!!");
                 //Må kanskje passe på å lukke tidligere tråder?
