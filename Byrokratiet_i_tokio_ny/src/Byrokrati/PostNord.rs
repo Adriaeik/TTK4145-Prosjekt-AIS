@@ -114,34 +114,38 @@ impl Sjefen::Sjefen {
             let mut shutdown_rx = shutdown_tx.subscribe();
             let self_clone = self.clone();
             tokio::select! {
-                Ok((socket, addr)) = listener.accept() => {
-                    // TODO::
-                    // if konsulent::id_fra_ip(addr.ip()) < self.id {
-                    //     self.update_wordview();
-                    //     self.start_overtake(socket, worldview_rx).await;
-                    //     shutdown_tx.send(8);
-                    //     return Ok(());
-                    // }
-
-                    //TODO:: Send ip til nye tilkobla så wordlview kan oppdateres
-                    let wv_rx = wv_channel.tx.clone().subscribe(); //klon wv tx til rx og subscribe til den
-                    let task = tokio::spawn(async move { //Start ny task som sender nyhetsbrev til denne tilkoblinga
-                        if let Err(e) = self_clone.send_post(socket, wv_rx).await {
-                            eprintln!("En av slavene kobla seg av: {}", e);
-                        }
-                    });
-                    tasks.push(task); //TODO::Legg til tasken i vektor så den kan avsluttes
-                }
+                // 🟢 Prøver å godta nye tilkoblingar, men handterer feil
+                accept_result = listener.accept() => match accept_result {
+                    Ok((socket, addr)) => {
+                        println!("🟢 Ny klient tilkobla frå: {}", addr);
+            
+                        let wv_rx = wv_channel.tx.clone().subscribe(); // Klon wv tx til rx
+                        let self_clone = self.clone();
+            
+                        let task = tokio::spawn(async move {
+                            if let Err(e) = self_clone.send_post(socket, wv_rx).await {
+                                eprintln!("❌ En av slavene kobla seg av: {}", e);
+                            }
+                        });
+            
+                        tasks.push(task); // Lagrar tasken i vektor slik at den kan avsluttast
+                    }
+                    Err(e) => {
+                        eprintln!("⚠️ Feil ved akseptering av ny tilkobling: {}", e);
+                        tokio::time::sleep(tokio::time::Duration::from_millis(500)).await; // Hindre umiddelbar retry-loop
+                    }
+                },
+                
                 _ = shutdown_rx.recv() => {
                     println!("Shutdown mottatt! Avsluttar alle tasks.");
                     for task in &tasks {
                         task.abort(); // Avbryt alle tasks
                     }
-
+            
                     for task in tasks {
                         let _ = task.await; // Ventar på at dei avsluttar seg sjølv
                     }
-
+            
                     println!("Alle tasks avslutta. Server shutdown.");
                     break Ok(());
                 }
