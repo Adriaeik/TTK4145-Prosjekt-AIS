@@ -22,7 +22,7 @@ impl Default for AlenemorDel {
     fn default() -> Self {
         Self {
             heis_id: 0,
-            inside_button: vec![CallButton::default(); 6], // 6 knapper med default-verdi
+            inside_button: Vec::new(), // 6 knapper med default-verdi
             door_open: false,
             obstruction: false,
             motor_dir: 0,
@@ -49,7 +49,7 @@ impl Default for WorldView {
         Self {
             n: 0,
             master_id: config::ERROR_ID,
-            outside_button: vec![CallButton::default(); 10], //10 default "tomme" callbuttons
+            outside_button: Vec::new(), 
             heis_spesifikke: Vec::new(),
         }
     }
@@ -57,24 +57,24 @@ impl Default for WorldView {
 
 
 impl WorldView {
-    pub fn add_heis(&mut self, heis: AlenemorDel) {
+    pub fn rapporter_annsettelse_av_mor(&mut self, mor: AlenemorDel) {
         self.n = self.n + 1;
-        self.heis_spesifikke.push(heis);
+        self.heis_spesifikke.push(mor);
     }
     
-    pub fn remove_heis(&mut self, id: u8) {
+    pub fn rapporter_sparking_av_mor(&mut self, id: u8) {
         let initial_len = self.heis_spesifikke.len();
 
-        self.heis_spesifikke.retain(|heis| heis.heis_id != id);
+        self.heis_spesifikke.retain(|mor| mor.heis_id != id);
     
         if self.heis_spesifikke.len() == initial_len {
-            println!("Ingen heis med ID {} ble funnet.", id);
+            println!("Ingen mor med ID {} ble funnet.", id);
         } else {
-            println!("Heis med ID {} ble fjernet.", id);
+            println!("Mor med ID {} ble fjernet.", id);
         }
     }
 
-    pub fn get_elev_num(&self) -> u8 {
+    pub fn hvor_mange_modre_har_jeg(&self) -> u8 {
         return self.n;
     }
 }
