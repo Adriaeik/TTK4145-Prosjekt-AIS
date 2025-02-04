@@ -65,7 +65,7 @@ impl Sjefen::Sjefen {
                     Ok(wv_msg) => {
                         if let Err(e) = socket.write_all(&wv_msg).await {
                             eprintln!("feil ved sending til klient i send_post: {} ",e);
-                            return Err(e);
+                            //return Err(e);
                         }
                     }
                     Err(e) =>{
@@ -78,7 +78,7 @@ impl Sjefen::Sjefen {
                     Ok(0) =>{
                         //TODO:: oppdater worldview om dette
                         println!("TCP er lukket av slave");
-                        return Ok(());
+                        //return Ok(());
                     }
                     Ok(_) => {
                         println!("Mottok fra klienten: {}", String::from_utf8_lossy(&buf));
