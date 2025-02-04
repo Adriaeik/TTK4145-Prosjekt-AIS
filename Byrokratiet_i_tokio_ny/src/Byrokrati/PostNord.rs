@@ -5,10 +5,11 @@ use crate::config;
 use crate::WorldView::WorldView;
 use crate::WorldView::WorldViewChannel;
 
-
+use std::result::Result::Ok;
 use std::net::SocketAddr;
 use std::time::Duration;
 use std::u8;
+use socket2::Socket;
 use tokio::net::{TcpStream, TcpListener};
 use tokio::sync::broadcast;
 use tokio::io::{AsyncWriteExt, AsyncReadExt};
@@ -55,47 +56,82 @@ impl Sjefen::Sjefen {
 
 
         //postman Pat
-    pub async fn send_post(&self, mut socket: tokio::net::TcpStream, mut rx: broadcast::Receiver<Vec<u8>>) -> tokio::io::Result<()> {  
+    pub async fn send_post(&self, mut socket: tokio::net::TcpStream, mut rx: broadcast::Receiver<Vec<u8>>) -> Result<(), Box<dyn std::error::Error>> {  
 
         let mut buf = [0; 1024];
         loop {
-            
             tokio::select! {
-                msg = rx.recv() => match msg {
-                    Ok(wv_msg) => {
-                        println!("msg: {:?}", &wv_msg[..]);
-                        let len_b = (wv_msg.len() as u32).to_be_bytes();
-                        socket.write_all(&len_b).await?;
-                        socket.write_all(&wv_msg[..]).await?;
+                msg = rx.recv() => {
+                    match msg{    
+                        Ok(message) => {
+                            let len_b = (message.len() as u32).to_be_bytes();
+                            if let Err(e) = socket.write_all(&len_b).await {
+                                return Err(Box::new(e));
+                            }
+                            if let Err(e) = socket.write_all(&message[..]).await {
+                                return Err(Box::new(e));
+                            }
 
-
-                        // if let Err(e) = socket.write_all(&wv_msg[..]).await {
-                        //     eprintln!("feil ved sending til klient i send_post: {} ",e);
-                        //     return Err(e);
-                        // }
+                        }
+                        Err(e) => {
+                            return Err(Box::new(e));
+                        }
                     }
-                    Err(e) =>{
-                        eprint!("Feil ved mottak fra broadcast kanal (wv_rx): {}", e);
+                }
+                result = socket.read(&mut buf) => {
+                    match result {
+                        Ok(0) => {
+                            println!("Kobling lukks sv klienten");
+                            return Ok(())
+                        }
+                        Ok(_) => {}
+                        Err(e) => {
+                            return Err(Box::new(e));
+                        }
                     }
-                },  
-        
-                // Les ack
-                result = socket.read(&mut buf) => match result {
-                    Ok(0) =>{
-                        //TODO:: oppdater worldview om dette
-                        println!("TCP er lukket av slave");
-                        return Ok(());
-                    }
-                    Ok(_) => {
-                        println!("Mottok fra klienten: {}", String::from_utf8_lossy(&buf));
-                    }
-                    Err(e) => {
-                        eprintln!("Feil ved lesing frå slaven: {}", e);
-                        return Err(e);
-                    }
+                     
                 }
             }
         }
+
+        // loop {
+            
+        //     tokio::select! {
+        //         msg = rx.recv() => match msg {
+        //             Ok(wv_msg) => {
+        //                 println!("msg: {:?}", &wv_msg[..]);
+        //                 let len_b = (wv_msg.len() as u32).to_be_bytes();
+        //                 socket.write_all(&len_b).await?;
+        //                 socket.write_all(&wv_msg[..]).await?;
+
+
+        //                 // if let Err(e) = socket.write_all(&wv_msg[..]).await {
+        //                 //     eprintln!("feil ved sending til klient i send_post: {} ",e);
+        //                 //     return Err(e);
+        //                 // }
+        //             }
+        //             Err(e) =>{
+        //                 eprint!("Feil ved mottak fra broadcast kanal (wv_rx): {}", e);
+        //             }
+        //         },  
+        
+        //         // Les ack
+        //         result = socket.read(&mut buf) => match result {
+        //             Ok(0) =>{
+        //                 //TODO:: oppdater worldview om dette
+        //                 println!("TCP er lukket av slave");
+        //                 return Ok(());
+        //             }
+        //             Ok(_) => {
+        //                 println!("Mottok fra klienten: {}", String::from_utf8_lossy(&buf));
+        //             }
+        //             Err(e) => {
+        //                 eprintln!("Feil ved lesing frå slaven: {}", e);
+        //                 return Err(e);
+        //             }
+        //         }
+        //     }
+        // }
         
     }
 
@@ -109,48 +145,63 @@ impl Sjefen::Sjefen {
         */
 
         let listener = TcpListener::bind(format!("{}:{}", self.ip, config::PN_PORT)).await?;
-        let mut tasks = Vec::new();
+        // let mut tasks = Vec::new();
         loop {
-            let mut shutdown_rx = shutdown_tx.subscribe();
+            let (mut socket, _) = listener.accept().await?;
+            let rx = wv_channel.tx.clone().subscribe();
             let self_clone = self.clone();
-            tokio::select! {
-                // 🟢 Prøver å godta nye tilkoblingar, men handterer feil
-                accept_result = listener.accept() => match accept_result {
-                    Ok((socket, addr)) => {
-                        println!("🟢 Ny klient tilkobla frå: {}", addr);
-            
-                        let wv_rx = wv_channel.tx.clone().subscribe(); // Klon wv tx til rx
-                        let self_clone = self.clone();
-            
-                        let task = tokio::spawn(async move {
-                            if let Err(e) = self_clone.send_post(socket, wv_rx).await {
-                                eprintln!("❌ En av slavene kobla seg av: {}", e);
-                            }
-                        });
-            
-                        tasks.push(task); // Lagrar tasken i vektor slik at den kan avsluttast
-                    }
-                    Err(e) => {
-                        eprintln!("⚠️ Feil ved akseptering av ny tilkobling: {}", e);
-                        tokio::time::sleep(tokio::time::Duration::from_millis(500)).await; // Hindre umiddelbar retry-loop
-                    }
-                },
-                
-                _ = shutdown_rx.recv() => {
-                    println!("Shutdown mottatt! Avsluttar alle tasks.");
-                    for task in &tasks {
-                        task.abort(); // Avbryt alle tasks
-                    }
-            
-                    for task in tasks {
-                        let _ = task.await; // Ventar på at dei avsluttar seg sjølv
-                    }
-            
-                    println!("Alle tasks avslutta. Server shutdown.");
-                    break Ok(());
+            tokio::spawn(async move {
+                match self_clone.send_post(socket, rx).await {
+                    Ok(_) => {},
+                    Err(e) => eprintln!("Feil i send_post: {}", e),
                 }
-            }
+            //     if let Err(e) = self.clone().send_post(socket, rx).await{
+            //         eprintln!("KYRA{}",e);
+            //    }
+            
+            });
         }
+        // loop {
+        //     let mut shutdown_rx = shutdown_tx.subscribe();
+        //     let self_clone = self.clone();
+        //     tokio::select! {
+        //         // 🟢 Prøver å godta nye tilkoblingar, men handterer feil
+        //         accept_result = listener.accept() => match accept_result {
+        //             Ok((socket, addr)) => {
+        //                 println!("🟢 Ny klient tilkobla frå: {}", addr);
+            
+        //                 let wv_rx = wv_channel.tx.clone().subscribe(); // Klon wv tx til rx
+        //                 let self_clone = self.clone();
+            
+        //                 let task = tokio::spawn(async move {
+        //                     if let Err(e) = self_clone.send_post(socket, wv_rx).await {
+        //                         eprintln!("❌ En av slavene kobla seg av: {}", e);
+        //                     }
+        //                 });
+            
+        //                 tasks.push(task); // Lagrar tasken i vektor slik at den kan avsluttast
+        //             }
+        //             Err(e) => {
+        //                 eprintln!("⚠️ Feil ved akseptering av ny tilkobling: {}", e);
+        //                 tokio::time::sleep(tokio::time::Duration::from_millis(500)).await; // Hindre umiddelbar retry-loop
+        //             }
+        //         },
+                
+        //         _ = shutdown_rx.recv() => {
+        //             println!("Shutdown mottatt! Avsluttar alle tasks.");
+        //             for task in &tasks {
+        //                 task.abort(); // Avbryt alle tasks
+        //             }
+            
+        //             for task in tasks {
+        //                 let _ = task.await; // Ventar på at dei avsluttar seg sjølv
+        //             }
+            
+        //             println!("Alle tasks avslutta. Server shutdown.");
+        //             break Ok(());
+        //         }
+        //     }
+        // }
 
     }
 

@@ -77,7 +77,7 @@ async fn main() {
             Ok(_) => {},
             Err(e) => {
                 println!("feil: {}", e);
-                shutdown_tx.send(1).expect("HORE2");
+                // shutdown_tx.send(1).expect("HORE2");
                 
                 break;
             }
