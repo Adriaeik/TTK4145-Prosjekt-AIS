@@ -16,7 +16,7 @@ pub mod Byrokrati{
 
 pub mod WorldView{
     pub mod WorldView;
-    
+    pub mod WorldViewChannel;    
 }
 
 pub mod config;
