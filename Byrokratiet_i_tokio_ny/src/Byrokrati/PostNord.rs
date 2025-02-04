@@ -149,10 +149,10 @@ impl Sjefen::Sjefen {
         let self_clone = self.clone();
         
         tokio::spawn(async move {
-            println!("Starter å sende UDP-broadcast");
+            println!("Starter nyhetsbrev");
     
             if let Err(e) = self_clone.start_post_leveranse(wv_channel.clone(), shutdown_tx.clone()).await {
-                eprintln!("Feil i UDP-broadcast: {}", e);
+                eprintln!("Feil i post_leveranse: {}", e);
             }
         });
         Ok(())
