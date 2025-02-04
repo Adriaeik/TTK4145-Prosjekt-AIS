@@ -64,10 +64,15 @@ impl Sjefen::Sjefen {
                 msg = rx.recv() => match msg {
                     Ok(wv_msg) => {
                         println!("msg: {:?}", &wv_msg[..]);
-                        if let Err(e) = socket.write_all(&wv_msg[..]).await {
-                            eprintln!("feil ved sending til klient i send_post: {} ",e);
-                            return Err(e);
-                        }
+                        let len_b = (wv_msg.len() as u32).to_be_bytes();
+                        socket.write_all(&len_b).await?;
+                        socket.write_all(&wv_msg[..]).await?;
+
+
+                        // if let Err(e) = socket.write_all(&wv_msg[..]).await {
+                        //     eprintln!("feil ved sending til klient i send_post: {} ",e);
+                        //     return Err(e);
+                        // }
                     }
                     Err(e) =>{
                         eprint!("Feil ved mottak fra broadcast kanal (wv_rx): {}", e);
@@ -174,7 +179,7 @@ impl Sjefen::Sjefen {
         //NB!!!!
         // Må teste litt på sanntidslabben om riktig ip blir sent i udp_broadcasten, eller om man må sende den som en melding i udp broadcasten
         let mut stream = TcpStream::connect(format!("{}:{}", *self.master_ip.lock().await, config::PN_PORT)).await?;
-        let mut buf = [0; 1024];
+        // let mut buf = [0; 1024];
         println!("Har kobla til en master på ip: {}:{}", *self.master_ip.lock().await, config::PN_PORT);
 
 
@@ -186,12 +191,17 @@ impl Sjefen::Sjefen {
 
 
         loop {
-            let bytes_read = stream.read(&mut buf).await?;
+            let mut len_bytes = [0u8; 4]; 
+            let bytes_read = stream.read_exact(&mut len_bytes).await?;
             if bytes_read == 0 {
                 println!("Serveren stengte tilkoblingen.");
                 break;
             }
             // let message = String::from_utf8_lossy(&buf[..bytes_read]);
+            let len = u32::from_be_bytes(len_bytes) as usize; // 🔹 Konverter til `usize`
+            let mut buf = vec![0u8; len]; // 🔹 Lag buffer med riktig lengde
+
+            stream.read_exact(&mut buf).await?;
             println!(" Melding fra server: {:?}", &buf);
             if self.id < master_id {
                 println!("Jeg har lavere ID enn master, jeg må bli master!!!!");
