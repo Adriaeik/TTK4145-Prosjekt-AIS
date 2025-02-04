@@ -59,8 +59,7 @@ impl Sjefen::Sjefen {
 
         let mut buf = [0; 10];
         loop {
-            tokio::time::sleep(Duration::from_micros(100)).await;
-            WorldViewChannel::request_worldview().await;
+            
             tokio::select! {
                 msg = rx.recv() => match msg {
                     Ok(wv_msg) => {

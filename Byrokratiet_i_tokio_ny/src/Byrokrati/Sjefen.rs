@@ -221,6 +221,9 @@ impl Sjefen{
         let post_handle = self.start_post_leveranse_task(/*Arc*/wv_channel_clone, shutdown_tx.clone());
 
         let udp_handle = self.start_udp_broadcast_task(shutdown_tx.clone());
+
+
+    
         /*
         Evt ha e tråd følge med på UDP og post_handle, og starte den på nytt om nødvendig:
         match udp_handle.await {
@@ -231,7 +234,8 @@ impl Sjefen{
 
         
         loop{
-
+            tokio::time::sleep(Duration::from_micros(100)).await;
+            WorldViewChannel::request_worldview().await;
         }
 
     }
