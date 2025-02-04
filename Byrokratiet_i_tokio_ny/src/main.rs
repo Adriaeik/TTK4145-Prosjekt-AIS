@@ -19,11 +19,14 @@ cargo run -- backup ID -> lager en lokal backup som vil få ID om den tar over
 use Byrokratiet_i_tokio_ny::Byrokrati::Sjefen;
 use Byrokratiet_i_tokio_ny::Byrokrati::konsulent;
 use Byrokratiet_i_tokio_ny::WorldView::WorldView;
+use Byrokratiet_i_tokio_ny::WorldView::WorldViewChannel;
 
 
 use local_ip_address::local_ip;
 
+use tokio::sync::broadcast;
 use tokio::sync::Mutex;
+use Byrokratiet_i_tokio_ny::WorldView::WorldViewChannel::request_worldview;
 use std::sync::Arc;
 
 /// Håndterer start-up initialisering av programrolle
@@ -42,7 +45,7 @@ use std::sync::Arc;
 
 #[tokio::main] // Hvis du bruker async/await
 async fn main() {
-    // TODO:: INititialiser ein strttup for x antall heisa.
+    // Initialiserer en sjefen struct
     /*Initialiser ein sjefpakke basert på argument (Rolle) */
     let sjefenpakke = match Sjefen::hent_sjefpakke() {
         Ok(sjef) => {
@@ -54,8 +57,6 @@ async fn main() {
             return; // Avslutt programmet dersom ein feil oppstod
         }
     };
-
-    
     //Finne IP :)
     let ip = match local_ip() {
         Ok(ip) => {
@@ -66,8 +67,6 @@ async fn main() {
             return;
         }
     }; 
-
-
     let id = konsulent::id_fra_ip(ip);
     let sjefen = Sjefen::Sjefen {
         ip: ip,
@@ -76,33 +75,39 @@ async fn main() {
         master_ip: Arc::new(Mutex::new(ip)),
     };
 
-
+    //Init til worldview
     let serialized_worldview = sjefen.start_clean().await;
+    let worldview_arc = Arc::new(Mutex::new(serialized_worldview));
+    
+    //Init av tx til worldviewchannel
+    let (tx, _) = broadcast::channel::<Vec<u8>>(1);
+    let tx_arc = Arc::new(tx);
+    let worldview_channel = WorldViewChannel::WorldViewChannel {tx: tx_arc};
+    
+    
+    
+    
+    
+    // Eks på henting av WorldView
+    // let mut worldview_rx = worldview_channel.tx.clone().subscribe();
+    // request_worldview().await;
+    // let temp_worldview = worldview_rx.recv().await;
+    // println!("fikk Worldview: {:?}", temp);
+    
+    // Lager worldview_sender
+    let worldview_arc_clone = worldview_arc.clone();
+    let worldview_sender_task = tokio::spawn(async move {
+        // Denne koden kjører i den asynkrone oppgaven (tasken)
+        worldview_channel.send_worldview(worldview_arc_clone).await;
+    });
 
-    println!("Hentet ut worldview ette start_clean: {:?}", serialized_worldview);
-    println!("Serialized size: {}", std::mem::size_of_val(&serialized_worldview));
-    println!("\r\n");
-    println!("\r\n");
-    println!("\r\n");
-    let worldview = WorldView::deserialize_worldview(&serialized_worldview);
-
-    match worldview {
-        Ok(worldview) => {
-            println!("Deserialized: {:?}", worldview);
-            println!("worldview size: {}", std::mem::size_of_val(&worldview));
-        }
-        Err(e) => {
-            println!("Deserialization failed: {}", e);
-        }
-    }
-
+    //Kjører programmet
     loop {
         /*
         Om start_clean og start_from_worldview returnerer worldview
         kan vi loope sånn her når man må starte på nytt, kanskje lettere?
         worldview = sjefen.start_from_worldview(worldview);
          */
-
         sjefen.start_from_worldview();
     }
 

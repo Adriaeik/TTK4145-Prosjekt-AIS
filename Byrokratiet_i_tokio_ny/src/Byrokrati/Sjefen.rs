@@ -3,6 +3,7 @@ use super::MrWorldWide;
 use super::konsulent;
 use crate::WorldView::WorldView;
 
+use crossbeam_channel::Sender;
 use tokio::time::{sleep, Duration};
 use std::default;
 use std::env;
@@ -166,4 +167,15 @@ impl Sjefen{
         // Do its thing...
     }
 
+
+
+
+
+    
 }
+
+
+
+
+
+

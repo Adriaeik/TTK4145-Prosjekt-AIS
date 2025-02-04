@@ -1,6 +1,8 @@
 use serde::{Serialize, Deserialize};
 use std::error::Error;
 use crate::config;
+use super::WorldViewChannel;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
@@ -91,6 +93,9 @@ pub fn deserialize_worldview(data: &[u8]) -> Result<WorldView, Box<dyn Error>> {
     let decoded: WorldView = bincode::deserialize(data)?;
     Ok(decoded)
 }
+
+
+
 
 
 //Eksempel på bruk!!
