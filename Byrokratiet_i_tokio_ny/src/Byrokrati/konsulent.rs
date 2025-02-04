@@ -9,6 +9,15 @@ use anyhow::{Context, Result};
 use crate::config;
 use crate::WorldView::WorldView;
 use crate::WorldView::WorldViewChannel;
+use super::konsulent;
+
+use core::panic;
+use local_ip_address::local_ip;
+
+use tokio::sync::Mutex;
+use std::sync::Arc;
+
+use super::Sjefen;
 
 /// Returnerer kommando for å åpne terminal til tilhørende OS         
 ///
@@ -108,4 +117,41 @@ pub async fn get_worldview_from_channel(mut rx_wv: tokio::sync::broadcast::Recei
         .map_err(|e| anyhow::anyhow!("deserialize_worldview() feila i start_from_worldview(): {}", e)).expect("feil i lesing av worldview fra channel");
 
     worldview
+}
+
+
+
+pub async fn init_serialised_worldview() -> (Sjefen::Sjefen, Vec<u8>) {
+    // Initialiserer en sjefen struct
+    /*Initialiser ein sjefpakke basert på argument (Rolle) */
+    let sjefenpakke = match Sjefen::hent_sjefpakke() {
+        Ok(sjef) => {
+            println!("Opprettet SjefPakke: {:?}", sjef);
+            sjef // Returner sjefen dersom alt gjekk bra
+        }
+        Err(e) => {
+            panic!("Feil ved henting av SjefPakke: {}", e); // Avslutt programmet dersom ein feil oppstod
+        }
+    };
+    //Finne IP :)
+    let ip = match local_ip() {
+        Ok(ip) => {
+            ip
+        }
+        Err(e) => {
+            panic!("Fant ikke IP (main.rs): {}", e);
+        }
+    }; 
+    let id = konsulent::id_fra_ip(ip);
+    let sjefen = Sjefen::Sjefen {
+        ip: ip,
+        id: id,
+        rolle: Arc::new(Mutex::new(sjefenpakke.rolle)),
+        master_ip: Arc::new(Mutex::new(ip)),
+    };
+
+    //Init til worldview
+    let serialized_worldview = sjefen.start_clean().await;
+
+    (sjefen,serialized_worldview)
 }

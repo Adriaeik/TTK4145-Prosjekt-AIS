@@ -7,6 +7,7 @@ use crate::WorldView::WorldViewChannel;
 
 use tokio::net::TcpListener;
 use tokio::time::{sleep, Duration};
+use core::panic;
 use std::default;
 use std::env;
 use std::net::TcpStream;
@@ -19,7 +20,7 @@ use tokio::sync::broadcast;
 use std::net::IpAddr;
 use tokio::macros::support::Pin;
 use tokio::sync::Mutex;
-use tokio::io::AsyncWriteExt;
+use tokio::io::{AsyncWriteExt, AsyncReadExt};
 
 use anyhow::{Context, Result};
 
@@ -166,7 +167,7 @@ impl Sjefen{
 
     
 
-    pub async fn start_from_worldview(&self, mut wv_channel: WorldViewChannel::WorldViewChannel) -> Result<()> {
+    pub async fn start_from_worldview(&self, mut wv_channel: WorldViewChannel::WorldViewChannel) -> tokio::io::Result<()> {
         let (shutdown_tx, _) = broadcast::channel::<u8>(1);
         let shutdown_tx_arc = Arc::new(shutdown_tx);
         // shutdown_tx.send("DEt er ein ny master");
@@ -183,8 +184,15 @@ impl Sjefen{
         let wv_channel_clone = WorldViewChannel::WorldViewChannel{tx: wv_channel.tx.clone()};
         if self.ip == *self.master_ip.lock().await {
             let shutdown_tx_clone = shutdown_tx_arc.clone();
-            self.master_process(wv_channel_clone, shutdown_tx_clone);
-            return Ok(())
+            
+            match self.master_process(wv_channel_clone, shutdown_tx_clone).await {
+                Ok(_) => {Ok(())},
+                Err(e) => {
+                    eprintln!("Feil i master_process: {:?}", e);
+                    return Err(e);
+                }
+            }
+            
         }
         else {
             self.slave_process(wv_channel_clone);
@@ -207,109 +215,29 @@ impl Sjefen{
          */
     }
     
-    fn master_process(&self, mut wv_channel: WorldViewChannel::WorldViewChannel, mut shutdown_tx: Arc<broadcast::Sender<u8>>) {
+    async fn master_process(&self, mut wv_channel: WorldViewChannel::WorldViewChannel, mut shutdown_tx: Arc<broadcast::Sender<u8>>) -> tokio::io::Result<()> {
+        println!("\nstarte Master prosess\n");
         //let wv_rx = wv_channel.tx.clone().subscribe();
         // 1) start TCP -> publiser nyhetsbrev
         let wv_channel_clone = WorldViewChannel::WorldViewChannel{tx: wv_channel.tx.clone()};
-        self.start_post_leveranse(/*Arc*/wv_channel_clone, shutdown_tx.clone());
+        match self.start_post_leveranse(/*Arc*/wv_channel_clone, shutdown_tx.clone()).await {
+            Ok(_) => {
+                println!("Ok??");
+                Ok(())
+            },
+            Err(e) => {
+                eprintln!("Error i master_process -> start_post_leveranse: {}", e);
+                shutdown_tx.send(8).expect("HORE");
+                return Err(e);
+            }
+        }
 
     }
     
     fn slave_process(&self, mut wv_channel: WorldViewChannel::WorldViewChannel) {
         todo!()
     }
-    
-    pub async fn start_post_leveranse(&self, wv_channel: WorldViewChannel::WorldViewChannel, shutdown_tx: Arc<broadcast::Sender<u8>>) -> tokio::io::Result<()>{
-        
-        /*sette opp tcp listen 
-        for hver som kobler seg opp:
-        lag funksjon, kjør i ny task som:
-        sender ut på TCPen hver gang rx'en får melding (worldview)
-        */
 
-        let listener = TcpListener::bind(format!("{}:{}", self.ip, config::PN_PORT)).await?;
-        let mut tasks = Vec::new();
-        loop {
-            let mut shutdown_rx = shutdown_tx.subscribe();
-            let self_clone = self.clone();
-            tokio::select! {
-                Ok((socket, _)) = listener.accept() => {
-                    //Send ip til nye tilkobla så wordlview kan oppdateres
-                    let wv_rx = wv_channel.tx.clone().subscribe(); //klon wv tx til rx og subscribe til den
-                    let task = tokio::spawn(async move { //Start ny task som sender nyhetsbrev til denne tilkoblinga
-                        if let Err(e) = self_clone.send_post(socket, wv_rx).await {
-                            eprintln!("En av slavene kobla seg av: {}", e);
-                        }
-                    });
-                    tasks.push(task); //Legg til tasken i vektor så den kan avsluttes
-                }
-                _ = shutdown_rx.recv() => {
-                    println!("Shutdown mottatt! Avsluttar alle tasks.");
-                    for task in &tasks {
-                        task.abort(); // Avbryt alle tasks
-                    }
-
-                    for task in tasks {
-                        let _ = task.await; // Ventar på at dei avsluttar seg sjølv
-                    }
-
-                    println!("Alle tasks avslutta. Server shutdown.");
-                    break Ok(());
-                }
-            }
-        }
-
-    }
-
-    //postman Pat
-    pub async fn send_post(&self, mut socket: tokio::net::TcpStream, mut rx: broadcast::Receiver<Vec<u8>>) -> tokio::io::Result<()> {
-        let slave_addr = match socket.peer_addr() {
-            Ok(addr) => addr,
-            Err(e) => {
-                eprintln!("Klarte ikkje hente slave-adresse: {}", e);
-                return Err(e);
-            }
-        };
-    
-
-        let buf = [0; 10];
-        loop {
-            WorldViewChannel::request_worldview().await;
-            tokio::select! {
-                msg = rx.recv() => {
-                    match msg {
-                        Ok(wv_msg) => {
-                            if let Err(e) = socket.write_all(&wv_msg).await {
-                                eprintln!("feil ved sending til klient i send_post: {} ",e);
-                                return Err(e);
-                            }
-                        }
-                        Err(e) =>{
-                            eprint!("Feil ved mottak fra broadcast kanal (wv_rx): {}", e);
-                        }
-                        
-                    }
-                },
-                // Les ack
-                result = socket.read(&mut buf){
-                    match result {
-                        Ok(0) =>{
-                            println!("TCP er lukket av slave");
-                            return Ok(());
-                        }
-                        Ok(_) => {
-                            println!("Mottok fra klienten: {}", String::from_utf8_lossy(&buf));
-                        }
-                        Err(e) => {
-                            eprintln!("Feil ved lesing frå slaven: {}", e);
-                            return Err(e);
-                        }
-                    }
-                }
-
-            }
-        }
-    }
 
 
     
