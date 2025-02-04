@@ -63,7 +63,7 @@ impl Sjefen::Sjefen {
             tokio::select! {
                 msg = rx.recv() => match msg {
                     Ok(wv_msg) => {
-                        if let Err(e) = socket.write_all(&wv_msg).await {
+                        if let Err(e) = socket.write_all("Hei fra master".as_bytes()).await {
                             eprintln!("feil ved sending til klient i send_post: {} ",e);
                             return Err(e);
                         }
