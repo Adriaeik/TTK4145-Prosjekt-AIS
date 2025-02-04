@@ -53,6 +53,7 @@ async fn main() {
     
     //Init av tx til worldviewchannel
     let (tx, _) = broadcast::channel::<Vec<u8>>(1);
+    let temp_rx_wv = tx.subscribe();
     let worldview_channel = WorldViewChannel::WorldViewChannel {tx: tx};
     
     
@@ -76,7 +77,7 @@ async fn main() {
             Ok(_) => {},
             Err(e) => {
                 println!("feil: {}", e);
-                shutdown_tx.send(()).expect("HORE2");
+                shutdown_tx.send(1).expect("HORE2");
                 
                 break;
             }

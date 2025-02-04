@@ -167,7 +167,7 @@ impl Sjefen{
 
     
 
-    pub async fn start_from_worldview(&self, mut wv_channel: WorldViewChannel::WorldViewChannel) -> tokio::io::Result<()> {
+    pub async fn start_from_worldview(&self, wv_channel: WorldViewChannel::WorldViewChannel) -> tokio::io::Result<()> {
         let (shutdown_tx, _) = broadcast::channel::<u8>(1);
         // shutdown_tx.send("DEt er ein ny master");
         
@@ -217,6 +217,10 @@ impl Sjefen{
         println!("\nstarte Master prosess\n");
         //let wv_rx = wv_channel.tx.clone().subscribe();
         // 1) start TCP -> publiser nyhetsbrev
+
+
+
+
         let wv_channel_clone = WorldViewChannel::WorldViewChannel{tx: wv_channel.tx.clone()};
         let post_handle = self.start_post_leveranse_task(/*Arc*/wv_channel_clone, shutdown_tx.clone());
 
