@@ -45,6 +45,8 @@ use std::sync::Arc;
 
 #[tokio::main] // Hvis du bruker async/await
 async fn main() {
+    //ikkje testa
+    env_logger::init();
     // Initialiserer en sjefen struct
     /*Initialiser ein sjefpakke basert på argument (Rolle) */
     let sjefenpakke = match Sjefen::hent_sjefpakke() {
@@ -83,7 +85,7 @@ async fn main() {
     let (tx, _) = broadcast::channel::<Vec<u8>>(1);
     let tx_arc = Arc::new(tx);
     let worldview_channel = WorldViewChannel::WorldViewChannel {tx: tx_arc};
-    
+    let worldview_channel_clone = worldview_channel.clone();
     
     
     
@@ -100,7 +102,6 @@ async fn main() {
         // Denne koden kjører i den asynkrone oppgaven (tasken)
         worldview_channel.send_worldview(worldview_arc_clone).await;
     });
-
     //Kjører programmet
     loop {
         /*
@@ -108,7 +109,11 @@ async fn main() {
         kan vi loope sånn her når man må starte på nytt, kanskje lettere?
         worldview = sjefen.start_from_worldview(worldview);
          */
-        sjefen.start_from_worldview();
+
+        match sjefen.start_from_worldview(worldview_channel_clone).await {
+            Ok(_) => {},
+            Err(e) => println!("feil: {}", e),
+        }
     }
 
 }

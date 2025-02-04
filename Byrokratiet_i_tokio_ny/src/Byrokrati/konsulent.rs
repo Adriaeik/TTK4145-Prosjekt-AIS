@@ -5,7 +5,10 @@ og du må ikkje finne på å spørre han om kva jobben hans innebærer*/
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::net::IpAddr;
+use anyhow::{Context, Result};
 use crate::config;
+use crate::WorldView::WorldView;
+use crate::WorldView::WorldViewChannel;
 
 /// Returnerer kommando for å åpne terminal til tilhørende OS         
 ///
@@ -87,4 +90,22 @@ pub fn get_root_ip(ip: IpAddr) -> String {
 }
 
 
+pub fn er_master(self_id : u8, master_id : u8) -> bool{
+    return self_id == master_id;
+}
 
+pub async fn get_worldview_from_channel(mut rx_wv: tokio::sync::broadcast::Receiver<Vec<u8>>) -> WorldView::WorldView {
+    WorldViewChannel::request_worldview().await;
+
+    // Mottar den serialiserte forma
+    let worldview_s = rx_wv
+        .recv()
+        .await
+        .context("Feila å lese frå worldview_rx i start_from_worldview()").expect("feil i lesing av worldview fra channel");
+    
+    // Deserialiserer til ein struct, og mappar feilen til ein trådsikker variant
+        let worldview = WorldView::deserialize_worldview(&worldview_s)
+        .map_err(|e| anyhow::anyhow!("deserialize_worldview() feila i start_from_worldview(): {}", e)).expect("feil i lesing av worldview fra channel");
+
+    worldview
+}
