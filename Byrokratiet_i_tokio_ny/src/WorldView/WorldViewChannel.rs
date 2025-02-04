@@ -88,7 +88,7 @@ impl WorldViewChannel {
         let self_clone = self.clone();
         tokio::spawn(async move {
             // Denne koden kjører i den asynkrone oppgaven (tasken)
-            println!("Starter å sende wolrdview");
+            println!("Starter å sende worldview");
             self_clone.send_worldview(worldview.clone()/*, shutdown_tx.clone().subscribe()*/).await;
         });
     }
