@@ -196,19 +196,19 @@ impl Sjefen::Sjefen {
             if bytes_read == 0 {
                 println!("Serveren stengte tilkoblingen.");
                 break;
-            }
-            // let message = String::from_utf8_lossy(&buf[..bytes_read]);
-            let len = u32::from_be_bytes(len_bytes) as usize; // 🔹 Konverter til `usize`
-            let mut buf = vec![0u8; len]; // 🔹 Lag buffer med riktig lengde
+            }else{
+                // let message = String::from_utf8_lossy(&buf[..bytes_read]);
+                let len = u32::from_be_bytes(len_bytes) as usize; //Konverter til `usize`
+                let mut buf = vec![0u8; len]; // Lag buffer med riktig lengde
 
-            stream.read_exact(&mut buf).await?;
-            println!(" Melding fra server: {:?}", &buf);
-            if self.id < master_id {
-                println!("Jeg har lavere ID enn master, jeg må bli master!!!!");
-                //Må kanskje passe på å lukke tidligere tråder?
-                *self.master_ip.lock().await = self.ip;
-                
-                break;
+                stream.read_exact(&mut buf).await?;
+                println!(" Melding fra server: {:?}", &buf);
+                if self.id < master_id {
+                    println!("Jeg har lavere ID enn master, jeg må bli master!!!!");
+                    //Må kanskje passe på å lukke tidligere tråder?
+                    *self.master_ip.lock().await = self.ip;
+                    break;
+                }
             }
         }
 
