@@ -83,8 +83,8 @@ impl Sjefen::Sjefen {
                 result = socket.read(&mut buf) => match result {
                     Ok(0) =>{
                         //TODO:: oppdater worldview om dette
-                        //println!("TCP er lukket av slave");
-                        //return Ok(());
+                        println!("TCP er lukket av slave");
+                        return Ok(());
                     }
                     Ok(_) => {
                         println!("Mottok fra klienten: {}", String::from_utf8_lossy(&buf));
