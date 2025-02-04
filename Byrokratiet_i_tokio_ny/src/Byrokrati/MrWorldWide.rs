@@ -1,11 +1,13 @@
 ///! Broadcaster sin IP til heile verden, så alle kan sjå
 use tokio::net::UdpSocket;
+use tokio::task::JoinError;
 use tokio::time::{sleep, timeout, Duration};
 use std::net::{IpAddr, SocketAddr};
 use std::borrow::Cow;
 use socket2::{Socket, Domain, Type};
 use tokio::sync::mpsc;
 use std::net::{Ipv4Addr};
+use tokio::sync::broadcast;
 
 use crate::config;
 
@@ -78,6 +80,62 @@ impl Sjefen::Sjefen {
             }
         }
     }
+    
+    
+    pub async fn start_udp_broadcast(&self, mut shutdown_rx: broadcast::Receiver<u8>) -> tokio::io::Result<()> {
+        //Send melding til sjefen (bruk channel) at netverket er tomt, vi må gjøre det som trengs da
+        let addr: &str = &format!("{}:{}", config::BC_ADDR, config::DUMMY_PORT); //🎯 
+        let addr2: &str = &format!("{}:0", config::BC_LISTEN_ADDR);
 
+        
 
+        let broadcast_addr: SocketAddr = addr.parse().expect("ugyldig adresse"); // UDP-broadcast adresse
+        let socket_addr: SocketAddr = addr2.parse().expect("Ugyldig adresse");
+        let socket = Socket::new(Domain::IPV4, Type::DGRAM, None)?;
+        
+        
+        socket.set_reuse_address(true)?;
+        socket.set_broadcast(true)?;
+        socket.bind(&socket_addr.into())?;
+        let udp_socket = UdpSocket::from_std(socket.into())?;
+        
+        
+        loop {
+            tokio::select! {
+                // 🔹 Hovudoppgåve: Send UDP-meldingar
+                _ = async {
+                udp_socket.send_to("Gruppe25".as_bytes(), &broadcast_addr).await?;
+                    sleep(Duration::from_millis(100)).await;
+                    println!("Broadcaster ID: Gruppe25");
+                    Ok::<(), tokio::io::Error>(())
+                } => {},
+                
+                // 🔹 Shutdown: Stoppar broadcasting om signalet kjem
+                _ = shutdown_rx.recv() => {
+                    println!("Shutdown mottatt! Stoppar UDP-broadcast...");
+                    break;
+                }
+            }
+        }
+        Ok(())
+        
+    }
+    
+    
+    pub fn start_udp_broadcast_task(&self, shutdown_tx: broadcast::Sender<u8>) -> tokio::task::JoinHandle<()> {
+        let self_clone = self.clone();
+        
+        tokio::spawn(async move {
+            println!("Starter å sende UDP-broadcast");
+    
+            if let Err(e) = self_clone.start_udp_broadcast(shutdown_tx.clone().subscribe()).await {
+                eprintln!("Feil i UDP-broadcast: {}", e);
+            }
+        })
+    }
+    
+
+    
+    
+    
 }

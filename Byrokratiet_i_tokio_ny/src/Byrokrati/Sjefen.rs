@@ -169,7 +169,6 @@ impl Sjefen{
 
     pub async fn start_from_worldview(&self, mut wv_channel: WorldViewChannel::WorldViewChannel) -> tokio::io::Result<()> {
         let (shutdown_tx, _) = broadcast::channel::<u8>(1);
-        let shutdown_tx_arc = Arc::new(shutdown_tx);
         // shutdown_tx.send("DEt er ein ny master");
         
         // Må hente inn worldview
@@ -183,7 +182,7 @@ impl Sjefen{
         // bacup vil aldri kjøre denne funksjonen. startes kun fra master/slav_process
         let wv_channel_clone = WorldViewChannel::WorldViewChannel{tx: wv_channel.tx.clone()};
         if self.ip == *self.master_ip.lock().await {
-            let shutdown_tx_clone = shutdown_tx_arc.clone();
+            let shutdown_tx_clone = shutdown_tx.clone();
             
             match self.master_process(wv_channel_clone, shutdown_tx_clone).await {
                 Ok(_) => {Ok(())},
@@ -215,27 +214,31 @@ impl Sjefen{
          */
     }
     
-    async fn master_process(&self, mut wv_channel: WorldViewChannel::WorldViewChannel, mut shutdown_tx: Arc<broadcast::Sender<u8>>) -> tokio::io::Result<()> {
+    async fn master_process(&self, wv_channel: WorldViewChannel::WorldViewChannel, shutdown_tx: broadcast::Sender<u8>) -> tokio::io::Result<()> {
         println!("\nstarte Master prosess\n");
         //let wv_rx = wv_channel.tx.clone().subscribe();
         // 1) start TCP -> publiser nyhetsbrev
         let wv_channel_clone = WorldViewChannel::WorldViewChannel{tx: wv_channel.tx.clone()};
-        match self.start_post_leveranse(/*Arc*/wv_channel_clone, shutdown_tx.clone()).await {
-            Ok(_) => {
-                println!("Ok??");
-                Ok(())
-            },
-            Err(e) => {
-                eprintln!("Error i master_process -> start_post_leveranse: {}", e);
-                shutdown_tx.send(8).expect("HORE");
-                return Err(e);
-            }
+        let post_handle = self.start_post_leveranse(/*Arc*/wv_channel_clone, shutdown_tx.clone());
+
+        let udp_handle = self.start_udp_broadcast_task(shutdown_tx.clone());
+        /*
+        Evt ha e tråd følge med på UDP og post_handle, og starte den på nytt om nødvendig:
+        match udp_handle.await {
+            Ok(_) => println!("UDP-broadcast avslutta normalt."),
+            Err(e) => eprintln!("Feil i UDP-task: {}", e),
+        }
+        */
+
+        
+        loop{
+
         }
 
     }
     
-    fn slave_process(&self, mut wv_channel: WorldViewChannel::WorldViewChannel) {
-        todo!()
+    async fn slave_process(&self, wv_channel: WorldViewChannel::WorldViewChannel, shutdown_tx: broadcast::Sender<u8>) {
+        self.abboner_master_nyhetsbrev(shutdown_tx.clone().subscribe()).await;      
     }
 
 

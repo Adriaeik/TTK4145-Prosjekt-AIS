@@ -94,7 +94,7 @@ impl Sjefen::Sjefen {
     }
 
     
-    pub async fn start_post_leveranse(&self, wv_channel: WorldViewChannel::WorldViewChannel, shutdown_tx: Arc<broadcast::Sender<u8>>) -> tokio::io::Result<()>{
+    pub async fn start_post_leveranse(&self, wv_channel: WorldViewChannel::WorldViewChannel, shutdown_tx: broadcast::Sender<u8>) -> tokio::io::Result<()>{
         
         /*sette opp tcp listen 
         for hver som kobler seg opp:
@@ -108,7 +108,15 @@ impl Sjefen::Sjefen {
             let mut shutdown_rx = shutdown_tx.subscribe();
             let self_clone = self.clone();
             tokio::select! {
-                Ok((socket, _)) = listener.accept() => {
+                Ok((socket, addr)) = listener.accept() => {
+                    // TODO::
+                    // if konsulent::id_fra_ip(addr.ip()) < self.id {
+                    //     self.update_wordview();
+                    //     self.start_overtake(socket, worldview_rx).await;
+                    //     shutdown_tx.send(8);
+                    //     return Ok(());
+                    // }
+
                     //TODO:: Send ip til nye tilkobla så wordlview kan oppdateres
                     let wv_rx = wv_channel.tx.clone().subscribe(); //klon wv tx til rx og subscribe til den
                     let task = tokio::spawn(async move { //Start ny task som sender nyhetsbrev til denne tilkoblinga
@@ -136,4 +144,47 @@ impl Sjefen::Sjefen {
 
     }
 
+
+/* Slave stuff her nede */
+    pub async fn abboner_master_nyhetsbrev(&self, shutdown_rx: broadcast::Receiver<u8>) -> tokio::io::Result<()> {
+        // let my_addr: SocketAddr = "127.0.0.1:8080".parse().unwrap(); //kjent
+        // let master_addr: SocketAddr = "127.0.0.1:8081".parse().unwrap(); //kjent fra udp broadcast
+
+        //les inn string til master ip fra channel her først
+
+        
+        println!("Prøver å koble på: {}:{}", *self.master_ip.lock().await, config::PN_PORT);
+        //NB!!!!
+        // Må teste litt på sanntidslabben om riktig ip blir sent i udp_broadcasten, eller om man må sende den som en melding i udp broadcasten
+        let mut stream = TcpStream::connect(format!("{}:{}", *self.master_ip.lock().await, config::PN_PORT)).await?;
+        let mut buf = [0; 1024];
+        println!("Har kobla til en master på ip: {}:{}", *self.master_ip.lock().await, config::PN_PORT);
+
+
+        let master_id = konsulent::id_fra_ip(*self.master_ip.lock().await);
+
+        println!("Masteren har id: {}", master_id);
+
+        println!("Jeg har id: {}", self.id);
+
+
+        loop {
+            let bytes_read = stream.read(&mut buf).await?;
+            if bytes_read == 0 {
+                println!("Serveren stengte tilkoblingen.");
+                break;
+            }
+            let message = String::from_utf8_lossy(&buf[..bytes_read]);
+            println!("Melding fra server: {}", message);
+            if self.id < master_id {
+                println!("Jeg har lavere ID enn master, jeg må bli master!!!!");
+                //Må kanskje passe på å lukke tidligere tråder?
+                *self.master_ip.lock().await = self.ip;
+                
+                break;
+            }
+        }
+
+        Ok(())
+    }
 }
