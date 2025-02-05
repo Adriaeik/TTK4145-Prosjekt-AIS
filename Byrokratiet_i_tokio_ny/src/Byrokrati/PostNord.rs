@@ -169,26 +169,22 @@ impl Sjefen::Sjefen {
 
         loop {
             let mut len_bytes = [0u8; 4];
-            let bytes_read = stream.read_exact(&mut len_bytes).await?;
+            let bytes_read = stream.read_exact(&mut len_bytes).await;
             
-            if bytes_read == 0 {
-                println!("⚠️ Serveren stengte tilkoblingen.");
-                break;
+            if let Err(e) = bytes_read {
+                konsulent::print_farge(format!("Serveren stengte tilkoblingen i get_wv_from_master() 2. Feil: {}", e), Color::Yellow);
+                return Err(e); // Returnerer selve feilen
             }
+            
 
             let len = u32::from_be_bytes(len_bytes) as usize;
             let mut buf = vec![0u8; len];
-            stream.read_exact(&mut buf).await?;
+            let read = stream.read_exact(&mut buf).await;
 
-            println!("📨 Melding frå master: {:?}", buf);
-
-            if self.id < master_id {
-                println!("🔴 Min ID er lågare enn masteren sin, eg må bli ny master!");
-                *self.master_ip.lock().await = self.ip;
-                break;
+            if let Err(e) = read {
+                konsulent::print_farge("Serveren stengte tilkoblingen i get_wv_from_master() 3.".to_string(), Color::Yellow);
+                return Err(e);
             }
         }
-
-        Ok(())
     }
 }
