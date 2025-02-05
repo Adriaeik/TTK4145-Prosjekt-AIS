@@ -96,22 +96,21 @@ impl Sjefen::Sjefen {
                 result = socket.read(&mut buf) => {
                     match result {
                         Ok(0) => {
-                            println!("⚠️ Klienten lukka tilkoblinga.");
+                            konsulent::print_farge("Klienten lukka tilkoblinga. (send_post())".to_string(), Color::Yellow);
                             break; // 🔹 Avslutt loopen om klienten koplar frå
                         }
                         Ok(bytes_read) => {
-                            println!("📩 Mottok {} bytes frå klienten: {:?}", bytes_read, &buf[..bytes_read]);
+                            konsulent::print_farge(format!("Mottok {} bytes fra klienten i send_post(): {:?}", bytes_read, &buf[..bytes_read]), Color::Blue);
                         }
                         Err(e) => {
-                            eprintln!("❌ Feil ved lesing frå klient: {}", e);
+                            konsulent::print_farge(format!("Feil ved lesing fra klient i send_post(): {}", e), Color::Red);
                             break;
                         }
                     }
                 }
             }
         }
-    
-        println!("❌ Lukker tilkobling til klient.");
+        konsulent::print_farge(format!("Lukker tilkobling til klient i send_post()"), Color::Yellow);
         Ok(())
     }
     
