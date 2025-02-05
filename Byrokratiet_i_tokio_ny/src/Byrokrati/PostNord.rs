@@ -87,7 +87,7 @@ impl Sjefen::Sjefen {
                         socket.write_all(&len_b).await?;
                         message[msg_len-1] = i;
                         socket.write_all(&message[..]).await?;
-                        println!("Sendt worldview på TCP nå i send_post()");
+                        //println!("Sendt worldview på TCP nå i send_post()");
                         WorldViewChannel::request_worldview().await;
                     }
                 }
