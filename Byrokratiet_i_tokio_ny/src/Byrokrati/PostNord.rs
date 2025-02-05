@@ -73,20 +73,6 @@ impl Sjefen::Sjefen {
             sleep(Duration::from_millis(100));
             WorldViewChannel::request_worldview().await;
             tokio::select! {
-                // Sender meldinger til klient
-                // msg = rx.recv() => {
-                //     match msg {
-                //         Ok(message) => {
-                //             let len_b = (message.len() as u32).to_be_bytes();
-                //             socket.write_all(&len_b).await?;
-                //             socket.write_all(&message[..]).await?;
-                //         }
-                //         Err(e) => {
-                //             konsulent::print_farge(format!("Feil i broadcast-kanal i send_post(): {}", e), Color::Red);
-                //             break; // 🔹 Avslutt loopen om broadcast feilar
-                //         }
-                //     }
-                // }
                 msg = async {
                     let mut latest_msg = None;
                     while let Ok(message) = rx.try_recv() {
@@ -101,6 +87,7 @@ impl Sjefen::Sjefen {
                         socket.write_all(&len_b).await?;
                         message[msg_len-1] = i;
                         socket.write_all(&message[..]).await?;
+                        println!("Sendt worldview på TCP nå i send_post()");
                     }
                 }
     

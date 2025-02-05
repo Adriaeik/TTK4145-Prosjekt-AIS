@@ -5,6 +5,7 @@ use super::konsulent;
 use crate::WorldView::WorldView;
 use crate::WorldView::WorldViewChannel;
 
+use termcolor::Color;
 use tokio::net::TcpListener;
 use tokio::time::{sleep, Duration};
 use core::panic;
@@ -239,7 +240,9 @@ impl Sjefen{
         let abboner_task = self.clone().abboner_master_nyhetsbrev(shutdown_tx.clone().subscribe()).await;
 
         loop {
-
+            if abboner_task.is_err() {
+                konsulent::print_farge("Abboner master_nyhetsbrev feila, slave_process()".to_string(), Color::Red);
+            }
         }      
     }
 

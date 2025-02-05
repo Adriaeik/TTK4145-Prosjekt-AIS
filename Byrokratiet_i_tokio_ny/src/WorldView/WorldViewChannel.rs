@@ -1,8 +1,11 @@
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::OnceLock;
+use termcolor::Color;
 use tokio::sync::broadcast;
 use tokio::sync::Mutex;
 use std::sync::Arc;
+
+use crate::Byrokrati::konsulent;
 
 
 static WV_CH_REQ: OnceLock<AtomicBool> = OnceLock::new(); // worldview_channel_request
@@ -88,7 +91,7 @@ impl WorldViewChannel {
         let self_clone = self.clone();
         tokio::spawn(async move {
             // Denne koden kjører i den asynkrone oppgaven (tasken)
-            println!("Starter å sende worldview");
+            konsulent::print_farge("Starter å sende \"intern\" worldview på bestilling".to_string(), Color::Green);
             self_clone.send_worldview(worldview.clone()/*, shutdown_tx.clone().subscribe()*/).await;
         });
     }
