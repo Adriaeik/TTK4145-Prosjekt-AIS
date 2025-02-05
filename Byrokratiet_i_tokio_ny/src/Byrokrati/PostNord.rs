@@ -186,6 +186,8 @@ impl Sjefen::Sjefen {
                 konsulent::print_farge("Serveren stengte tilkoblingen i get_wv_from_master() 3.".to_string(), Color::Yellow);
                 return Err(e);
             }
+
+            println!("Mottok melding i abboner_nyhetsbrev() på {} bytes: {:?} ", len, buf);
         }
     }
 }
