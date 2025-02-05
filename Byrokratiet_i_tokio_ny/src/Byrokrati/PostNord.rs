@@ -9,10 +9,16 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::{broadcast, Mutex};
 use super::{Sjefen, konsulent};
+use termcolor::Color;
+
 
 impl Sjefen::Sjefen {
     /// 🔹 **Hentar worldview frå master**
     pub async fn get_wv_from_master(&self) -> Option<Vec<u8>> {
+
+        
+
+    // Skriver ut grønn tekst
         let master_ip = self.master_ip.lock().await;
         
         println!("Prøver å koble på: {}:{} i get_wv_from_master()", *master_ip, config::PN_PORT);
@@ -21,17 +27,18 @@ impl Sjefen::Sjefen {
         let mut stream: TcpStream = match stream {
             Ok(strm) => strm,
             Err(e) => {
-                eprintln!("❌ Klarte ikkje koble på TCP i get_wv_from_master(): {}", e);
+                konsulent::print_farge(format!("Klarte ikke koble på TCP i get_wv_from_master(): {}", e), Color::Red);
                 return None;
             }
         };
-        println!("✅ Koble til master på ip: {}:{} i get_wv_from_master()", *master_ip, config::PN_PORT);
+        
+        konsulent::print_farge(format!("Koblet til master på ip: {}:{} i get_wv_from_master()", *master_ip, config::PN_PORT), Color::Green);
 
         let mut len_bytes = [0u8; 4];
         let bytes_read = stream.read_exact(&mut len_bytes).await;
         
         if bytes_read.is_err() {
-            println!("⚠️ Serveren stengte tilkoblingen i get_wv_from_master() 2.");
+            konsulent::print_farge("Serveren stengte tilkoblingen i get_wv_from_master() 2.".to_string(), Color::Yellow);
             return None;
         }
 
@@ -40,16 +47,17 @@ impl Sjefen::Sjefen {
         let read = stream.read_exact(&mut buf).await;
 
         if read.is_err() {
-            println!("⚠️ Serveren stengte tilkoblingen i get_wv_from_master() 3.");
+            konsulent::print_farge("Serveren stengte tilkoblingen i get_wv_from_master() 3.".to_string(), Color::Yellow);
             return None;
         }
 
         println!("📨 Worldview frå master i get_wv_from_master(): {:?}", buf);
 
         // if self.id < master_id {
-        //     println!("🔴 Min ID er lågare enn masteren sin, eg må bli ny master i get_wv_from_master()!");
+        //     println!("Min ID er lågare enn masteren sin, eg må bli ny master i get_wv_from_master()!");
         //     *self.master_ip.lock().await = self.ip;
         // }
+        
 
         Some(buf[..len].to_vec())
     }

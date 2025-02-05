@@ -6,6 +6,7 @@ use std::fs::OpenOptions;
 use std::io::Write;
 use std::net::IpAddr;
 use anyhow::{Context, Result};
+use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 use crate::config;
 use crate::WorldView::WorldView;
 use crate::WorldView::WorldViewChannel;
@@ -154,4 +155,14 @@ pub async fn init_serialised_worldview() -> (Sjefen::Sjefen, Vec<u8>) {
     let serialized_worldview = sjefen.start_clean().await;
 
     (sjefen,serialized_worldview)
+}
+
+
+pub fn print_farge(msg: String, color: Color) {
+    let mut stdout = StandardStream::stdout(ColorChoice::Always);
+    stdout.set_color(ColorSpec::new().set_fg(Some(color))).unwrap();
+    writeln!(&mut stdout, "{}", msg).unwrap();
+    stdout.set_color(&ColorSpec::new()).unwrap();
+    println!("\r\n");
+
 }
