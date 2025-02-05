@@ -68,6 +68,7 @@ impl Sjefen::Sjefen {
         let mut buf = [0; 1024];
     
         loop {
+            WorldViewChannel::request_worldview().await;
             tokio::select! {
                 // Sender meldinger til klient
                 msg = rx.recv() => {
