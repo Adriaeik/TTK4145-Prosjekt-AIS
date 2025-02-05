@@ -113,7 +113,7 @@ impl Sjefen::Sjefen {
     }
     
     /// 🔹 **Startar server for å sende worldview**
-    pub async fn start_post_leveranse(&self, wv_channel: WorldViewChannel::WorldViewChannel, shutdown_tx: broadcast::Sender<u8>) -> tokio::io::Result<()> {
+    pub async fn start_post_leveranse(&self, wv_channel: WorldViewChannel::WorldViewChannel, _shutdown_tx: broadcast::Sender<u8>) -> tokio::io::Result<()> {
         let listener = TcpListener::bind(format!("{}:{}", self.ip, config::PN_PORT)).await?;
 
         loop {
@@ -154,7 +154,7 @@ impl Sjefen::Sjefen {
     }
 
     /// 🔹 **Klient som lyttar etter worldview-endringar frå master**
-    pub async fn abboner_master_nyhetsbrev(&self, shutdown_rx: broadcast::Receiver<u8>) -> tokio::io::Result<()> {
+    pub async fn abboner_master_nyhetsbrev(&self, _shutdown_rx: broadcast::Receiver<u8>) -> tokio::io::Result<()> {
         println!("Prøver å koble på: {}:{} i abboner_master_nyhetsbrev()", *self.master_ip.lock().await, config::PN_PORT);
         let mut stream = TcpStream::connect(format!("{}:{}", *self.master_ip.lock().await, config::PN_PORT)).await?;
         

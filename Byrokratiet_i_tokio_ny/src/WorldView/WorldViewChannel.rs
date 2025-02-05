@@ -52,7 +52,7 @@ impl WorldViewChannel {
         }
     }
 
-    pub async fn spawn_send_worldview( &self, worldview: Arc<Mutex<Vec<u8>>>, shutdown_tx: broadcast::Sender<u8>){
+    pub async fn spawn_send_worldview( &self, worldview: Arc<Mutex<Vec<u8>>>, _shutdown_tx: broadcast::Sender<u8>){
         let self_clone = self.clone();
         tokio::spawn(async move {
             // Denne koden kjører i den asynkrone oppgaven (tasken)

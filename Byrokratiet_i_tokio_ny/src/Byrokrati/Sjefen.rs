@@ -183,7 +183,7 @@ impl Sjefen{
             
         }
         else {
-            self.slave_process(wv_channel_clone, shutdown_tx.clone()).await;
+            let _kun_for_å_fjerne_warning_fjern_vareabel_og_handter_error_senere = self.slave_process(wv_channel_clone, shutdown_tx.clone()).await;
             return Ok(())
         }
      
@@ -210,9 +210,9 @@ impl Sjefen{
 
 
         let wv_channel_clone = WorldViewChannel::WorldViewChannel{tx: wv_channel.tx.clone()};
-        let post_handle = self.start_post_leveranse_task(/*Arc*/wv_channel_clone, shutdown_tx.clone());
+        let _post_handle = self.start_post_leveranse_task(/*Arc*/wv_channel_clone, shutdown_tx.clone());
 
-        let udp_handle = self.start_udp_broadcast_task(shutdown_tx.clone());
+        let _udp_handle = self.start_udp_broadcast_task(shutdown_tx.clone());
 
     
         /*
@@ -231,7 +231,7 @@ impl Sjefen{
 
     }
     
-    async fn slave_process(&self, wv_channel: WorldViewChannel::WorldViewChannel, shutdown_tx: broadcast::Sender<u8>) -> tokio::io::Result<()> {
+    async fn slave_process(&self, _wv_channel: WorldViewChannel::WorldViewChannel, shutdown_tx: broadcast::Sender<u8>) -> tokio::io::Result<()> {
         let abboner_task = self.clone().abboner_master_nyhetsbrev(shutdown_tx.clone().subscribe()).await;
 
         loop {
