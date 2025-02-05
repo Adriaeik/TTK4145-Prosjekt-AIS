@@ -106,7 +106,7 @@ impl Sjefen::Sjefen {
                 _ = async {
                 udp_socket.send_to("Gruppe25".as_bytes(), &broadcast_addr).await?;
                     sleep(Duration::from_millis(100)).await;
-                    println!("Broadcaster ID: Gruppe25");
+                    //println!("Broadcaster ID: Gruppe25");
                     Ok::<(), tokio::io::Error>(())
                 } => {},
                 
