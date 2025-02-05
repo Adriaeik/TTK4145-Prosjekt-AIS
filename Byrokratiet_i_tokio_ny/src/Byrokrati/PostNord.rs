@@ -79,6 +79,7 @@ impl Sjefen::Sjefen {
                     latest_msg
                 } => {
                     if let Some(mut message) = msg {
+                        i = i % 255;
                         i += 1; //Til telling, proof of concept
                         let msg_len = message.len(); //Til telling, proof of concept
                         let len_b = (message.len() as u32).to_be_bytes();

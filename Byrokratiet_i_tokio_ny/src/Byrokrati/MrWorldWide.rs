@@ -126,7 +126,6 @@ impl Sjefen::Sjefen {
         
         tokio::spawn(async move {
             konsulent::print_farge("Starter å sende UDP-broadcast".to_string(), Color::Green);
-            println!("Starter å sende UDP-broadcast");
     
             if let Err(e) = self_clone.start_udp_broadcast(shutdown_tx.clone().subscribe()).await {
                 eprintln!("Feil i UDP-broadcast: {}", e);
