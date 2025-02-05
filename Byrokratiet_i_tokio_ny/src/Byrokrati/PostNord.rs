@@ -84,7 +84,7 @@ impl Sjefen::Sjefen {
                         let msg_len = message.len(); //Til telling, proof of concept
                         let len_b = (message.len() as u32).to_be_bytes();
                         socket.write_all(&len_b).await?;
-                        message[msg_len-1] = i;
+                        message[msg_len-1] = i; //Til telling, proof of concept
                         socket.write_all(&message[..]).await?;
                         //println!("Sendt worldview på TCP nå i send_post()");
                     }
