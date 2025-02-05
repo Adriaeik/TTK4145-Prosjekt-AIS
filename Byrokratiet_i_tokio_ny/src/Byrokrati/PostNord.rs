@@ -64,6 +64,7 @@ impl Sjefen::Sjefen {
 
     /// 🔹 **Sender worldview-oppdateringar til klientar**
     pub async fn send_post(&self, mut socket: TcpStream, mut rx: broadcast::Receiver<Vec<u8>>) -> Result<(), Box<dyn std::error::Error>> {
+        println!("Startet en send_post i send_post()");
         let mut buf = [0; 1024];
     
         loop {
@@ -77,7 +78,7 @@ impl Sjefen::Sjefen {
                             socket.write_all(&message[..]).await?;
                         }
                         Err(e) => {
-                            eprintln!("❌ Feil i broadcast-kanal: {}", e);
+                            konsulent::print_farge(format!("Feil i broadcast-kanal i send_post(): {}", e), Color::Red);
                             break; // 🔹 Avslutt loopen om broadcast feilar
                         }
                     }
@@ -111,15 +112,25 @@ impl Sjefen::Sjefen {
         let listener = TcpListener::bind(format!("{}:{}", self.ip, config::PN_PORT)).await?;
 
         loop {
-            let (socket, _) = listener.accept().await?;
-            let rx = wv_channel.tx.subscribe();
-            let self_clone = self.clone();
-
-            tokio::spawn(async move {
-                if let Err(e) = self_clone.send_post(socket, rx).await {
-                    eprintln!("❌ Feil i send_post: {}", e);
+            match listener.accept().await {
+                Ok((socket, _)) => {
+                    konsulent::print_farge(format!("{} Kobla til nyhetsbrevet!", socket.peer_addr().unwrap()), Color::Green);
+                    let rx = wv_channel.tx.subscribe();
+                    let self_clone = self.clone();
+                    tokio::spawn(async move {
+                        let peer_addr_copy = socket.peer_addr().unwrap();
+                        match self_clone.send_post(socket, rx).await {
+                            Ok(_) => {}
+                            Err(e) => {
+                                konsulent::print_farge(format!("Error i send_post til: {}: {}", peer_addr_copy, e), Color::Red);
+                            }
+                        }
+                    });
                 }
-            });
+                Err(e) => {
+                    konsulent::print_farge(format!("Feil i listener.accept(): {}", e), Color::Red);
+                }
+            }
         }
     }
 
