@@ -69,9 +69,9 @@ impl Sjefen::Sjefen {
         let mut buf = [0; 1024];
         
         let mut i:u8 = 0; //Til telling, proof of concept
+        WorldViewChannel::request_worldview().await;
         loop {
             sleep(Duration::from_millis(100));
-            WorldViewChannel::request_worldview().await;
             tokio::select! {
                 msg = async {
                     let mut latest_msg = None;
@@ -88,6 +88,7 @@ impl Sjefen::Sjefen {
                         message[msg_len-1] = i;
                         socket.write_all(&message[..]).await?;
                         println!("Sendt worldview på TCP nå i send_post()");
+                        WorldViewChannel::request_worldview().await;
                     }
                 }
     
