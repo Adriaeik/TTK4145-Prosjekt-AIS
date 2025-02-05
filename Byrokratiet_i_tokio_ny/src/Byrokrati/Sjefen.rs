@@ -242,6 +242,7 @@ impl Sjefen{
         loop {
             if abboner_task.is_err() {
                 konsulent::print_farge("Abboner master_nyhetsbrev feila, slave_process()".to_string(), Color::Red);
+                panic!("Denne skal ikke panice etterhvert (slave_process(), abboner nyhetsbrev har error)");
             }
         }      
     }
