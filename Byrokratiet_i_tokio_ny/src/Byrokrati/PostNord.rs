@@ -4,6 +4,7 @@ use crate::config;
 use crate::WorldView::{WorldView, WorldViewChannel};
 use std::net::SocketAddr;
 use std::sync::Arc;
+use std::thread::sleep;
 use std::time::Duration;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
@@ -66,8 +67,10 @@ impl Sjefen::Sjefen {
     pub async fn send_post(&self, mut socket: TcpStream, mut rx: broadcast::Receiver<Vec<u8>>) -> Result<(), Box<dyn std::error::Error>> {
         println!("Startet en send_post i send_post()");
         let mut buf = [0; 1024];
-    
+        
+        let mut i:u8 = 0; //Til telling, proof of concept
         loop {
+            sleep(Duration::from_millis(100));
             WorldViewChannel::request_worldview().await;
             tokio::select! {
                 // Sender meldinger til klient
@@ -91,9 +94,12 @@ impl Sjefen::Sjefen {
                     }
                     latest_msg
                 } => {
-                    if let Some(message) = msg {
+                    if let Some(mut message) = msg {
+                        i += 1; //Til telling, proof of concept
+                        let msg_len = message.len(); //Til telling, proof of concept
                         let len_b = (message.len() as u32).to_be_bytes();
                         socket.write_all(&len_b).await?;
+                        message[msg_len-1] = i;
                         socket.write_all(&message[..]).await?;
                     }
                 }
