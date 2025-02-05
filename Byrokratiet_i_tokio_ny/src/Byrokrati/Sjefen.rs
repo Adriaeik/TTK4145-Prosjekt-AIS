@@ -162,11 +162,6 @@ impl Sjefen{
 
 
 
-
-
-
-    
-
     pub async fn start_from_worldview(&self, wv_channel: WorldViewChannel::WorldViewChannel) -> tokio::io::Result<()> {
         let (shutdown_tx, _) = broadcast::channel::<u8>(1);
         // shutdown_tx.send("DEt er ein ny master");
@@ -197,9 +192,6 @@ impl Sjefen{
             return Ok(())
         }
      
-
-  
-
         
         // Må:
         // nummer uno 1 én: finne ut om du er hovedmaster. om du er det her kommer andre noder til
@@ -226,7 +218,6 @@ impl Sjefen{
 
         let udp_handle = self.start_udp_broadcast_task(shutdown_tx.clone());
 
-
     
         /*
         Evt ha e tråd følge med på UDP og post_handle, og starte den på nytt om nødvendig:
@@ -238,7 +229,7 @@ impl Sjefen{
 
         
         loop{
-            tokio::time::sleep(Duration::from_micros(1000)).await;
+            tokio::time::sleep(Duration::from_micros(100)).await;
             WorldViewChannel::request_worldview().await;
         }
 

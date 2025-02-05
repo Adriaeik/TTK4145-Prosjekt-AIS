@@ -15,31 +15,36 @@ impl Sjefen::Sjefen {
     pub async fn get_wv_from_master(&self) -> Option<Vec<u8>> {
         let master_ip = self.master_ip.lock().await;
         
-        println!("Prøver å koble på: {}:{}", *master_ip, config::PN_PORT);
+        println!("Prøver å koble på: {}:{} i get_wv_from_master()", *master_ip, config::PN_PORT);
         let stream = TcpStream::connect(format!("{}:{}", *master_ip, config::PN_PORT)).await;
 
         let mut tcp_stream: TcpStream = match stream {
             Ok(strm) => strm,
             Err(e) => {
-                eprintln!("❌ Klarte ikkje koble på TCP: {}", e);
+                eprintln!("❌ Klarte ikkje koble på TCP i get_wv_from_master(): {}", e);
                 return None;
             }
         };
+        println!("✅ Koble til master på ip: {}:{} i get_wv_from_master()", *master_ip, config::PN_PORT);
 
-        let mut buf = [0; 1024];
-        println!("✅ Koble til master på ip: {}:{}", *master_ip, config::PN_PORT);
+        let mut len_bytes = [0u8; 4];
+        let bytes_read = stream.read_exact(&mut len_bytes).await?;
+        
+        if bytes_read == 0 {
+            println!("⚠️ Serveren stengte tilkoblingen i get_wv_from_master() 2.");
+            break;
+        }
 
-        let bytes_read = match tcp_stream.read(&mut buf).await {
-            Ok(0) => {
-                println!("⚠️ Serveren stengte tilkoblingen.");
-                return None;
-            }
-            Ok(n) => n,
-            Err(e) => {
-                eprintln!("❌ Feil ved lesing frå master: {}", e);
-                return None;
-            }
-        };
+        let len = u32::from_be_bytes(len_bytes) as usize;
+        let mut buf = vec![0u8; len];
+        stream.read_exact(&mut buf).await?;
+
+        println!("📨 Worldview frå master i get_wv_from_master(): {:?}", buf);
+
+        if self.id < master_id {
+            println!("🔴 Min ID er lågare enn masteren sin, eg må bli ny master i get_wv_from_master()!");
+            *self.master_ip.lock().await = self.ip;
+        }
 
         Some(buf[..bytes_read].to_vec())
     }
@@ -88,7 +93,6 @@ impl Sjefen::Sjefen {
         Ok(())
     }
     
-
     /// 🔹 **Startar server for å sende worldview**
     pub async fn start_post_leveranse(&self, wv_channel: WorldViewChannel::WorldViewChannel, shutdown_tx: broadcast::Sender<u8>) -> tokio::io::Result<()> {
         let listener = TcpListener::bind(format!("{}:{}", self.ip, config::PN_PORT)).await?;

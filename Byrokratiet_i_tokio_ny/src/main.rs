@@ -48,6 +48,7 @@ async fn main() {
     //Leiger utenladsk hjelp for å lage en sjef og initiell worldview
     let (sjefen, wv_serial_init) = konsulent::init_serialised_worldview().await;
 
+    return;
     //gjør arc fordi lættis
     let worldview_arc = Arc::new(Mutex::new(wv_serial_init));
     
