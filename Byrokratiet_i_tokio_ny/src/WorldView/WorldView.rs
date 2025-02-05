@@ -1,8 +1,9 @@
 use serde::{Serialize, Deserialize};
 use std::error::Error;
-use crate::config;
+use crate::{config, Byrokrati::konsulent};
 use super::WorldViewChannel;
 use std::sync::atomic::{AtomicBool, Ordering};
+use termcolor::Color;
 
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
@@ -71,9 +72,10 @@ impl WorldView {
         self.heis_spesifikke.retain(|mor| mor.heis_id != id);
     
         if self.heis_spesifikke.len() == initial_len {
-            println!("Ingen mor med ID {} ble funnet.", id);
+            konsulent::print_farge(format!("Ingen mor med ID {} ble funnet. (rapporter_sparking_av_mor())", id), Color::Yellow);
         } else {
             println!("Mor med ID {} ble fjernet.", id);
+            konsulent::print_farge(format!("Mor med ID {} ble fjernet. (rapporter_sparking_av_mor())", id), Color::Green);
         }
     }
 

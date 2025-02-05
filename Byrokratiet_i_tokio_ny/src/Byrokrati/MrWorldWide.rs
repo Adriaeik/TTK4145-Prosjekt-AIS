@@ -1,15 +1,14 @@
 ///! Broadcaster sin IP til heile verden, så alle kan sjå
 use tokio::net::UdpSocket;
-use tokio::task::JoinError;
 use tokio::time::{sleep, timeout, Duration};
-use std::net::{IpAddr, SocketAddr};
+use std::net::SocketAddr;
 use std::borrow::Cow;
 use socket2::{Socket, Domain, Type};
-use tokio::sync::mpsc;
-use std::net::{Ipv4Addr};
 use tokio::sync::broadcast;
+use termcolor::Color;
 
 use crate::config;
+use crate::Byrokrati::konsulent;
 
 use super::Sjefen;
 
@@ -42,11 +41,11 @@ impl Sjefen::Sjefen {
                 println!("Mottok UPD-broadcast fra: {:?}", master_address);
             }
             Ok(Err(e)) => {
-                println!("Feil ved mottak initListenBroadcast (MrWorldwide.rs, start_broadcaster): {}", e);
+                konsulent::print_farge(format!("Feil ved mottak initListenBroadcast (MrWorldwide.rs, start_broadcaster): {}", e), Color::Red);
                 return Err(e);
             }
             Err(_) => {
-                println!("Timeout! Ingen melding mottatt på 1 sekund. (MrWorldwide.rs, start_broadcaster)");
+                println!("Timeout! Ingen melding mottatt på 1 sekund. (MrWorldwide.rs, start_broadcaster) \r\n");
             }
         }
         
@@ -58,7 +57,7 @@ impl Sjefen::Sjefen {
         match &message {
             Some(msg) if msg == "Gruppe25" => empty_network = false,
             None => {},
-            _ => {eprintln!("Fikk melding, men ikke vår gruppe. hvis denne meldingen kommer sjekk kommentar over. noe må gjøres. (MrWorldwide.rs, start_broadcaster)");}
+            _ => {konsulent::print_farge("Fikk melding, men ikke vår gruppe. hvis denne meldingen kommer sjekk kommentar over. noe må gjøres. (MrWorldwide.rs, start_broadcaster)".to_string(), Color::Red);}
         }
         
 
@@ -89,8 +88,8 @@ impl Sjefen::Sjefen {
 
         
 
-        let broadcast_addr: SocketAddr = addr.parse().expect("ugyldig adresse"); // UDP-broadcast adresse
-        let socket_addr: SocketAddr = addr2.parse().expect("Ugyldig adresse");
+        let broadcast_addr: SocketAddr = addr.parse().expect("ugyldig adresse i start_udp_broadcast()"); // UDP-broadcast adresse
+        let socket_addr: SocketAddr = addr2.parse().expect("Ugyldig adresse i start_udp_broadcast()");
         let socket = Socket::new(Domain::IPV4, Type::DGRAM, None)?;
         
         
@@ -126,10 +125,12 @@ impl Sjefen::Sjefen {
         let self_clone = self.clone();
         
         tokio::spawn(async move {
+            konsulent::print_farge("Starter å sende UDP-broadcast".to_string(), Color::Green);
             println!("Starter å sende UDP-broadcast");
     
             if let Err(e) = self_clone.start_udp_broadcast(shutdown_tx.clone().subscribe()).await {
                 eprintln!("Feil i UDP-broadcast: {}", e);
+                konsulent::print_farge(format!("Feil i UDP-broadcast: {}", e), Color::Red);
             }
         })
     }

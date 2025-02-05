@@ -1,29 +1,18 @@
-use crate::config;
-use super::konsulent::er_master;
-use super::MrWorldWide;
 use super::konsulent;
 use crate::WorldView::WorldView;
 use crate::WorldView::WorldViewChannel;
 
 use termcolor::Color;
-use tokio::net::TcpListener;
-use tokio::time::{sleep, Duration};
+use tokio::time::Duration;
 use core::panic;
-use std::default;
 use std::env;
-use std::net::TcpStream;
-use std::thread::JoinHandle;
 use std::u8;
-use tokio::sync::mpsc;
-use tokio::macros::support::Future;
 use std::sync::Arc;
 use tokio::sync::broadcast;
 use std::net::IpAddr;
-use tokio::macros::support::Pin;
 use tokio::sync::Mutex;
-use tokio::io::{AsyncWriteExt, AsyncReadExt};
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 
 
 
@@ -131,7 +120,10 @@ impl Sjefen{
                             println!("Jeg ble slave, henter worldview fra {} (Sjefen.rs, start_clean())", *self.master_ip.lock().await);
                             match self.get_wv_from_master().await {
                                 Some(worldview) => return worldview,
-                                None => {panic!("Klarte ikke lese TCP stream fra master (sjefen.rs, start_clean())");}
+                                None => {
+                                    konsulent::print_farge("Klarte ikke lese TCP stream fra master (sjefen.rs, start_clean())".to_string(), Color::Red);
+                                    panic!();
+                                }
                             }
                             //return worldview;
                         },
@@ -156,7 +148,8 @@ impl Sjefen{
                 return serialized_data;
             }
             Err(e) => {
-                panic!("Serialization failed: {} (sjefen.rs, start_clean())", e);
+                konsulent::print_farge(format!("Serialization failed: {} (sjefen.rs, start_clean())", e), Color::Red);
+                panic!();
             }
         }
     }
@@ -183,6 +176,7 @@ impl Sjefen{
                 Ok(_) => {Ok(())},
                 Err(e) => {
                     eprintln!("Feil i master_process: {:?}", e);
+                    konsulent::print_farge(format!("Feil i master_process: {:?}", e), Color::Red);
                     return Err(e);
                 }
             }
@@ -207,7 +201,8 @@ impl Sjefen{
     }
     
     async fn master_process(&self, wv_channel: WorldViewChannel::WorldViewChannel, shutdown_tx: broadcast::Sender<u8>) -> tokio::io::Result<()> {
-        println!("\nstarte Master prosess\n");
+        println!("\nstarter Master prosess\n");
+        konsulent::print_farge("Starter master_process".to_string(), Color::Green);
         //let wv_rx = wv_channel.tx.clone().subscribe();
         // 1) start TCP -> publiser nyhetsbrev
 

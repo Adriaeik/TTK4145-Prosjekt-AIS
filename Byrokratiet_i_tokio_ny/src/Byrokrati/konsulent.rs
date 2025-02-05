@@ -5,7 +5,7 @@ og du må ikkje finne på å spørre han om kva jobben hans innebærer*/
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::net::IpAddr;
-use anyhow::{Context, Result};
+use anyhow::Context;
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 use crate::config;
 use crate::WorldView::WorldView;
@@ -88,7 +88,7 @@ pub fn id_fra_ip(ip: IpAddr) -> u8 {
 pub fn get_root_ip(ip: IpAddr) -> String {
     match ip {
         IpAddr::V4(addr) => {
-            let mut octets = addr.octets();
+            let octets = addr.octets();
             format!("{}.{}.{}", octets[0], octets[1], octets[2])
         }
         IpAddr::V6(addr) => {
@@ -131,7 +131,8 @@ pub async fn init_serialised_worldview() -> (Sjefen::Sjefen, Vec<u8>) {
             sjef // Returner sjefen dersom alt gjekk bra
         }
         Err(e) => {
-            panic!("Feil ved henting av SjefPakke: {}", e); // Avslutt programmet dersom ein feil oppstod
+            print_farge(format!("Feil ved henting av SjefPakke i init_serialised_worldview(): {}", e), Color::Red);
+            panic!(); // Avslutt programmet dersom ein feil oppstod
         }
     };
     //Finne IP :)
@@ -140,7 +141,8 @@ pub async fn init_serialised_worldview() -> (Sjefen::Sjefen, Vec<u8>) {
             ip
         }
         Err(e) => {
-            panic!("Fant ikke IP (main.rs): {}", e);
+            print_farge(format!("Fant ikke IP i init_serialised_worldview(): {}", e), Color::Red);
+            panic!();
         }
     }; 
     let id = konsulent::id_fra_ip(ip);

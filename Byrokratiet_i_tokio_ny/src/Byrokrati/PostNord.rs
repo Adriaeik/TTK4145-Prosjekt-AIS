@@ -1,14 +1,12 @@
 //! Sikrer at fine wordviewpakker blir sendt dit de skal :)
 
 use crate::config;
-use crate::WorldView::{WorldView, WorldViewChannel};
-use std::net::SocketAddr;
-use std::sync::Arc;
+use crate::WorldView::WorldViewChannel;
 use std::thread::sleep;
 use std::time::Duration;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
-use tokio::sync::{broadcast, Mutex};
+use tokio::sync::broadcast;
 use super::{Sjefen, konsulent};
 use termcolor::Color;
 
@@ -52,7 +50,7 @@ impl Sjefen::Sjefen {
             return None;
         }
 
-        println!("📨 Worldview frå master i get_wv_from_master(): {:?}", buf);
+        println!("Worldview frå master i get_wv_from_master(): {:?}", buf);
 
         // if self.id < master_id {
         //     println!("Min ID er lågare enn masteren sin, eg må bli ny master i get_wv_from_master()!");
@@ -65,13 +63,13 @@ impl Sjefen::Sjefen {
 
     /// 🔹 **Sender worldview-oppdateringar til klientar**
     pub async fn send_post(&self, mut socket: TcpStream, mut rx: broadcast::Receiver<Vec<u8>>) -> Result<(), Box<dyn std::error::Error>> {
-        println!("Startet en send_post i send_post()");
+        konsulent::print_farge("Startet en send_post i send_post()".to_string(), Color::Green);
         let mut buf = [0; 1024];
         
         let mut i:u8 = 0; //Til telling, proof of concept
-        WorldViewChannel::request_worldview().await;
         loop {
             sleep(Duration::from_millis(100));
+            WorldViewChannel::request_worldview().await;
             tokio::select! {
                 msg = async {
                     let mut latest_msg = None;
@@ -88,7 +86,6 @@ impl Sjefen::Sjefen {
                         message[msg_len-1] = i;
                         socket.write_all(&message[..]).await?;
                         //println!("Sendt worldview på TCP nå i send_post()");
-                        WorldViewChannel::request_worldview().await;
                     }
                 }
     
@@ -146,10 +143,9 @@ impl Sjefen::Sjefen {
         let self_clone = self.clone();
         
         tokio::spawn(async move {
-            println!("📨 Starter nyhetsbrev-server...");
-    
+            konsulent::print_farge("Starter nyhetsbrev-server (start_post_leveranse_task()".to_string(), Color::Green);
             if let Err(e) = self_clone.start_post_leveranse(wv_channel, shutdown_tx).await {
-                eprintln!("❌ Feil i post_leveranse: {}", e);
+                konsulent::print_farge(format!("Feil i post_leveranse: {}", e), Color::Red);
             }
         });
 
@@ -158,14 +154,14 @@ impl Sjefen::Sjefen {
 
     /// 🔹 **Klient som lyttar etter worldview-endringar frå master**
     pub async fn abboner_master_nyhetsbrev(&self, shutdown_rx: broadcast::Receiver<u8>) -> tokio::io::Result<()> {
-        println!("Prøver å koble på: {}:{}", *self.master_ip.lock().await, config::PN_PORT);
+        println!("Prøver å koble på: {}:{} i abboner_master_nyhetsbrev()", *self.master_ip.lock().await, config::PN_PORT);
         let mut stream = TcpStream::connect(format!("{}:{}", *self.master_ip.lock().await, config::PN_PORT)).await?;
         
-        println!("✅ Har kobla til master på ip: {}:{}", *self.master_ip.lock().await, config::PN_PORT);
+        konsulent::print_farge(format!("Har kobla til master på ip: {}:{} i abboner_master_nyhetsbrev()", *self.master_ip.lock().await, config::PN_PORT), Color::Green);
 
-        let master_id = konsulent::id_fra_ip(*self.master_ip.lock().await);
-        println!("🆔 Master ID: {}", master_id);
-        println!("🆔 Min ID: {}", self.id);
+        // let master_id = konsulent::id_fra_ip(*self.master_ip.lock().await);
+        // println!("Master ID: {}", master_id);
+        // println!("Min ID: {}", self.id);
 
         loop {
             let mut len_bytes = [0u8; 4];

@@ -16,15 +16,12 @@ cargo run -- master ID -> lager ett av hovedprogrammene på en PC med ID (lavest
 cargo run -- backup ID -> lager en lokal backup som vil få ID om den tar over
 */
 
-use Byrokratiet_i_tokio_ny::Byrokrati::Sjefen;
 use Byrokratiet_i_tokio_ny::Byrokrati::konsulent;
-use Byrokratiet_i_tokio_ny::WorldView::WorldView;
 use Byrokratiet_i_tokio_ny::WorldView::WorldViewChannel;
 
 
 use tokio::sync::broadcast;
 use tokio::sync::Mutex;
-use Byrokratiet_i_tokio_ny::WorldView::WorldViewChannel::request_worldview;
 use std::sync::Arc;
 
 /// Håndterer start-up initialisering av programrolle
@@ -53,7 +50,7 @@ async fn main() {
     
     //Init av tx til worldviewchannel
     let (tx, _) = broadcast::channel::<Vec<u8>>(1);
-    let temp_rx_wv = tx.subscribe();
+    //let temp_rx_wv = tx.subscribe();
     let worldview_channel = WorldViewChannel::WorldViewChannel {tx: tx};
     
     
