@@ -3,6 +3,7 @@ use crate::WorldView::WorldView;
 use crate::WorldView::WorldViewChannel;
 
 use termcolor::Color;
+use tokio::sync::mpsc;
 use tokio::time::Duration;
 use core::panic;
 use std::env;
@@ -116,6 +117,7 @@ impl Sjefen{
         match self.listen_to_network().await {
             Ok(_) => if *self.master_ip.lock().await == self.ip {
                             println!("Jeg ble master, sjefen.rs start_clean()");
+                            *self.master_ip.lock().await = self.ip;
                         }else {
                             println!("Jeg ble slave, henter worldview fra {} (Sjefen.rs, start_clean())", *self.master_ip.lock().await);
                             match self.get_wv_from_master().await {
@@ -156,7 +158,7 @@ impl Sjefen{
 
 
 
-    pub async fn start_from_worldview(&self, wv_channel: WorldViewChannel::WorldViewChannel) -> tokio::io::Result<()> {
+    pub async fn start_from_worldview(&self, wv_channel: WorldViewChannel::WorldViewChannel, wv_arc: Arc<Mutex<Vec<u8>>>) -> tokio::io::Result<()> {
         let (shutdown_tx, _) = broadcast::channel::<u8>(1);
         // shutdown_tx.send("DEt er ein ny master");
         
@@ -172,7 +174,7 @@ impl Sjefen{
         let wv_channel_clone = WorldViewChannel::WorldViewChannel{tx: wv_channel.tx.clone()};
         if self.ip == *self.master_ip.lock().await {
             
-            match self.master_process(wv_channel_clone, shutdown_tx.clone()).await {
+            match self.master_process(wv_channel_clone, shutdown_tx.clone(), wv_arc.clone()).await {
                 Ok(_) => {Ok(())},
                 Err(e) => {
                     eprintln!("Feil i master_process: {:?}", e);
@@ -183,7 +185,7 @@ impl Sjefen{
             
         }
         else {
-            let _kun_for_å_fjerne_warning_fjern_vareabel_og_handter_error_senere = self.slave_process(wv_channel_clone, shutdown_tx.clone()).await;
+            let _kun_for_å_fjerne_warning_fjern_vareabel_og_handter_error_senere = self.slave_process(wv_channel_clone, shutdown_tx.clone(), wv_arc.clone()).await;
             return Ok(())
         }
      
@@ -200,17 +202,20 @@ impl Sjefen{
          */
     }
     
-    async fn master_process(&self, wv_channel: WorldViewChannel::WorldViewChannel, shutdown_tx: broadcast::Sender<u8>) -> tokio::io::Result<()> {
+    async fn master_process(&self, wv_channel: WorldViewChannel::WorldViewChannel, shutdown_tx: broadcast::Sender<u8>, wv_arc: Arc<Mutex<Vec<u8>>>) -> tokio::io::Result<()> {
         println!("\nstarter Master prosess\n");
         konsulent::print_farge("Starter master_process".to_string(), Color::Green);
-        //let wv_rx = wv_channel.tx.clone().subscribe();
-        // 1) start TCP -> publiser nyhetsbrev
+
+
+        /* Kanal til å sende tilbake worldview om du blir backup. bedre løsning må fikses*/
+        let (rapport_tx, mut rapport_rx) = mpsc::channel::<Vec<u8>>(10);
+
 
 
 
 
         let wv_channel_clone = WorldViewChannel::WorldViewChannel{tx: wv_channel.tx.clone()};
-        let _post_handle = self.start_post_leveranse_task(/*Arc*/wv_channel_clone, shutdown_tx.clone());
+        let _post_handle = self.start_post_leveranse_task(/*Arc*/wv_channel_clone, shutdown_tx.clone(), rapport_tx);
 
         let _udp_handle = self.start_udp_broadcast_task(shutdown_tx.clone());
 
@@ -224,14 +229,19 @@ impl Sjefen{
         */
 
         
-        loop{
-            tokio::time::sleep(Duration::from_micros(100)).await;
-            //WorldViewChannel::request_worldview().await;
+        loop {
+            if let Some(data) = rapport_rx.recv().await {
+                konsulent::print_farge("En lavere ip er koblet på, blir slave...".to_string(), Color::Yellow);
+                let _ = shutdown_tx.send(69);
+                let mut wv_arc_unlock = wv_arc.lock().await;
+                *wv_arc_unlock = data;
+                return Ok(());
+            }
         }
 
     }
     
-    async fn slave_process(&self, _wv_channel: WorldViewChannel::WorldViewChannel, shutdown_tx: broadcast::Sender<u8>) -> tokio::io::Result<()> {
+    async fn slave_process(&self, _wv_channel: WorldViewChannel::WorldViewChannel, shutdown_tx: broadcast::Sender<u8>, wv_arc: Arc<Mutex<Vec<u8>>>) -> tokio::io::Result<()> {
         let abboner_task = self.clone().abboner_master_nyhetsbrev(shutdown_tx.clone().subscribe()).await;
 
         loop {
