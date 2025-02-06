@@ -155,6 +155,7 @@ pub async fn init_serialised_worldview() -> (Sjefen::Sjefen, Vec<u8>) {
 
     //Init til worldview
     let serialized_worldview = sjefen.start_clean().await;
+    
 
     (sjefen,serialized_worldview)
 }

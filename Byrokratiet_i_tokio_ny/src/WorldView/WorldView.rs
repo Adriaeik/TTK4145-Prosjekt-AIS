@@ -90,6 +90,7 @@ pub fn serialize_worldview(worldview: &WorldView) -> Result<Vec<u8>, Box<dyn Err
 }
 
 // Funksjon for å deserialisere WorldView
+
 pub fn deserialize_worldview(data: &[u8]) -> Result<WorldView, Box<dyn Error>> {
     let decoded: WorldView = bincode::deserialize(data)?;
     Ok(decoded)
