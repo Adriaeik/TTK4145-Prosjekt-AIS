@@ -70,7 +70,6 @@ async fn main() {
         kan vi loope sånn her når man må starte på nytt, kanskje lettere?
         worldview = sjefen.start_from_worldview(worldview);
         */
-        println!("Starter fra worldview nå");
         match sjefen.start_from_worldview(worldview_channel.clone(), worldview_arc.clone()).await {
             Ok(_) => {},
             Err(e) => {

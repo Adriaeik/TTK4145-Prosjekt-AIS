@@ -61,6 +61,8 @@ impl Sjefen::Sjefen {
         }
         
 
+        // starter å broadcaste egen id hvis nettverket er tomt 
+        // Kobler seg til master på TCP hvis det er en master på nettverket
         if empty_network {
             let mut master_ip = self.master_ip.lock().await;
             *master_ip = self.ip;

@@ -174,10 +174,10 @@ impl Sjefen{
         let wv_channel_clone = WorldViewChannel::WorldViewChannel{tx: wv_channel.tx.clone()};
         
         
-        // let mut wv_locked = wv.lock().await;
-        // let wv_unlocked = mem::take(&mut *wv_locked);
+        let mut wv_locked = wv.lock().await;
+        let wv_unlocked = mem::take(&mut *wv_locked);
         
-        if self.ip == *self.master_ip.lock().await {
+        if self.id <= konsulent::get_wv_master_id(wv_unlocked) {
             match self.master_process(wv_channel_clone, shutdown_tx.clone()).await {
                 Ok(_) => {Ok(())},
                 Err(e) => {
