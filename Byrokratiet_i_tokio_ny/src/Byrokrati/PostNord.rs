@@ -6,8 +6,7 @@ use std::thread::sleep;
 use std::time::Duration;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
-use tokio::sync::mpsc::Sender;
-use tokio::sync::{broadcast, mpsc};
+use tokio::sync::broadcast;
 use super::{Sjefen, konsulent};
 use termcolor::Color;
 
@@ -15,6 +14,10 @@ use termcolor::Color;
 impl Sjefen::Sjefen {
     /// 🔹 **Hentar worldview frå master**
     pub async fn get_wv_from_master(&self) -> Option<Vec<u8>> {
+
+        
+
+    // Skriver ut grønn tekst
         let master_ip = self.master_ip.lock().await;
         
         println!("Prøver å koble på: {}:{} i get_wv_from_master()", *master_ip, config::PN_PORT);
@@ -48,7 +51,6 @@ impl Sjefen::Sjefen {
         }
 
         println!("Worldview frå master i get_wv_from_master(): {:?}", buf);
-        
 
         // if self.id < master_id {
         //     println!("Min ID er lågare enn masteren sin, eg må bli ny master i get_wv_from_master()!");
@@ -60,7 +62,7 @@ impl Sjefen::Sjefen {
     }
 
     /// 🔹 **Sender worldview-oppdateringar til klientar**
-    pub async fn send_post(&self, mut socket: TcpStream, mut rx: broadcast::Receiver<Vec<u8>>, rapport_tx: Sender<Vec<u8>>) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn send_post(&self, mut socket: TcpStream, mut rx: broadcast::Receiver<Vec<u8>>) -> Result<(), Box<dyn std::error::Error>> {
         konsulent::print_farge("Startet en send_post i send_post()".to_string(), Color::Green);
         let mut buf = [0; 1024];
         
@@ -85,14 +87,6 @@ impl Sjefen::Sjefen {
                         message[msg_len-1] = i; //Til telling, proof of concept
                         socket.write_all(&message[..]).await?;
                         //println!("Sendt worldview på TCP nå i send_post()");
-
-
-                        if *self.master_ip.lock().await != self.ip {
-                            if let Err(_) = rapport_tx.send(message).await {
-                                konsulent::print_farge("rapport kanal lukket, avslutter sender i send_post().".to_string(), Color::Red);
-                                panic!();
-                            }
-                        }
                     }
                 }
     
@@ -119,22 +113,18 @@ impl Sjefen::Sjefen {
     }
     
     /// 🔹 **Startar server for å sende worldview**
-    pub async fn start_post_leveranse(&self, wv_channel: WorldViewChannel::WorldViewChannel, _shutdown_tx: broadcast::Sender<u8>, rapport_tx: Sender<Vec<u8>>) -> tokio::io::Result<()> {
+    pub async fn start_post_leveranse(&self, wv_channel: WorldViewChannel::WorldViewChannel, _shutdown_tx: broadcast::Sender<u8>) -> tokio::io::Result<()> {
         let listener = TcpListener::bind(format!("{}:{}", self.ip, config::PN_PORT)).await?;
-        
-        loop {
-            let rapport_tx_clone = rapport_tx.clone();
-            match listener.accept().await {
-                Ok((socket, addr)) => {
-                    let mut mip = self.master_ip.lock().await; //
-                    *mip = addr.ip();
 
+        loop {
+            match listener.accept().await {
+                Ok((socket, _)) => {
                     konsulent::print_farge(format!("{} Kobla til nyhetsbrevet!", socket.peer_addr().unwrap()), Color::Green);
                     let rx = wv_channel.tx.subscribe();
                     let self_clone = self.clone();
                     tokio::spawn(async move {
                         let peer_addr_copy = socket.peer_addr().unwrap();
-                        match self_clone.send_post(socket, rx, rapport_tx_clone.clone()).await {
+                        match self_clone.send_post(socket, rx).await {
                             Ok(_) => {}
                             Err(e) => {
                                 konsulent::print_farge(format!("Error i send_post til: {}: {}", peer_addr_copy, e), Color::Red);
@@ -150,12 +140,12 @@ impl Sjefen::Sjefen {
     }
 
     /// 🔹 **Startar `start_post_leveranse` i ei eiga oppgåve**
-    pub fn start_post_leveranse_task(&self, wv_channel: WorldViewChannel::WorldViewChannel, shutdown_tx: broadcast::Sender<u8>, rapport_tx: Sender<Vec<u8>>) -> tokio::io::Result<()> {
+    pub fn start_post_leveranse_task(&self, wv_channel: WorldViewChannel::WorldViewChannel, shutdown_tx: broadcast::Sender<u8>) -> tokio::io::Result<()> {
         let self_clone = self.clone();
         
         tokio::spawn(async move {
             konsulent::print_farge("Starter nyhetsbrev-server (start_post_leveranse_task()".to_string(), Color::Green);
-            if let Err(e) = self_clone.start_post_leveranse(wv_channel, shutdown_tx, rapport_tx).await {
+            if let Err(e) = self_clone.start_post_leveranse(wv_channel, shutdown_tx).await {
                 konsulent::print_farge(format!("Feil i post_leveranse: {}", e), Color::Red);
             }
         });

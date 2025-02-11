@@ -70,8 +70,8 @@ async fn main() {
         kan vi loope sånn her når man må starte på nytt, kanskje lettere?
         worldview = sjefen.start_from_worldview(worldview);
         */
-        match sjefen.start_from_worldview(worldview_channel.clone(), worldview_arc.clone()).await {
-            Ok(()) => {},
+        match sjefen.start_from_worldview(worldview_channel.clone()).await {
+            Ok(_) => {},
             Err(e) => {
                 println!("feil: {}", e);
                 // shutdown_tx.send(1).expect("HORE2");
