@@ -281,7 +281,7 @@ impl Sjefen{
         loop {
             // println!("i slaveloop");
             let wv_locked = worldview_arc.lock().await;
-            println!("Wolrdview mottat: {:?}", *wv_locked);
+            //println!("Wolrdview mottat: {:?}", *wv_locked);
             // println!("Kan vi å printe?");
             PostNord::get_ny_wv().store(true, Ordering::SeqCst);
             // let wv_deserialized = WorldView::deserialize_worldview(&*vw_locked);
