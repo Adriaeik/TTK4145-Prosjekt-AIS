@@ -8,8 +8,6 @@ use core::panic;
 use std::env;
 use std::u8;
 use std::sync::Arc;
-use std::mem;
-
 use tokio::sync::broadcast;
 use std::net::IpAddr;
 use tokio::sync::Mutex;
@@ -158,7 +156,7 @@ impl Sjefen{
 
 
 
-    pub async fn start_from_worldview(&self, wv_channel: WorldViewChannel::WorldViewChannel, wv: Arc<Mutex<Vec<u8>>>) -> tokio::io::Result<()> {
+    pub async fn start_from_worldview(&self, wv_channel: WorldViewChannel::WorldViewChannel) -> tokio::io::Result<()> {
         let (shutdown_tx, _) = broadcast::channel::<u8>(1);
         // shutdown_tx.send("DEt er ein ny master");
         
@@ -172,12 +170,8 @@ impl Sjefen{
         // sjekker om ein er master, bli her så lenge du er viktigast
         // bacup vil aldri kjøre denne funksjonen. startes kun fra master/slav_process
         let wv_channel_clone = WorldViewChannel::WorldViewChannel{tx: wv_channel.tx.clone()};
-        
-        
-        let mut wv_locked = wv.lock().await;
-        let wv_unlocked = mem::take(&mut *wv_locked);
-        
-        if self.id <= konsulent::get_wv_master_id(wv_unlocked) {
+        if self.ip == *self.master_ip.lock().await {
+            
             match self.master_process(wv_channel_clone, shutdown_tx.clone()).await {
                 Ok(_) => {Ok(())},
                 Err(e) => {
