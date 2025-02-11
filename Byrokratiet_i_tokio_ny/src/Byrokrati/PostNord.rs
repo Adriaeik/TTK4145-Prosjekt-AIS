@@ -4,9 +4,11 @@ use crate::config;
 use crate::WorldView::WorldViewChannel;
 use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 use std::sync::OnceLock;
+use std::time::Duration;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::broadcast;
+use tokio::time::sleep;
 use super::{Sjefen, konsulent};
 use termcolor::Color;
 use std::sync::Arc;
@@ -240,11 +242,18 @@ impl Sjefen::Sjefen {
                 return Err(e);
             }
 
-            //println!("Mottok melding i abboner_nyhetsbrev() på {} bytes: {:?} ", len, buf);
-            while !get_ny_wv().load(Ordering::SeqCst) {}
+            println!("Mottok melding i abboner_nyhetsbrev() på {} bytes: {:?} ", len, buf);
+            while !get_ny_wv().load(Ordering::Relaxed) {
+                println!("Trenger vi ny worldview?: {}", get_ny_wv().load(Ordering::Relaxed));
+                sleep(Duration::from_millis(50)).await;
+            }
+            
+            {
+                let mut wv_locked = worldview_arc.lock().await; 
+                *wv_locked = buf;
+            }
+            get_ny_wv().store(false, Ordering::SeqCst);
 
-            let mut wv_locked = worldview_arc.lock().await; 
-            *wv_locked = buf;
 
             stream.write_all(b"WV-ACK").await?;
         }
