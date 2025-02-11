@@ -225,7 +225,8 @@ impl Sjefen{
 
         
         loop{
-            tokio::time::sleep(Duration::from_micros(100)).await;
+            tokio::time::sleep(Duration::from_micros(2000)).await;
+            shutdown_tx.send(69);
             //WorldViewChannel::request_worldview().await;
         }
 

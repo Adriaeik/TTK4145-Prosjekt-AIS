@@ -113,30 +113,41 @@ impl Sjefen::Sjefen {
     }
     
     /// 🔹 **Startar server for å sende worldview**
-    pub async fn start_post_leveranse(&self, wv_channel: WorldViewChannel::WorldViewChannel, _shutdown_tx: broadcast::Sender<u8>) -> tokio::io::Result<()> {
+    pub async fn start_post_leveranse(&self, wv_channel: WorldViewChannel::WorldViewChannel, shutdown_tx: broadcast::Sender<u8>) -> tokio::io::Result<()> {
         let listener = TcpListener::bind(format!("{}:{}", self.ip, config::PN_PORT)).await?;
-
+        let mut shutdown_rx = shutdown_tx.subscribe();
         loop {
-            match listener.accept().await {
-                Ok((socket, _)) => {
-                    konsulent::print_farge(format!("{} Kobla til nyhetsbrevet!", socket.peer_addr().unwrap()), Color::Green);
-                    let rx = wv_channel.tx.subscribe();
-                    let self_clone = self.clone();
-                    tokio::spawn(async move {
-                        let peer_addr_copy = socket.peer_addr().unwrap();
-                        match self_clone.send_post(socket, rx).await {
-                            Ok(_) => {}
-                            Err(e) => {
-                                konsulent::print_farge(format!("Error i send_post til: {}: {}", peer_addr_copy, e), Color::Red);
-                            }
+            tokio::select! {
+                // 🔹 Hovudoppgåve:
+                _ = async {
+                        match listener.accept().await {
+                        Ok((socket, _)) => {
+                            konsulent::print_farge(format!("{} Kobla til nyhetsbrevet!", socket.peer_addr().unwrap()), Color::Green);
+                            let rx = wv_channel.tx.subscribe();
+                            let self_clone = self.clone();
+                            tokio::spawn(async move {
+                                let peer_addr_copy = socket.peer_addr().unwrap();
+                                match self_clone.send_post(socket, rx).await {
+                                    Ok(_) => {}
+                                    Err(e) => {
+                                        konsulent::print_farge(format!("Error i send_post til: {}: {}", peer_addr_copy, e), Color::Red);
+                                    }
+                                }
+                            });
                         }
-                    });
-                }
-                Err(e) => {
-                    konsulent::print_farge(format!("Feil i listener.accept(): {}", e), Color::Red);
+                        Err(e) => {
+                            konsulent::print_farge(format!("Feil i listener.accept(): {}", e), Color::Red);
+                        }
+                    }
+                } => {}
+                // 🔹 Shutdown: Stoppar TCP-Connections om signalet kjem
+                _ = shutdown_rx.recv() => {
+                    konsulent::print_farge("Shutdown mottatt! Stoppar TCP-Connections...".to_string(), Color::Yellow);
+                    break;
                 }
             }
         }
+        Ok(())
     }
 
     /// 🔹 **Startar `start_post_leveranse` i ei eiga oppgåve**
