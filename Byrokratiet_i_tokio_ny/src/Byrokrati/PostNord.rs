@@ -62,7 +62,7 @@ impl Sjefen::Sjefen {
     }
 
     /// 🔹 **Sender worldview-oppdateringar til klientar**
-    pub async fn send_post(&self, mut socket: TcpStream, mut rx: broadcast::Receiver<Vec<u8>>) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn send_post(&self, mut socket: TcpStream, mut rx: broadcast::Receiver<Vec<u8>>, mut shutdown_rx: broadcast::Receiver<u8>) -> Result<(), Box<dyn std::error::Error>> {
         konsulent::print_farge("Startet en send_post i send_post()".to_string(), Color::Green);
         let mut buf = [0; 1024];
         
@@ -106,6 +106,12 @@ impl Sjefen::Sjefen {
                         }
                     }
                 }
+                // 🔹 Shutdown: Stoppar TCP-Connections om signalet kjem
+                _ = shutdown_rx.recv() => {
+                    konsulent::print_farge("Shutdown mottatt! Stoppar TCP-Connection...".to_string(), Color::Yellow);
+                
+                    break;
+                }
             }
         }
         konsulent::print_farge(format!("Lukker tilkobling til klient i send_post()"), Color::Yellow);
@@ -117,6 +123,7 @@ impl Sjefen::Sjefen {
         let listener = TcpListener::bind(format!("{}:{}", self.ip, config::PN_PORT)).await?;
         let mut shutdown_rx = shutdown_tx.subscribe();
         loop {
+            let shutdown_tx_clone = shutdown_tx.clone();
             tokio::select! {
                 // 🔹 Hovudoppgåve:
                 _ = async {
@@ -127,7 +134,7 @@ impl Sjefen::Sjefen {
                             let self_clone = self.clone();
                             tokio::spawn(async move {
                                 let peer_addr_copy = socket.peer_addr().unwrap();
-                                match self_clone.send_post(socket, rx).await {
+                                match self_clone.send_post(socket, rx, shutdown_tx_clone.subscribe()).await {
                                     Ok(_) => {}
                                     Err(e) => {
                                         konsulent::print_farge(format!("Error i send_post til: {}: {}", peer_addr_copy, e), Color::Red);
@@ -142,7 +149,8 @@ impl Sjefen::Sjefen {
                 } => {}
                 // 🔹 Shutdown: Stoppar TCP-Connections om signalet kjem
                 _ = shutdown_rx.recv() => {
-                    konsulent::print_farge("Shutdown mottatt! Stoppar TCP-Connections...".to_string(), Color::Yellow);
+                    konsulent::print_farge("Shutdown mottatt! Stoppar TCP-listener...".to_string(), Color::Yellow);
+                   
                     break;
                 }
             }
