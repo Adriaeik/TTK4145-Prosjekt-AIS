@@ -262,21 +262,13 @@ impl Sjefen{
             let timestamp = SystemTime::now()
                 .duration_since(UNIX_EPOCH)
                 .expect("Time went backwards")
-                .as_millis() as u32; // Alternativt .as_secs() for sekund
-
-            // Konverterer `u32` til fire `u8`-verdiar
-            let bytes = timestamp.to_le_bytes(); // Liten endian: [LSB, ..., MSB]
+                .as_secs() as u8; // Alternativt .as_secs() for sekund
 
             let mut worldview = worldview_arc.lock().await;
             let msg_len = worldview.len();
 
-            // Sikre at vi har nok plass
-            if msg_len >= 4 {
-                worldview[msg_len - 4] = bytes[0];
-                worldview[msg_len - 3] = bytes[1];
-                worldview[msg_len - 2] = bytes[2];
-                worldview[msg_len - 1] = bytes[3];
-            } 
+                // kan bruke tellaren til å sjekke timeout
+                worldview[msg_len - 1] = timestamp; // sekund tellar
         }
 
     }
@@ -290,7 +282,7 @@ impl Sjefen{
             // println!("i slaveloop");
             let wv_locked = worldview_arc.lock().await;
             println!("Wolrdview mottat: {:?}", *wv_locked);
-            println!("Kan vi å printe?");
+            // println!("Kan vi å printe?");
             PostNord::get_ny_wv().store(true, Ordering::SeqCst);
             // let wv_deserialized = WorldView::deserialize_worldview(&*vw_locked);
             // match wv_deserialized {

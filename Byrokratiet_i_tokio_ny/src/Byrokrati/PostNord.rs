@@ -88,9 +88,7 @@ impl Sjefen::Sjefen {
         loop {
             let mut rx = rx_org.resubscribe();
             WorldViewChannel::request_worldview().await;
-            println!("Spurte om wv");
             while WorldViewChannel::get_worldview_request_flag().load(Ordering::SeqCst) {};
-            println!("Fikk wv!");
             match shutdown_rx.try_recv() {
                 Ok(_) => {
                     konsulent::print_farge("Shutdown mottatt! Stoppar TCP-Connection...".to_string(), Color::Yellow);
@@ -111,7 +109,6 @@ impl Sjefen::Sjefen {
                         }
                         if let Some(message) = msg {
                             let len_b = (message.len() as u32).to_be_bytes();
-                            println!("len: {:?}", len_b);
                             socket.write_all(&len_b).await?;
                             socket.write_all(&message[..]).await?;
                             //println!("Sendt worldview på TCP nå i send_post()");
@@ -126,7 +123,7 @@ impl Sjefen::Sjefen {
                                 break; //  Avslutt loopen om klienten koplar frå
                             }
                             Ok(bytes_read) => {
-                                konsulent::print_farge(format!("Mottok {} bytes fra klienten i send_post(): {:?}", bytes_read, &buf[..bytes_read]), Color::Blue);
+                                //konsulent::print_farge(format!("Mottok {} bytes fra klienten i send_post(): {:?}", bytes_read, &buf[..bytes_read]), Color::Blue);
                             }
                             Err(e) => {
                                 konsulent::print_farge(format!("Feil ved lesing fra klient i send_post(): {}", e), Color::Red);
