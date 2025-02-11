@@ -84,7 +84,6 @@ impl Sjefen::Sjefen {
         konsulent::print_farge("Startet en send_post i send_post()".to_string(), Color::Green);
         let mut buf = [0; 1024];
         
-        let mut i:u8 = 0; //Til telling, proof of concept
         loop {
             WorldViewChannel::request_worldview().await;
             while WorldViewChannel::get_worldview_request_flag().load(Ordering::SeqCst) {};
@@ -103,14 +102,9 @@ impl Sjefen::Sjefen {
                     }.await; 
                     
                     {
-                        if let Some(mut message) = msg {
-                            i = i % 255;
-                            i += 1; //Til telling, proof of concept
-
-                            let msg_len = message.len(); //Til telling, proof of concept
+                        if let Some(message) = msg {
                             let len_b = (message.len() as u32).to_be_bytes();
                             socket.write_all(&len_b).await?;
-                            message[msg_len-1] = i; //Til telling, proof of concept
                             socket.write_all(&message[..]).await?;
                             //println!("Sendt worldview på TCP nå i send_post()");
                         }

@@ -205,7 +205,7 @@ impl Sjefen{
         }
         */
 
-        
+        let mut i: u8 = 0;
         loop{
 
             let ny_mamma = PostNord::get_ny_mamma().load(Ordering::SeqCst);
@@ -221,7 +221,11 @@ impl Sjefen{
                             wv.rapporter_annsettelse_av_mor(mor);
                             let serialized_wv = WorldView::serialize_worldview(&wv);
                             match serialized_wv {
-                                Ok(swv) => {
+                                Ok(mut swv) => {
+                                    i = i%255;
+                                    i = i + 1;
+                                    let msg_len = swv.len();
+                                    swv[msg_len-1] = i;
                                     *worldview_arc.lock().await = swv;
                                 }
                                 Err(e) => {konsulent::print_farge(format!("Feil i serialisering av worldview: {}", e), Color::Red);}
@@ -270,7 +274,7 @@ impl Sjefen{
         loop {
             // println!("i slaveloop");
             let wv_locked = worldview_arc.lock().await;
-            println!("{:?}", *wv_locked);
+            println!("Wolrdview mottat: {:?}", *wv_locked);
             // println!("Kan vi å printe?");
             PostNord::get_ny_wv().store(true, Ordering::SeqCst);
             // let wv_deserialized = WorldView::deserialize_worldview(&*vw_locked);
