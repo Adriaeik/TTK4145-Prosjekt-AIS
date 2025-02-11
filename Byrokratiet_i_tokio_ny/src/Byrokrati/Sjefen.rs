@@ -5,6 +5,7 @@ use crate::WorldView::WorldViewChannel;
 use crate::Byrokrati::PostNord;
 
 use termcolor::Color;
+use tokio::time::sleep;
 use tokio::time::Duration;
 use core::panic;
 use std::env;
@@ -16,7 +17,7 @@ use std::net::IpAddr;
 use tokio::sync::Mutex;
 
 use anyhow::Result;
-
+use std::time::{SystemTime, UNIX_EPOCH};
 
 
 #[derive(Clone, Debug)]
@@ -258,10 +259,24 @@ impl Sjefen{
 
             //_ = shutdown_tx.send(69);
             // WorldViewChannel::request_worldview().await;
-            i = i%255;
-            i = i + 1;
-            let msg_len = worldview_arc.lock().await.len();
-            worldview_arc.lock().await[msg_len-1] = i;
+            let timestamp = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .expect("Time went backwards")
+                .as_millis() as u32; // Alternativt .as_secs() for sekund
+
+            // Konverterer `u32` til fire `u8`-verdiar
+            let bytes = timestamp.to_le_bytes(); // Liten endian: [LSB, ..., MSB]
+
+            let mut worldview = worldview_arc.lock().await;
+            let msg_len = worldview.len();
+
+            // Sikre at vi har nok plass
+            if msg_len >= 4 {
+                worldview[msg_len - 4] = bytes[0];
+                worldview[msg_len - 3] = bytes[1];
+                worldview[msg_len - 2] = bytes[2];
+                worldview[msg_len - 1] = bytes[3];
+            } 
         }
 
     }
@@ -273,9 +288,9 @@ impl Sjefen{
         
         loop {
             // println!("i slaveloop");
-            // let wv_locked = worldview_arc.lock().await;
-            // println!("Wolrdview mottat: {:?}", *wv_locked);
-            // println!("Kan vi å printe?");
+            let wv_locked = worldview_arc.lock().await;
+            println!("Wolrdview mottat: {:?}", *wv_locked);
+            println!("Kan vi å printe?");
             PostNord::get_ny_wv().store(true, Ordering::SeqCst);
             // let wv_deserialized = WorldView::deserialize_worldview(&*vw_locked);
             // match wv_deserialized {

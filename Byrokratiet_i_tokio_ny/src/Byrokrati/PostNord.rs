@@ -84,9 +84,9 @@ impl Sjefen::Sjefen {
         konsulent::print_farge("Startet en send_post i send_post()".to_string(), Color::Green);
         let mut buf = [0; 1024];
         
-        let mut rx = rx_org.resubscribe();
-
+        
         loop {
+            let mut rx = rx_org.resubscribe();
             WorldViewChannel::request_worldview().await;
             println!("Spurte om wv");
             while WorldViewChannel::get_worldview_request_flag().load(Ordering::SeqCst) {};
@@ -244,7 +244,7 @@ impl Sjefen::Sjefen {
                 return Err(e);
             }
 
-            println!("Mottok melding i abboner_nyhetsbrev() på {} bytes: {:?} ", len, buf);
+            //println!("Mottok melding i abboner_nyhetsbrev() på {} bytes: {:?} ", len, buf);
             while !get_ny_wv().load(Ordering::Relaxed) {
                 //println!("Trenger vi ny worldview?: {}", get_ny_wv().load(Ordering::Relaxed));
                 sleep(Duration::from_millis(50)).await;
