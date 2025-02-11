@@ -161,17 +161,8 @@ impl Sjefen{
 
     pub async fn start_from_worldview(&self, wv_channel: WorldViewChannel::WorldViewChannel, worldview_arc: Arc<Mutex<Vec<u8>>>) -> tokio::io::Result<()> {
         let (shutdown_tx, _) = broadcast::channel::<u8>(1);
-        // shutdown_tx.send("DEt er ein ny master");
-        
-        // Må hente inn worldview
-        // Må håndtere om den blir startet som backup eller master eller slave ettersom de har mye forskjellig funksjonalitet?
-        // Hent inn worldview – her kan du handtere om modusen er backup, master eller slave
-        
-        // Mottar den serialiserte forma
-        //let worldview = konsulent::get_worldview_from_channel(rx_wv).await;
-        
-        // sjekker om ein er master, bli her så lenge du er viktigast
-        // bacup vil aldri kjøre denne funksjonen. startes kun fra master/slav_process
+
+
         let wv_channel_clone = WorldViewChannel::WorldViewChannel{tx: wv_channel.tx.clone()};
         if self.ip == *self.master_ip.lock().await {
             
@@ -186,21 +177,9 @@ impl Sjefen{
             
         }
         else {
-            let _kun_for_å_fjerne_warning_fjern_vareabel_og_handter_error_senere = self.slave_process(wv_channel_clone, shutdown_tx.clone()).await;
+            let _kun_for_å_fjerne_warning_fjern_vareabel_og_handter_error_senere = self.slave_process(wv_channel_clone, shutdown_tx.clone(), worldview_arc).await;
             return Ok(())
         }
-     
-        
-        // Må:
-        // nummer uno 1 én: finne ut om du er hovedmaster. om du er det her kommer andre noder til
-        // å prøve å koble opp til TCPen din ganske fort, så sett opp det asap
-        // Sette opp tilkoblinger dit den skal basert på worldviewen (forskjellig om du er hoved_master eller slave_master)
-        // Do its thing...
-        /*
-        1. Er eg master?
-
-        2. 
-         */
     }
     
     async fn master_process(&self, wv_channel: WorldViewChannel::WorldViewChannel, shutdown_tx: broadcast::Sender<u8>, worldview_arc: Arc<Mutex<Vec<u8>>>) -> tokio::io::Result<()> {
@@ -233,7 +212,6 @@ impl Sjefen{
             match ny_mamma {
                 config::ERROR_ID => {},
                 _ => {
-                    println!("Ny slave med id: {}", ny_mamma);
                     PostNord::get_ny_mamma().store(config::ERROR_ID, Ordering::SeqCst);
                     let worldview = WorldView::deserialize_worldview(&*worldview_arc.lock().await);
                     match worldview {
@@ -258,7 +236,6 @@ impl Sjefen{
             match dau_mamma {
                 config::ERROR_ID => {},
                 _ => {
-                    println!("Dø slave med id: {}", dau_mamma);
                     PostNord::get_dau_mamma().store(config::ERROR_ID, Ordering::SeqCst);
 
                     let worldview = WorldView::deserialize_worldview(&*worldview_arc.lock().await);
@@ -279,22 +256,27 @@ impl Sjefen{
                 }
             } 
 
-            
-
             //_ = shutdown_tx.send(69);
             //WorldViewChannel::request_worldview().await;
         }
 
     }
     
-    async fn slave_process(&self, _wv_channel: WorldViewChannel::WorldViewChannel, shutdown_tx: broadcast::Sender<u8>) -> tokio::io::Result<()> {
-        let abboner_task = self.clone().abboner_master_nyhetsbrev(shutdown_tx.clone().subscribe()).await;
+    async fn slave_process(&self, _wv_channel: WorldViewChannel::WorldViewChannel, shutdown_tx: broadcast::Sender<u8>, worldview_arc: Arc<Mutex<Vec<u8>>>) -> tokio::io::Result<()> {
+        let _fiks_i_fremtiden = self.clone().abboner_master_nyhetsbrev(shutdown_tx.clone().subscribe(), worldview_arc.clone()).await;
 
         loop {
-            if abboner_task.is_err() {
-                konsulent::print_farge("Abboner master_nyhetsbrev feila, slave_process()".to_string(), Color::Red);
-                panic!("Denne skal ikke panice etterhvert (slave_process(), abboner nyhetsbrev har error)");
-            }
+            let wv_locked = worldview_arc.lock().await;
+            println!("{:?}", *wv_locked);
+            // let wv_deserialized = WorldView::deserialize_worldview(&*vw_locked);
+            // match wv_deserialized {
+            //     Ok(mut wv) => {
+
+                    
+            //     }
+            //     Err(e) => {konsulent::print_farge(format!("Feil i deserialisering av worldview: {}", e), Color::Red);}
+            // }
+
         }      
     }
 

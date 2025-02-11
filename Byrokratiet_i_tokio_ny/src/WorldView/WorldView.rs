@@ -61,6 +61,7 @@ impl Default for WorldView {
 impl WorldView {
     pub fn rapporter_annsettelse_av_mor(&mut self, mor: AlenemorDel) {
         self.n = self.n + 1;
+        konsulent::print_farge(format!("Mor med ID {} ble ansatt. (rapporter_annsettelse_av_mor())", mor.heis_id), Color::Green);
         self.heis_spesifikke.push(mor);
     }
     
@@ -73,7 +74,7 @@ impl WorldView {
             konsulent::print_farge(format!("Ingen mor med ID {} ble funnet. (rapporter_sparking_av_mor())", id), Color::Yellow);
         } else {
             println!("Mor med ID {} ble fjernet.", id);
-            konsulent::print_farge(format!("Mor med ID {} ble fjernet. (rapporter_sparking_av_mor())", id), Color::Green);
+            konsulent::print_farge(format!("Mor med ID {} ble sparka. (rapporter_sparking_av_mor())", id), Color::Green);
         }
     }
 

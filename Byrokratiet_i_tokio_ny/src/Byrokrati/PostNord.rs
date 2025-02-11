@@ -9,6 +9,8 @@ use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::broadcast;
 use super::{Sjefen, konsulent};
 use termcolor::Color;
+use std::sync::Arc;
+use tokio::sync::Mutex;
 
 static NY_MAMMA: OnceLock<AtomicU8> = OnceLock::new(); // indikerer ny node på nettverket -> avgjer om den er slave
 static DAU_MAMMA: OnceLock<AtomicU8> = OnceLock::new(); // indikerer at TCP til ein node disconnecta
@@ -189,7 +191,7 @@ impl Sjefen::Sjefen {
     }
 
     /// 🔹 **Klient som lyttar etter worldview-endringar frå master**
-    pub async fn abboner_master_nyhetsbrev(&self, _shutdown_rx: broadcast::Receiver<u8>) -> tokio::io::Result<()> {
+    pub async fn abboner_master_nyhetsbrev(&self, _shutdown_rx: broadcast::Receiver<u8>, worldview_arc: Arc<Mutex<Vec<u8>>>) -> tokio::io::Result<()> {
         println!("Prøver å koble på: {}:{} i abboner_master_nyhetsbrev()", *self.master_ip.lock().await, config::PN_PORT);
         let mut stream = TcpStream::connect(format!("{}:{}", *self.master_ip.lock().await, config::PN_PORT)).await?;
         
@@ -218,7 +220,21 @@ impl Sjefen::Sjefen {
                 return Err(e);
             }
 
-            println!("Mottok melding i abboner_nyhetsbrev() på {} bytes: {:?} ", len, buf);
+            //println!("Mottok melding i abboner_nyhetsbrev() på {} bytes: {:?} ", len, buf);
+            *worldview_arc.lock().await = buf;
         }
+    }
+
+    pub fn start_abboner_master_nyhetsbrev_task(&self, shutdown_rx: broadcast::Receiver<u8>, worldview_arc: Arc<Mutex<Vec<u8>>>) -> tokio::io::Result<()> {
+        let self_clone = self.clone();
+        
+        tokio::spawn(async move {
+            konsulent::print_farge("Abbonerer på nyhetsbrev (start_abboner_master_nyhetsbrev_task()".to_string(), Color::Green);
+            if let Err(e) = self_clone.abboner_master_nyhetsbrev(shutdown_rx, worldview_arc.clone()).await {
+                konsulent::print_farge(format!("Feil i abboner_master_nyhetsbrev: {}", e), Color::Red);
+            }
+        });
+
+        Ok(())
     }
 }
