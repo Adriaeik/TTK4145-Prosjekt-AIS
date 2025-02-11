@@ -173,7 +173,6 @@ impl Sjefen{
         // bacup vil aldri kjøre denne funksjonen. startes kun fra master/slav_process
         let wv_channel_clone = WorldViewChannel::WorldViewChannel{tx: wv_channel.tx.clone()};
         if self.ip == *self.master_ip.lock().await {
-            konsulent::print_farge("Jeg er master, starter master process".to_string(), Color::Yellow);
             
             match self.master_process(wv_channel_clone, shutdown_tx.clone(), wv_arc.clone()).await {
                 Ok(_) => {Ok(())},
