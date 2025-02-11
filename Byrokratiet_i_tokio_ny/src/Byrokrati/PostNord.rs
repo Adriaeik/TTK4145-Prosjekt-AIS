@@ -104,6 +104,7 @@ impl Sjefen::Sjefen {
                     {
                         if let Some(message) = msg {
                             let len_b = (message.len() as u32).to_be_bytes();
+                            println!("len: {:?}", len_b);
                             socket.write_all(&len_b).await?;
                             socket.write_all(&message[..]).await?;
                             //println!("Sendt worldview på TCP nå i send_post()");
@@ -236,7 +237,7 @@ impl Sjefen::Sjefen {
                 return Err(e);
             }
 
-            //println!("Mottok melding i abboner_nyhetsbrev() på {} bytes: {:?} ", len, buf);
+            println!("Mottok melding i abboner_nyhetsbrev() på {} bytes: {:?} ", len, buf);
             while !get_ny_wv().load(Ordering::Relaxed) {
                 //println!("Trenger vi ny worldview?: {}", get_ny_wv().load(Ordering::Relaxed));
                 sleep(Duration::from_millis(50)).await;
