@@ -270,6 +270,7 @@ impl Sjefen{
             println!("i slaveloop");
             let wv_locked = worldview_arc.lock().await;
             println!("{:?}", *wv_locked);
+            PostNord::get_ny_wv().store(true, Ordering::SeqCst);
             // let wv_deserialized = WorldView::deserialize_worldview(&*vw_locked);
             // match wv_deserialized {
             //     Ok(mut wv) => {

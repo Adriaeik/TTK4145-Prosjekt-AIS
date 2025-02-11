@@ -2,7 +2,7 @@
 
 use crate::config;
 use crate::WorldView::WorldViewChannel;
-use std::sync::atomic::{AtomicU8, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 use std::sync::OnceLock;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
@@ -11,6 +11,11 @@ use super::{Sjefen, konsulent};
 use termcolor::Color;
 use std::sync::Arc;
 use tokio::sync::Mutex;
+
+static NY_WV: OnceLock<AtomicBool> = OnceLock::new();
+pub fn get_ny_wv() -> &'static AtomicBool{
+    NY_WV.get_or_init(|| AtomicBool::new(false))
+}
 
 static NY_MAMMA: OnceLock<AtomicU8> = OnceLock::new(); // indikerer ny node på nettverket -> avgjer om den er slave
 static DAU_MAMMA: OnceLock<AtomicU8> = OnceLock::new(); // indikerer at TCP til ein node disconnecta
@@ -236,6 +241,8 @@ impl Sjefen::Sjefen {
             }
 
             //println!("Mottok melding i abboner_nyhetsbrev() på {} bytes: {:?} ", len, buf);
+            while !get_ny_wv().load(Ordering::SeqCst) {}
+
             let mut wv_locked = worldview_arc.lock().await; 
             *wv_locked = buf;
 
