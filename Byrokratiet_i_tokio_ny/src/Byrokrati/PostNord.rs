@@ -4,17 +4,19 @@ use crate::config;
 use crate::WorldView::WorldViewChannel;
 use std::sync::atomic::{AtomicU8, Ordering};
 use std::sync::OnceLock;
-use std::thread::sleep;
-use std::time::Duration;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::broadcast;
 use super::{Sjefen, konsulent};
 use termcolor::Color;
 
-static ny_mamma: OnceLock<AtomicU8> = OnceLock::new();
+static NY_MAMMA: OnceLock<AtomicU8> = OnceLock::new(); // indikerer ny node på nettverket -> avgjer om den er slave
+static DAU_MAMMA: OnceLock<AtomicU8> = OnceLock::new(); // indikerer at TCP til ein node disconnecta
 pub fn get_ny_mamma() -> &'static AtomicU8{
-    ny_mamma.get_or_init(|| AtomicU8::new(config::ERROR_ID))
+    NY_MAMMA.get_or_init(|| AtomicU8::new(config::ERROR_ID))
+}
+pub fn get_dau_mamma() -> &'static AtomicU8{
+    DAU_MAMMA.get_or_init(|| AtomicU8::new(config::ERROR_ID))
 }
 
 impl Sjefen::Sjefen {
@@ -101,6 +103,7 @@ impl Sjefen::Sjefen {
                     match result {
                         Ok(0) => {
                             konsulent::print_farge("Klienten lukka tilkoblinga. (send_post())".to_string(), Color::Yellow);
+                            
                             break; //  Avslutt loopen om klienten koplar frå
                         }
                         Ok(bytes_read) => {
@@ -141,12 +144,18 @@ impl Sjefen::Sjefen {
                             tokio::spawn(async move {
                                 let peer_addr_copy = socket.peer_addr().unwrap();
                                 match self_clone.send_post(socket, rx, shutdown_tx_clone.subscribe()).await {
-                                    Ok(_) => {}
+                                    Ok(_) => {
+                                        while get_dau_mamma().load(Ordering::SeqCst) != config::ERROR_ID {}; //Vent til eventuelt forrige disconnect er behandla
+                                        get_dau_mamma().store(konsulent::id_fra_ip(addr.ip()), Ordering::SeqCst);
+                                    }
                                     Err(e) => {
-                                        konsulent::print_farge(format!("Error i send_post til: {}: {}", peer_addr_copy, e), Color::Red);
+                                        konsulent::print_farge(format!("Error i send_post til: {}: {}", peer_addr_copy, e), Color::Red); 
+                                        while get_dau_mamma().load(Ordering::SeqCst) != config::ERROR_ID {}; //Vent til eventuelt forrige disconnect er behandla
+                                        get_dau_mamma().store(konsulent::id_fra_ip(addr.ip()), Ordering::SeqCst);
                                     }
                                 }
                             });
+                            while get_ny_mamma().load(Ordering::SeqCst) != config::ERROR_ID {}; //Vent til eventuelt forrige connect er behandla
                             get_ny_mamma().store(konsulent::id_fra_ip(addr.ip()), Ordering::SeqCst);
                         }
                         Err(e) => {

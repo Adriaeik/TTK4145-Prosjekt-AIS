@@ -46,7 +46,7 @@ async fn main() {
     let (sjefen, wv_serial_init) = konsulent::init_serialised_worldview().await;
 
     //gjør arc fordi lættis
-    let worldview_arc = Arc::new(Mutex::new(wv_serial_init));
+    let worldview_arc: Arc<Mutex<Vec<u8>>> = Arc::new(Mutex::new(wv_serial_init));
     
     //Init av tx til worldviewchannel
     let (tx, _) = broadcast::channel::<Vec<u8>>(1);
@@ -70,7 +70,7 @@ async fn main() {
         kan vi loope sånn her når man må starte på nytt, kanskje lettere?
         worldview = sjefen.start_from_worldview(worldview);
         */
-        match sjefen.start_from_worldview(worldview_channel.clone()).await {
+        match sjefen.start_from_worldview(worldview_channel.clone(), worldview_arc.clone()).await {
             Ok(_) => {},
             Err(e) => {
                 println!("feil: {}", e);

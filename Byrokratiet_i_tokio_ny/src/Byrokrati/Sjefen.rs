@@ -1,8 +1,8 @@
 use super::konsulent;
 use crate::config;
-use crate::Byrokrati::PostNord::get_ny_mamma;
 use crate::WorldView::WorldView;
 use crate::WorldView::WorldViewChannel;
+use crate::Byrokrati::PostNord;
 
 use termcolor::Color;
 use tokio::time::Duration;
@@ -159,7 +159,7 @@ impl Sjefen{
 
 
 
-    pub async fn start_from_worldview(&self, wv_channel: WorldViewChannel::WorldViewChannel) -> tokio::io::Result<()> {
+    pub async fn start_from_worldview(&self, wv_channel: WorldViewChannel::WorldViewChannel, worldview_arc: Arc<Mutex<Vec<u8>>>) -> tokio::io::Result<()> {
         let (shutdown_tx, _) = broadcast::channel::<u8>(1);
         // shutdown_tx.send("DEt er ein ny master");
         
@@ -175,7 +175,7 @@ impl Sjefen{
         let wv_channel_clone = WorldViewChannel::WorldViewChannel{tx: wv_channel.tx.clone()};
         if self.ip == *self.master_ip.lock().await {
             
-            match self.master_process(wv_channel_clone, shutdown_tx.clone()).await {
+            match self.master_process(wv_channel_clone, shutdown_tx.clone(), worldview_arc).await {
                 Ok(_) => {Ok(())},
                 Err(e) => {
                     eprintln!("Feil i master_process: {:?}", e);
@@ -203,7 +203,7 @@ impl Sjefen{
          */
     }
     
-    async fn master_process(&self, wv_channel: WorldViewChannel::WorldViewChannel, shutdown_tx: broadcast::Sender<u8>) -> tokio::io::Result<()> {
+    async fn master_process(&self, wv_channel: WorldViewChannel::WorldViewChannel, shutdown_tx: broadcast::Sender<u8>, worldview_arc: Arc<Mutex<Vec<u8>>>) -> tokio::io::Result<()> {
         println!("\nstarter Master prosess\n");
         konsulent::print_farge("Starter master_process".to_string(), Color::Green);
         //let wv_rx = wv_channel.tx.clone().subscribe();
@@ -228,10 +228,59 @@ impl Sjefen{
 
         
         loop{
-            while get_ny_mamma().load(Ordering::SeqCst) == config::ERROR_ID {};
 
-            println!("Ny slave med id: {}", get_ny_mamma().load(Ordering::SeqCst));
-            get_ny_mamma().store(config::ERROR_ID, Ordering::SeqCst);
+            let ny_mamma = PostNord::get_ny_mamma().load(Ordering::SeqCst);
+            match ny_mamma {
+                config::ERROR_ID => {},
+                _ => {
+                    println!("Ny slave med id: {}", ny_mamma);
+                    PostNord::get_ny_mamma().store(config::ERROR_ID, Ordering::SeqCst);
+                    let worldview = WorldView::deserialize_worldview(&*worldview_arc.lock().await);
+                    match worldview {
+                        Ok(mut wv) => {
+                            let mut mor = WorldView::AlenemorDel::default();
+                            mor.heis_id = ny_mamma;
+                            wv.rapporter_annsettelse_av_mor(mor);
+                            let serialized_wv = WorldView::serialize_worldview(&wv);
+                            match serialized_wv {
+                                Ok(swv) => {
+                                    *worldview_arc.lock().await = swv;
+                                }
+                                Err(e) => {konsulent::print_farge(format!("Feil i serialisering av worldview: {}", e), Color::Red);}
+                            }
+                        }
+                        Err(e) => {konsulent::print_farge(format!("Feil i deserialisering av worldview: {}", e), Color::Red);}
+                    }
+                }
+            } 
+
+            let dau_mamma = PostNord::get_dau_mamma().load(Ordering::SeqCst);
+            match dau_mamma {
+                config::ERROR_ID => {},
+                _ => {
+                    println!("Dø slave med id: {}", dau_mamma);
+                    PostNord::get_dau_mamma().store(config::ERROR_ID, Ordering::SeqCst);
+
+                    let worldview = WorldView::deserialize_worldview(&*worldview_arc.lock().await);
+                    match worldview {
+                        Ok(mut wv) => {
+                            wv.rapporter_sparking_av_mor(dau_mamma);
+                            let serialized_wv = WorldView::serialize_worldview(&wv);
+                            match serialized_wv {
+                                Ok(swv) => {
+                                    *worldview_arc.lock().await = swv;
+                                }
+                                Err(e) => {konsulent::print_farge(format!("Feil i serialisering av worldview: {}", e), Color::Red);}
+                            }
+                        }
+                        Err(e) => {konsulent::print_farge(format!("Feil i deserialisering av worldview: {}", e), Color::Red);}
+                    }
+
+                }
+            } 
+
+            
+
             //_ = shutdown_tx.send(69);
             //WorldViewChannel::request_worldview().await;
         }
