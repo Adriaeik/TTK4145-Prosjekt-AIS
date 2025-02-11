@@ -80,7 +80,7 @@ impl Sjefen::Sjefen {
         let mut i:u8 = 0; //Til telling, proof of concept
         loop {
             WorldViewChannel::request_worldview().await;
-     
+            while WorldViewChannel::get_worldview_request_flag().load(Ordering::SeqCst) {};
             match shutdown_rx.try_recv() {
                 Ok(_) => {
                     konsulent::print_farge("Shutdown mottatt! Stoppar TCP-Connection...".to_string(), Color::Yellow);
@@ -235,7 +235,7 @@ impl Sjefen::Sjefen {
                 return Err(e);
             }
 
-            //println!("Mottok melding i abboner_nyhetsbrev() på {} bytes: {:?} ", len, buf);
+            println!("Mottok melding i abboner_nyhetsbrev() på {} bytes: {:?} ", len, buf);
             *worldview_arc.lock().await = buf;
 
             stream.write_all(b"WV-ACK").await?;
