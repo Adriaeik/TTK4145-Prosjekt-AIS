@@ -7,4 +7,4 @@ pub static DUMMY_PORT: u16 = 42069; // Port fro sending / mottak av UDP broadcas
 pub static BC_LISTEN_ADDR: &str = "0.0.0.0";
 pub static BC_ADDR: &str = "255.255.255.255";
 
-pub static ERROR_ID: u8 = u8::MAX;
+pub static ERROR_ID: u8 = 0;

@@ -172,9 +172,8 @@ pub fn print_farge(msg: String, color: Color) {
 
 pub fn get_wv_master_id(wv: Vec<u8>) -> u8 {
     if wv.len() > 2 {
-        print_farge(format!("Master har ID: {}", wv[1]), Color::Magenta);
+        print_farge(format!("Master har ID: {}", wv[2]), Color::Magenta);
         return wv[1]
     }
-    print_farge(format!("Worldview er feil?"), Color::Red);
     return u8::MAX
 }
