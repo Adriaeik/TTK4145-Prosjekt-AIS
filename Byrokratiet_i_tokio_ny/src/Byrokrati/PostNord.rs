@@ -80,13 +80,17 @@ impl Sjefen::Sjefen {
     }
 
     /// 🔹 **Sender worldview-oppdateringar til klientar**
-    pub async fn send_post(&self, mut socket: TcpStream, mut rx: broadcast::Receiver<Vec<u8>>, mut shutdown_rx: broadcast::Receiver<u8>) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn send_post(&self, mut socket: TcpStream, mut rx_org: broadcast::Receiver<Vec<u8>>, mut shutdown_rx: broadcast::Receiver<u8>) -> Result<(), Box<dyn std::error::Error>> {
         konsulent::print_farge("Startet en send_post i send_post()".to_string(), Color::Green);
         let mut buf = [0; 1024];
         
+        let mut rx = rx_org.resubscribe();
+
         loop {
             WorldViewChannel::request_worldview().await;
+            println!("Spurte om wv");
             while WorldViewChannel::get_worldview_request_flag().load(Ordering::SeqCst) {};
+            println!("Fikk wv!");
             match shutdown_rx.try_recv() {
                 Ok(_) => {
                     konsulent::print_farge("Shutdown mottatt! Stoppar TCP-Connection...".to_string(), Color::Yellow);
@@ -102,6 +106,9 @@ impl Sjefen::Sjefen {
                     }.await; 
                     
                     {
+                        if let None = msg {
+                            println!("Ingen wv på rx");
+                        }
                         if let Some(message) = msg {
                             let len_b = (message.len() as u32).to_be_bytes();
                             println!("len: {:?}", len_b);
@@ -110,8 +117,6 @@ impl Sjefen::Sjefen {
                             //println!("Sendt worldview på TCP nå i send_post()");
                         }
                     }
-        
-                    // Leser svar frå klient
                     let result = socket.read(&mut buf).await;
                     {
                         match result {
@@ -129,6 +134,8 @@ impl Sjefen::Sjefen {
                             }
                         }
                     }
+        
+                    // Leser svar frå klient
                 }
                 Err(broadcast::error::TryRecvError::Closed) => {
                     konsulent::print_farge("Shutdown kanal er stengt???.".to_string(), Color::Red);
