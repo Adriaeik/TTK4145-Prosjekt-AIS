@@ -221,11 +221,7 @@ impl Sjefen{
                             wv.rapporter_annsettelse_av_mor(mor);
                             let serialized_wv = WorldView::serialize_worldview(&wv);
                             match serialized_wv {
-                                Ok(mut swv) => {
-                                    i = i%255;
-                                    i = i + 1;
-                                    let msg_len = swv.len();
-                                    swv[msg_len-1] = i;
+                                Ok(swv) => {
                                     *worldview_arc.lock().await = swv;
                                 }
                                 Err(e) => {konsulent::print_farge(format!("Feil i serialisering av worldview: {}", e), Color::Red);}
@@ -262,6 +258,10 @@ impl Sjefen{
 
             //_ = shutdown_tx.send(69);
             //WorldViewChannel::request_worldview().await;
+            // i = i%255;
+            // i = i + 1;
+            // let msg_len = worldview_arc.lock().await.len();
+            // worldview_arc.lock().await[msg_len-1] = i;
         }
 
     }

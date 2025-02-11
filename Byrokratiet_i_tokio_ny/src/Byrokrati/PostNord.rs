@@ -249,7 +249,7 @@ impl Sjefen::Sjefen {
             get_ny_wv().store(false, Ordering::SeqCst);
 
 
-            stream.write_all(b"WV-ACK").await?;
+            // stream.write_all(b"WV-ACK").await?;
         }
     }
 
