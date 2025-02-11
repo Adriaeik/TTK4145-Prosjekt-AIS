@@ -80,49 +80,63 @@ impl Sjefen::Sjefen {
         loop {
             WorldViewChannel::request_worldview().await;
      
-            tokio::select! {
-                msg = async {
-                    let mut latest_msg = None;
-                    while let Ok(message) = rx.try_recv() {
-                        latest_msg = Some(message); // Overskriv tidligere meldinger
-                    }
-                    latest_msg
-                } => {
-                    if let Some(mut message) = msg {
-                        i = i % 255;
-                        i += 1; //Til telling, proof of concept
-                        let msg_len = message.len(); //Til telling, proof of concept
-                        let len_b = (message.len() as u32).to_be_bytes();
-                        socket.write_all(&len_b).await?;
-                        message[msg_len-1] = i; //Til telling, proof of concept
-                        socket.write_all(&message[..]).await?;
-                        //println!("Sendt worldview på TCP nå i send_post()");
-                    }
-                }
-    
-                // Leser svar frå klient
-                result = socket.read(&mut buf) => {
-                    match result {
-                        Ok(0) => {
-                            konsulent::print_farge("Klienten lukka tilkoblinga. (send_post())".to_string(), Color::Yellow);
-                            
-                            break; //  Avslutt loopen om klienten koplar frå
-                        }
-                        Ok(bytes_read) => {
-                            konsulent::print_farge(format!("Mottok {} bytes fra klienten i send_post(): {:?}", bytes_read, &buf[..bytes_read]), Color::Blue);
-                        }
-                        Err(e) => {
-                            konsulent::print_farge(format!("Feil ved lesing fra klient i send_post(): {}", e), Color::Red);
-                            break;
-                        }
-                    }
-                }
-                // 🔹 Shutdown: Stoppar TCP-Connections om signalet kjem
-                _ = shutdown_rx.recv() => {
+            match shutdown_rx.try_recv() {
+                Ok(_) => {
                     konsulent::print_farge("Shutdown mottatt! Stoppar TCP-Connection...".to_string(), Color::Yellow);
-                
                     break;
                 }
+                Err(broadcast::error::TryRecvError::Empty) => {
+                    let msg = async {
+                        let mut latest_msg = None;
+                        while let Ok(message) = rx.try_recv() {
+                            latest_msg = Some(message); // Overskriv tidligere meldinger
+                        }
+                        latest_msg
+                    }.await; 
+                    
+                    {
+                        if let Some(mut message) = msg {
+                            i = i % 255;
+                            i += 1; //Til telling, proof of concept
+
+                            let msg_len = message.len(); //Til telling, proof of concept
+                            let len_b = (message.len() as u32).to_be_bytes();
+                            socket.write_all(&len_b).await?;
+                            message[msg_len-1] = i; //Til telling, proof of concept
+                            socket.write_all(&message[..]).await?;
+                            //println!("Sendt worldview på TCP nå i send_post()");
+                        }
+                    }
+        
+                    // Leser svar frå klient
+                    let result = socket.read(&mut buf).await;
+                    {
+                        match result {
+                            Ok(0) => {
+                                konsulent::print_farge("Klienten lukka tilkoblinga. (send_post())".to_string(), Color::Yellow);
+                                
+                                break; //  Avslutt loopen om klienten koplar frå
+                            }
+                            Ok(bytes_read) => {
+                                konsulent::print_farge(format!("Mottok {} bytes fra klienten i send_post(): {:?}", bytes_read, &buf[..bytes_read]), Color::Blue);
+                            }
+                            Err(e) => {
+                                konsulent::print_farge(format!("Feil ved lesing fra klient i send_post(): {}", e), Color::Red);
+                                break;
+                            }
+                        }
+                    }
+                }
+                Err(broadcast::error::TryRecvError::Closed) => {
+                    konsulent::print_farge("Shutdown kanal er stengt???.".to_string(), Color::Red);
+                    break;
+                }
+                Err(broadcast::error::TryRecvError::Lagged(n)) => {
+                    konsulent::print_farge(format!("Mistet {} meldinger fra shutdown_rx!", n), Color::Red);
+                    konsulent::print_farge("Shutdown mottatt! Stoppar TCP-Connection...".to_string(), Color::Yellow);
+                    break;
+                }
+
             }
         }
         konsulent::print_farge(format!("Lukker tilkobling til klient i send_post()"), Color::Yellow);
@@ -222,6 +236,8 @@ impl Sjefen::Sjefen {
 
             println!("Mottok melding i abboner_nyhetsbrev() på {} bytes: {:?} ", len, buf);
             *worldview_arc.lock().await = buf;
+
+            stream.write_all(b"WV-ACK").await?;
         }
     }
 
