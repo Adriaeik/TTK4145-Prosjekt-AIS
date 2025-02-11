@@ -235,8 +235,9 @@ impl Sjefen::Sjefen {
                 return Err(e);
             }
 
-            println!("Mottok melding i abboner_nyhetsbrev() på {} bytes: {:?} ", len, buf);
-            *worldview_arc.lock().await = buf;
+            //println!("Mottok melding i abboner_nyhetsbrev() på {} bytes: {:?} ", len, buf);
+            let mut wv_locked = worldview_arc.lock().await; 
+            *wv_locked = buf;
 
             stream.write_all(b"WV-ACK").await?;
         }
