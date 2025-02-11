@@ -117,6 +117,7 @@ impl Sjefen{
         match self.listen_to_network().await {
             Ok(_) => if *self.master_ip.lock().await == self.ip {
                             println!("Jeg ble master, sjefen.rs start_clean()");
+                            *self.master_ip.lock().await = self.ip;
                         }else {
                             println!("Jeg ble slave, henter worldview fra {} (Sjefen.rs, start_clean())", *self.master_ip.lock().await);
                             match self.get_wv_from_master().await {
@@ -170,13 +171,6 @@ impl Sjefen{
         
         // sjekker om ein er master, bli her så lenge du er viktigast
         // bacup vil aldri kjøre denne funksjonen. startes kun fra master/slav_process
-        let wv_struct = konsulent::get_worldview_from_channel(wv_channel.tx.subscribe()).await;
-
-        if self.id < wv_struct.master_id {
-            *self.master_ip.lock().await = self.ip;    
-        }
-        
-        
         let wv_channel_clone = WorldViewChannel::WorldViewChannel{tx: wv_channel.tx.clone()};
         if self.ip == *self.master_ip.lock().await {
             konsulent::print_farge("Jeg er master, starter master process".to_string(), Color::Yellow);
