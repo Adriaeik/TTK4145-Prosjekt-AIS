@@ -220,7 +220,7 @@ impl Sjefen::Sjefen {
                 return Err(e);
             }
 
-            //println!("Mottok melding i abboner_nyhetsbrev() på {} bytes: {:?} ", len, buf);
+            println!("Mottok melding i abboner_nyhetsbrev() på {} bytes: {:?} ", len, buf);
             *worldview_arc.lock().await = buf;
         }
     }
