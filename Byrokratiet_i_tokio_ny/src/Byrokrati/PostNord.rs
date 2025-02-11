@@ -8,8 +8,6 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::mpsc::Sender;
 use tokio::sync::{broadcast, mpsc};
-use std::sync::Arc;
-use tokio::sync::Mutex;
 use super::{Sjefen, konsulent};
 use termcolor::Color;
 
@@ -166,7 +164,7 @@ impl Sjefen::Sjefen {
     }
 
     /// 🔹 **Klient som lyttar etter worldview-endringar frå master**
-    pub async fn abboner_master_nyhetsbrev(&self, _shutdown_rx: broadcast::Receiver<u8>, wv_arc: Arc<Mutex<Vec<u8>>>) -> tokio::io::Result<()> {
+    pub async fn abboner_master_nyhetsbrev(&self, _shutdown_rx: broadcast::Receiver<u8>) -> tokio::io::Result<()> {
         println!("Prøver å koble på: {}:{} i abboner_master_nyhetsbrev()", *self.master_ip.lock().await, config::PN_PORT);
         let mut stream = TcpStream::connect(format!("{}:{}", *self.master_ip.lock().await, config::PN_PORT)).await?;
         
@@ -196,7 +194,6 @@ impl Sjefen::Sjefen {
             }
 
             println!("Mottok melding i abboner_nyhetsbrev() på {} bytes: {:?} ", len, buf);
-            *wv_arc.lock().await = buf;
         }
     }
 }

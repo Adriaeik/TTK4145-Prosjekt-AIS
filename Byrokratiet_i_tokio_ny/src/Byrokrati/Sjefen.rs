@@ -249,15 +249,12 @@ impl Sjefen{
     }
     
     async fn slave_process(&self, _wv_channel: WorldViewChannel::WorldViewChannel, shutdown_tx: broadcast::Sender<u8>, wv_arc: Arc<Mutex<Vec<u8>>>) -> tokio::io::Result<()> {
-        let abboner_task = self.clone().abboner_master_nyhetsbrev(shutdown_tx.clone().subscribe(), wv_arc).await;
+        let abboner_task = self.clone().abboner_master_nyhetsbrev(shutdown_tx.clone().subscribe()).await;
 
         loop {
             if abboner_task.is_err() {
                 konsulent::print_farge("Abboner master_nyhetsbrev feila, slave_process()".to_string(), Color::Red);
                 panic!("Denne skal ikke panice etterhvert (slave_process(), abboner nyhetsbrev har error)");
-            }
-            else if abboner_task.is_ok() {
-                return Ok(())
             }
         }      
     }
