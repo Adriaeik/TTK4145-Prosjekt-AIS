@@ -266,6 +266,7 @@ impl Sjefen{
         let _fiks_i_fremtiden = self.clone().abboner_master_nyhetsbrev(shutdown_tx.clone().subscribe(), worldview_arc.clone()).await;
 
         loop {
+            tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
             let wv_locked = worldview_arc.lock().await;
             println!("{:?}", *wv_locked);
             // let wv_deserialized = WorldView::deserialize_worldview(&*vw_locked);
