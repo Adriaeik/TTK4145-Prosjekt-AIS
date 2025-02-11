@@ -66,7 +66,7 @@ impl Sjefen::Sjefen {
         konsulent::print_farge("Startet en send_post i send_post()".to_string(), Color::Green);
         let mut buf = [0; 1024];
         
-        let mut i:u8 = 0; //Til telling, proof of concept .
+        let mut i:u8 = 0; //Til telling, proof of concept
         loop {
             sleep(Duration::from_millis(100));
             WorldViewChannel::request_worldview().await;
