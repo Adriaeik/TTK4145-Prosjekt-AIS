@@ -264,14 +264,14 @@ impl Sjefen{
     
     async fn slave_process(&self, _wv_channel: WorldViewChannel::WorldViewChannel, shutdown_tx: broadcast::Sender<u8>, worldview_arc: Arc<Mutex<Vec<u8>>>) -> tokio::io::Result<()> {
         PostNord::get_ny_wv().store(true, Ordering::SeqCst);
-        let _fiks_i_fremtiden = self.clone().abboner_master_nyhetsbrev(shutdown_tx.clone().subscribe(), worldview_arc.clone()).await;
-
-
+        let _fiks_i_fremtiden = self.clone().start_abboner_master_nyhetsbrev_task(shutdown_tx.clone().subscribe(), worldview_arc.clone());
+        
+        
         loop {
-            println!("i slaveloop");
-            // let wv_locked = worldview_arc.lock().await;
-            // println!("{:?}", *wv_locked);
-            println!("Kan vi å printe?");
+            // println!("i slaveloop");
+            let wv_locked = worldview_arc.lock().await;
+            println!("{:?}", *wv_locked);
+            // println!("Kan vi å printe?");
             PostNord::get_ny_wv().store(true, Ordering::SeqCst);
             // let wv_deserialized = WorldView::deserialize_worldview(&*vw_locked);
             // match wv_deserialized {

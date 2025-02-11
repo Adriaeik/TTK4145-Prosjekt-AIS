@@ -242,9 +242,9 @@ impl Sjefen::Sjefen {
                 return Err(e);
             }
 
-            println!("Mottok melding i abboner_nyhetsbrev() på {} bytes: {:?} ", len, buf);
+            //println!("Mottok melding i abboner_nyhetsbrev() på {} bytes: {:?} ", len, buf);
             while !get_ny_wv().load(Ordering::Relaxed) {
-                println!("Trenger vi ny worldview?: {}", get_ny_wv().load(Ordering::Relaxed));
+                //println!("Trenger vi ny worldview?: {}", get_ny_wv().load(Ordering::Relaxed));
                 sleep(Duration::from_millis(50)).await;
             }
             
