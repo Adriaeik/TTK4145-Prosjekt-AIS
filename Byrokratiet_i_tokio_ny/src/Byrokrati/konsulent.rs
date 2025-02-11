@@ -5,6 +5,7 @@ og du må ikkje finne på å spørre han om kva jobben hans innebærer*/
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::net::IpAddr;
+use std::u8;
 use anyhow::Context;
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 use crate::config;
@@ -167,4 +168,12 @@ pub fn print_farge(msg: String, color: Color) {
     stdout.set_color(&ColorSpec::new()).unwrap();
     println!("\r\n");
 
+}
+
+pub fn get_wv_master_id(wv: Vec<u8>) -> u8 {
+    if wv.len() > 2 {
+        print_farge(format!("Master har ID: {}", wv[2]), Color::Magenta);
+        return wv[1]
+    }
+    return u8::MAX
 }
