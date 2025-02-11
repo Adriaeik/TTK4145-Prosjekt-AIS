@@ -267,6 +267,7 @@ impl Sjefen{
 
         loop {
             tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
+            println!("i slaveloop");
             let wv_locked = worldview_arc.lock().await;
             println!("{:?}", *wv_locked);
             // let wv_deserialized = WorldView::deserialize_worldview(&*vw_locked);
