@@ -2,6 +2,8 @@
 
 use crate::config;
 use crate::WorldView::WorldViewChannel;
+use std::sync::atomic::{AtomicU8, Ordering};
+use std::sync::OnceLock;
 use std::thread::sleep;
 use std::time::Duration;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -10,6 +12,10 @@ use tokio::sync::broadcast;
 use super::{Sjefen, konsulent};
 use termcolor::Color;
 
+static ny_mamma: OnceLock<AtomicU8> = OnceLock::new();
+pub fn get_ny_mamma() -> &'static AtomicU8{
+    ny_mamma.get_or_init(|| AtomicU8::new(config::ERROR_ID))
+}
 
 impl Sjefen::Sjefen {
     /// 🔹 **Hentar worldview frå master**
@@ -68,8 +74,8 @@ impl Sjefen::Sjefen {
         
         let mut i:u8 = 0; //Til telling, proof of concept
         loop {
-            sleep(Duration::from_millis(100));
             WorldViewChannel::request_worldview().await;
+     
             tokio::select! {
                 msg = async {
                     let mut latest_msg = None;
@@ -95,7 +101,7 @@ impl Sjefen::Sjefen {
                     match result {
                         Ok(0) => {
                             konsulent::print_farge("Klienten lukka tilkoblinga. (send_post())".to_string(), Color::Yellow);
-                            break; // 🔹 Avslutt loopen om klienten koplar frå
+                            break; //  Avslutt loopen om klienten koplar frå
                         }
                         Ok(bytes_read) => {
                             konsulent::print_farge(format!("Mottok {} bytes fra klienten i send_post(): {:?}", bytes_read, &buf[..bytes_read]), Color::Blue);
@@ -118,7 +124,7 @@ impl Sjefen::Sjefen {
         Ok(())
     }
     
-    /// 🔹 **Startar server for å sende worldview**
+    ///  **Startar server for å sende worldview**
     pub async fn start_post_leveranse(&self, wv_channel: WorldViewChannel::WorldViewChannel, shutdown_tx: broadcast::Sender<u8>) -> tokio::io::Result<()> {
         let listener = TcpListener::bind(format!("{}:{}", self.ip, config::PN_PORT)).await?;
         let mut shutdown_rx = shutdown_tx.subscribe();
@@ -128,7 +134,7 @@ impl Sjefen::Sjefen {
                 // 🔹 Hovudoppgåve:
                 _ = async {
                         match listener.accept().await {
-                        Ok((socket, _)) => {
+                        Ok((socket, addr)) => {
                             konsulent::print_farge(format!("{} Kobla til nyhetsbrevet!", socket.peer_addr().unwrap()), Color::Green);
                             let rx = wv_channel.tx.subscribe();
                             let self_clone = self.clone();
@@ -141,6 +147,7 @@ impl Sjefen::Sjefen {
                                     }
                                 }
                             });
+                            get_ny_mamma().store(konsulent::id_fra_ip(addr.ip()), Ordering::SeqCst);
                         }
                         Err(e) => {
                             konsulent::print_farge(format!("Feil i listener.accept(): {}", e), Color::Red);

@@ -1,4 +1,6 @@
 use super::konsulent;
+use crate::config;
+use crate::Byrokrati::PostNord::get_ny_mamma;
 use crate::WorldView::WorldView;
 use crate::WorldView::WorldViewChannel;
 
@@ -6,6 +8,7 @@ use termcolor::Color;
 use tokio::time::Duration;
 use core::panic;
 use std::env;
+use std::sync::atomic::Ordering;
 use std::u8;
 use std::sync::Arc;
 use tokio::sync::broadcast;
@@ -225,7 +228,10 @@ impl Sjefen{
 
         
         loop{
-            tokio::time::sleep(Duration::from_micros(2000)).await;
+            while get_ny_mamma().load(Ordering::SeqCst) == config::ERROR_ID {};
+
+            println!("Ny slave med id: {}", get_ny_mamma().load(Ordering::SeqCst));
+            get_ny_mamma().store(config::ERROR_ID, Ordering::SeqCst);
             //_ = shutdown_tx.send(69);
             //WorldViewChannel::request_worldview().await;
         }
