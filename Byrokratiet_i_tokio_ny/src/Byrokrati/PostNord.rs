@@ -61,6 +61,7 @@ impl Sjefen::Sjefen {
         }
 
         println!("Worldview frå master i get_wv_from_master(): {:?}", buf);
+        let _fiks_result = stream.write_all(b"WV-ACK").await;
 
         // if self.id < master_id {
         //     println!("Min ID er lågare enn masteren sin, eg må bli ny master i get_wv_from_master()!");
@@ -234,7 +235,7 @@ impl Sjefen::Sjefen {
                 return Err(e);
             }
 
-            println!("Mottok melding i abboner_nyhetsbrev() på {} bytes: {:?} ", len, buf);
+            //println!("Mottok melding i abboner_nyhetsbrev() på {} bytes: {:?} ", len, buf);
             *worldview_arc.lock().await = buf;
 
             stream.write_all(b"WV-ACK").await?;
