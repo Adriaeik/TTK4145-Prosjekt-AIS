@@ -73,8 +73,8 @@ impl WorldView {
         if self.heis_spesifikke.len() == initial_len {
             konsulent::print_farge(format!("Ingen mor med ID {} ble funnet. (rapporter_sparking_av_mor())", id), Color::Yellow);
         } else {
+            println!("Mor med ID {} ble fjernet.", id);
             konsulent::print_farge(format!("Mor med ID {} ble sparka. (rapporter_sparking_av_mor())", id), Color::Green);
-            self.n = self.n - 1
         }
     }
 
