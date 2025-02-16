@@ -165,7 +165,8 @@ impl Sjefen{
 
 
         let wv_channel_clone = WorldViewChannel::WorldViewChannel{tx: wv_channel.tx.clone()};
-        if self.ip == *self.master_ip.lock().await {
+        println!("Master ID: {}", worldview_arc.lock().await[1]);
+        if self.id <= worldview_arc.lock().await[1] {
             
             match self.master_process(wv_channel_clone, shutdown_tx.clone(), worldview_arc).await {
                 Ok(_) => {Ok(())},
@@ -224,6 +225,10 @@ impl Sjefen{
                             match serialized_wv {
                                 Ok(swv) => {
                                     *worldview_arc.lock().await = swv;
+                                    //Steng alle tråder som skal stenges...
+                                    let _fiks_error_senere = shutdown_tx.send(69);
+                                    return Ok(())
+
                                 }
                                 Err(e) => {konsulent::print_farge(format!("Feil i serialisering av worldview: {}", e), Color::Red);}
                             }
@@ -284,6 +289,7 @@ impl Sjefen{
             //println!("Wolrdview mottat: {:?}", *wv_locked);
             // println!("Kan vi å printe?");
             PostNord::get_ny_wv().store(true, Ordering::SeqCst);
+            sleep(Duration::from_secs(1)).await;
             // let wv_deserialized = WorldView::deserialize_worldview(&*vw_locked);
             // match wv_deserialized {
             //     Ok(mut wv) => {

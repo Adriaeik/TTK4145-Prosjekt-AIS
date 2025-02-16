@@ -52,10 +52,6 @@ async fn main() {
     let (tx, _) = broadcast::channel::<Vec<u8>>(1);
     //let temp_rx_wv = tx.subscribe();
     let worldview_channel = WorldViewChannel::WorldViewChannel {tx: tx};
-    
-    
-    
-    
     // Lager worldview_sender
     let (shutdown_tx, _) = broadcast::channel::<>(1);
     //Oppdatterer worldview_channelen når request_worldview() blir kalt
