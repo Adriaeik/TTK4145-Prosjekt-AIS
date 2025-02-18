@@ -165,7 +165,7 @@ impl Sjefen{
 
 
         let wv_channel_clone = WorldViewChannel::WorldViewChannel{tx: wv_channel.tx.clone()};
-        if self.ip == *self.master_ip.lock().await {
+        if self.id <= worldview_arc.lock().await[1] {
             
             match self.master_process(wv_channel_clone, shutdown_tx.clone(), worldview_arc).await {
                 Ok(_) => {Ok(())},
@@ -230,13 +230,15 @@ impl Sjefen{
                             wv.rapporter_annsettelse_av_mor(mor);
                             let serialized_wv = WorldView::serialize_worldview(&wv);
                             match serialized_wv {
-                                Ok(swv) => {
+                                Ok(mut swv) => {
+                                    if ny_mamma < self.id {
+                                        swv[1] = ny_mamma;
+                                    }
                                     *worldview_arc.lock().await = swv;
                                 }
                                 Err(e) => {konsulent::print_farge(format!("Feil i serialisering av worldview: {}", e), Color::Red);}
                             }
                             if ny_mamma < self.id {
-                                let _ = shutdown_tx.send(69);
                                 break;
                                 
                             }
@@ -283,6 +285,9 @@ impl Sjefen{
                 // kan bruke tellaren til å sjekke timeout
                 worldview[msg_len - 1] = timestamp; // sekund tellar
         }
+
+        tokio::time::sleep(Duration::from_millis(1000)).await;
+        let _ = shutdown_tx.send(69);
         
         let _ = post_handle.await;
         Ok(())
