@@ -11,7 +11,7 @@ use tokio::time;
 
 
 pub async fn start_udp_broadcaster(txs: local_network::BroadcastTxs, min_id: u8) -> tokio::io::Result<()> {
-    let mut rxs = txs.subscribe();
+    let mut rxs_org = txs.subscribe();
     let addr: &str = &format!("{}:{}", config::BC_ADDR, config::DUMMY_PORT);
     let addr2: &str = &format!("{}:0", config::BC_LISTEN_ADDR);
 
@@ -26,6 +26,7 @@ pub async fn start_udp_broadcaster(txs: local_network::BroadcastTxs, min_id: u8)
     let udp_socket = UdpSocket::from_std(socket.into())?;
 
     loop{
+        let mut rxs = rxs_org.resubscribe();
         //Hent ut nyeste melding på wv_rx
         let msg = async {
             let mut latest_msg = None;
@@ -40,11 +41,11 @@ pub async fn start_udp_broadcaster(txs: local_network::BroadcastTxs, min_id: u8)
         }
         if let Some(message) = msg {
             //Bare broadcast hvis du er master
-            if min_id == message[config::MASTER_IDX] {
+            //if min_id == message[config::MASTER_IDX] {
                 let mesage = format!("{:?}{:?}", config::KEY_STR, message).to_string();
                 udp_socket.send_to(mesage.as_bytes(), &broadcast_addr).await?;
                 utils::print_ok(format!("Sender UDP-broadcast: {}", mesage));
-            }
+            //}
         }
         time::sleep(Duration::from_millis(100)).await;
     }
@@ -65,9 +66,11 @@ pub async fn start_udp_listener(txs: local_network::BroadcastTxs) -> tokio::io::
 
     loop {
         let len: usize;
+        println!("Prøver å motta");
         match socket.recv_from(&mut buf).await {
             Ok((length, _)) => {
                 len = length;
+                println!("mottok noe med lenge {}", len);
             }
             Err(e) => {
                 utils::print_err(format!("udp_broadcast.rs, udp_listener(): {}", e));
@@ -75,6 +78,7 @@ pub async fn start_udp_listener(txs: local_network::BroadcastTxs) -> tokio::io::
             }
         }
 
+        println!("Sjekker om meldingen har key_string");
         if buf.starts_with(config::KEY_STR) {
             let key_len = config::KEY_STR.len();
             let remaining_len = buf.len() - key_len;
@@ -84,6 +88,9 @@ pub async fn start_udp_listener(txs: local_network::BroadcastTxs) -> tokio::io::
 
             // Fyll slutten med nullar
             buf[remaining_len..].fill(0);
+
+
+
         }
 
 

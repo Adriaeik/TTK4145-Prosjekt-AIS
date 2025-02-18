@@ -19,6 +19,7 @@ pub struct BroadcastRxs {
     pub wv: broadcast::Receiver<Vec<u8>>,
 }
 
+
 impl Clone for BroadcastTxs {
     fn clone(&self) -> BroadcastTxs {
         return BroadcastTxs{
@@ -38,4 +39,13 @@ impl BroadcastTxs {
 
 }
 
+impl BroadcastRxs {
+    pub fn resubscribe(&self) -> BroadcastRxs {
+        BroadcastRxs {
+            shutdown: self.shutdown.resubscribe(),
+            wv: self.wv.resubscribe(),
+        }
+    }
+
+}
 
