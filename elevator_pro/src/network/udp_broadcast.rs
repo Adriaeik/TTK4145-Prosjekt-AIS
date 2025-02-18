@@ -103,6 +103,7 @@ pub async fn start_udp_listener(txs: local_network::BroadcastTxs) -> tokio::io::
             if my_wv[config::MASTER_IDX] > buf[config::MASTER_IDX] {
                 //Oppdater egen WV
                 my_wv = buf[..len].to_vec();
+                utils::print_info(format!("Mottok UDP: {:?}", my_wv));
                 //TODO: Send denne wv tilbake til thread som behandler worldview
             }
         }
