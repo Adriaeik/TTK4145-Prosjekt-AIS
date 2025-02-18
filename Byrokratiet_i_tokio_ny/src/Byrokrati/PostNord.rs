@@ -81,13 +81,14 @@ impl Sjefen::Sjefen {
     }
 
     /// 🔹 **Sender worldview-oppdateringar til klientar**
-    pub async fn send_post(&self, mut socket: TcpStream, mut rx_org: broadcast::Receiver<Vec<u8>>, mut shutdown_rx: broadcast::Receiver<u8>) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn send_post(&self, mut socket: TcpStream, rx_org: broadcast::Receiver<Vec<u8>>, shutdown_rx_org: broadcast::Receiver<u8>) -> Result<(), Box<dyn std::error::Error>> {
         konsulent::print_farge("Startet en send_post i send_post()".to_string(), Color::Green);
         let mut buf = [0; 1024];
         
         
         loop {
             let mut rx = rx_org.resubscribe();
+            let mut shutdown_rx = shutdown_rx_org.resubscribe();
             WorldViewChannel::request_worldview().await;
             while WorldViewChannel::get_worldview_request_flag().load(Ordering::SeqCst) {};
             match shutdown_rx.try_recv() {
