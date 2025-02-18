@@ -37,7 +37,7 @@ pub async fn start_udp_broadcaster(txs: local_network::BroadcastTxs, min_id: u8)
         }.await; 
     
         if let None = msg {
-            //utils::print_err("Ingen wv på rxs.wv_rx".to_string());
+            utils::print_err("Ingen wv på rxs.wv_rx".to_string());
         }
         if let Some(message) = msg {
             //Bare broadcast hvis du er master
@@ -47,12 +47,11 @@ pub async fn start_udp_broadcaster(txs: local_network::BroadcastTxs, min_id: u8)
                 utils::print_ok(format!("Sender UDP-broadcast: {}", mesage));
             //}
         }
-        time::sleep(Duration::from_millis(100)).await;
     }
 }
 
 pub async fn start_udp_listener(txs: local_network::BroadcastTxs) -> tokio::io::Result<()> {
-    let mut rxs = txs.subscribe();
+    let rxs_org = txs.subscribe();
     let broadcast_listen_addr = format!("{}:{}", config::BC_LISTEN_ADDR, config::DUMMY_PORT);
     let socket_addr: SocketAddr = broadcast_listen_addr.parse().expect("Ugyldig adresse");
     let socket_temp = Socket::new(Domain::IPV4, Type::DGRAM, None)?;
@@ -65,6 +64,7 @@ pub async fn start_udp_listener(txs: local_network::BroadcastTxs) -> tokio::io::
     let mut buf = [0; 1024];
 
     loop {
+        let mut rxs = rxs_org.resubscribe();
         let len: usize;
         println!("Prøver å motta");
         match socket.recv_from(&mut buf).await {
@@ -90,30 +90,29 @@ pub async fn start_udp_listener(txs: local_network::BroadcastTxs) -> tokio::io::
             buf[remaining_len..].fill(0);
 
 
-
-        }
-
-
-        let wv = async {
             let mut latest_msg = None;
-            while let Ok(message) = rxs.wv.try_recv() {
-                latest_msg = Some(message); // Overskriv tidligere meldinger
+            let wv = {
+                while let Ok(message) = rxs.wv.try_recv() {
+                    latest_msg = Some(message); // Overskriv tidligere meldinger
+                };
+                latest_msg
+            };
+        
+            if let None = wv {
+                utils::print_err("Ingen wv på rxs.wv_rx".to_string());
             }
-            latest_msg
-        }.await; 
-    
-        if let None = wv {
-            utils::print_err("Ingen wv på rxs.wv_rx".to_string());
-        }
-        if let Some(mut my_wv) = wv {
-            //Bare broadcast hvis du er master
-            if my_wv[config::MASTER_IDX] > buf[config::MASTER_IDX] {
-                //Oppdater egen WV
-                my_wv = buf[..len].to_vec();
-                utils::print_info(format!("Mottok UDP: {:?}", my_wv));
-                //TODO: Send denne wv tilbake til thread som behandler worldview
+            if let Some(mut my_wv) = wv {
+                //Bare broadcast hvis du er master
+                //if my_wv[config::MASTER_IDX] > buf[config::MASTER_IDX] {
+                    //Oppdater egen WV
+                    my_wv = buf[..len].to_vec();
+                    utils::print_info(format!("Mottok UDP: {:?}", my_wv));
+                    //TODO: Send denne wv tilbake til thread som behandler worldview
+                //}
             }
         }
+
+
 
     }
 }

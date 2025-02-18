@@ -55,7 +55,6 @@ async fn main() {
     
     loop {
         let _ = tx_channels.wv.send(worldview_serialised.clone());
-        sleep(Duration::from_millis(100)).await;
     }
 
     // let tcp_task = start_tcp_listener(); //TCP connection mellom master eller slaver
