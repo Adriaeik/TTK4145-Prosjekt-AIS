@@ -195,11 +195,11 @@ impl Sjefen::Sjefen {
                 } => {}
                 // 🔹 Shutdown: Stoppar TCP-Connections om signalet kjem
                 _ = shutdown_rx.recv() => {
-                    for task in listeners_tasks {
-                        println!("før await post_leveranse");
-                        let _ = task.await;
-                        println!("etter await post_leveranse");
-                    }
+                    // for task in listeners_tasks {
+                    //     println!("før await post_leveranse");
+                    //     let _ = task.await;
+                    //     println!("etter await post_leveranse");
+                    // }
                     drop(listener);
                     konsulent::print_farge("Shutdown mottatt! Stoppar TCP-listener...".to_string(), Color::Yellow);
                     break;
