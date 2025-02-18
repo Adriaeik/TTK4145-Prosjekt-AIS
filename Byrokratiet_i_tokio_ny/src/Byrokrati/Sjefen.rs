@@ -193,7 +193,15 @@ impl Sjefen{
 
 
         let wv_channel_clone = WorldViewChannel::WorldViewChannel{tx: wv_channel.tx.clone()};
-        let _post_handle = self.start_post_leveranse_task(/*Arc*/wv_channel_clone, shutdown_tx.clone());
+        //let post_handle = self.start_post_leveranse_task(/*Arc*/wv_channel_clone, shutdown_tx.clone());
+        let self_clone = self.clone();
+        let shutdown_clone = shutdown_tx.clone();
+        let post_handle = tokio::spawn(async move {
+            konsulent::print_farge("Starter nyhetsbrev-server (start_post_leveranse_task()".to_string(), Color::Green);
+            if let Err(e) = self_clone.start_post_leveranse(wv_channel_clone, shutdown_clone).await {
+                konsulent::print_farge(format!("Feil i post_leveranse: {}", e), Color::Red);
+            }
+        });
 
         let _udp_handle = self.start_udp_broadcast_task(shutdown_tx.clone());
 
@@ -226,6 +234,11 @@ impl Sjefen{
                                     *worldview_arc.lock().await = swv;
                                 }
                                 Err(e) => {konsulent::print_farge(format!("Feil i serialisering av worldview: {}", e), Color::Red);}
+                            }
+                            if ny_mamma < self.id {
+                                let _ = shutdown_tx.send(69);
+                                break;
+                                
                             }
                         }
                         Err(e) => {konsulent::print_farge(format!("Feil i deserialisering av worldview: {}", e), Color::Red);}
@@ -270,6 +283,9 @@ impl Sjefen{
                 // kan bruke tellaren til å sjekke timeout
                 worldview[msg_len - 1] = timestamp; // sekund tellar
         }
+        
+        let _ = post_handle.await;
+        Ok(())
 
     }
     

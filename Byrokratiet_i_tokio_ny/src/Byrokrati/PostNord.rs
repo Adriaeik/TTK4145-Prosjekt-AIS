@@ -13,6 +13,7 @@ use super::{Sjefen, konsulent};
 use termcolor::Color;
 use std::sync::Arc;
 use tokio::sync::Mutex;
+use tokio::task::JoinHandle;
 
 static NY_WV: OnceLock<AtomicBool> = OnceLock::new();
 pub fn get_ny_wv() -> &'static AtomicBool{
@@ -91,6 +92,7 @@ impl Sjefen::Sjefen {
             while WorldViewChannel::get_worldview_request_flag().load(Ordering::SeqCst) {};
             match shutdown_rx.try_recv() {
                 Ok(_) => {
+                    let _ = socket.shutdown().await;
                     konsulent::print_farge("Shutdown mottatt! Stoppar TCP-Connection...".to_string(), Color::Yellow);
                     break;
                 }
@@ -154,6 +156,7 @@ impl Sjefen::Sjefen {
     pub async fn start_post_leveranse(&self, wv_channel: WorldViewChannel::WorldViewChannel, shutdown_tx: broadcast::Sender<u8>) -> tokio::io::Result<()> {
         let listener = TcpListener::bind(format!("{}:{}", self.ip, config::PN_PORT)).await?;
         let mut shutdown_rx = shutdown_tx.subscribe();
+        let mut listeners_tasks: Vec<JoinHandle<()>> = Vec::new();
         loop {
             let shutdown_tx_clone = shutdown_tx.clone();
             tokio::select! {
@@ -164,7 +167,7 @@ impl Sjefen::Sjefen {
                             konsulent::print_farge(format!("{} Kobla til nyhetsbrevet!", socket.peer_addr().unwrap()), Color::Green);
                             let rx = wv_channel.tx.subscribe();
                             let self_clone = self.clone();
-                            tokio::spawn(async move {
+                            let task = tokio::spawn(async move {
                                 let peer_addr_copy = socket.peer_addr().unwrap();
                                 match self_clone.send_post(socket, rx, shutdown_tx_clone.subscribe()).await {
                                     Ok(_) => {
@@ -178,6 +181,7 @@ impl Sjefen::Sjefen {
                                     }
                                 }
                             });
+                            listeners_tasks.push(task);
                             while get_ny_mamma().load(Ordering::SeqCst) != config::ERROR_ID {}; //Vent til eventuelt forrige connect er behandla
                             get_ny_mamma().store(konsulent::id_fra_ip(addr.ip()), Ordering::SeqCst);
                         }
@@ -188,8 +192,11 @@ impl Sjefen::Sjefen {
                 } => {}
                 // 🔹 Shutdown: Stoppar TCP-Connections om signalet kjem
                 _ = shutdown_rx.recv() => {
+                    for task in listeners_tasks {
+                        let _ = task.await;
+                    }
+                    drop(listener);
                     konsulent::print_farge("Shutdown mottatt! Stoppar TCP-listener...".to_string(), Color::Yellow);
-                   
                     break;
                 }
             }
