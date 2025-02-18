@@ -3,8 +3,10 @@ use crate::utils;
 use super::local_network;
 
 use core::net::SocketAddr;
+use std::time::Duration;
 use tokio::net::UdpSocket;
 use socket2::{Domain, Socket, Type};
+use tokio::time;
 
 
 
@@ -34,7 +36,7 @@ pub async fn start_udp_broadcaster(txs: local_network::BroadcastTxs, min_id: u8)
         }.await; 
     
         if let None = msg {
-            utils::print_err("Ingen wv på rxs.wv_rx".to_string());
+            //utils::print_err("Ingen wv på rxs.wv_rx".to_string());
         }
         if let Some(message) = msg {
             //Bare broadcast hvis du er master
@@ -44,6 +46,7 @@ pub async fn start_udp_broadcaster(txs: local_network::BroadcastTxs, min_id: u8)
                 utils::print_ok(format!("Sender UDP-broadcast: {}", mesage));
             }
         }
+        time::sleep(Duration::from_millis(100)).await;
     }
 }
 
