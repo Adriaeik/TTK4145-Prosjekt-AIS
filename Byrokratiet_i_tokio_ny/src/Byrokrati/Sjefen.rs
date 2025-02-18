@@ -289,9 +289,9 @@ impl Sjefen{
         tokio::time::sleep(Duration::from_millis(1000)).await;
         let _ = shutdown_tx.send(69);
         
-        println!("før await");
+        println!("før await master_process");
         let _ = post_handle.await;
-        println!("etter await");
+        println!("etter await master_process");
         Ok(())
 
     }

@@ -93,7 +93,9 @@ impl Sjefen::Sjefen {
             while WorldViewChannel::get_worldview_request_flag().load(Ordering::SeqCst) {};
             match shutdown_rx.try_recv() {
                 Ok(_) => {
+                    println!("før await send_post()");
                     let _ = socket.shutdown().await;
+                    println!("etter await send_post()");
                     konsulent::print_farge("Shutdown mottatt! Stoppar TCP-Connection...".to_string(), Color::Yellow);
                     break;
                 }
@@ -194,7 +196,9 @@ impl Sjefen::Sjefen {
                 // 🔹 Shutdown: Stoppar TCP-Connections om signalet kjem
                 _ = shutdown_rx.recv() => {
                     for task in listeners_tasks {
+                        println!("før await post_leveranse");
                         let _ = task.await;
+                        println!("etter await post_leveranse");
                     }
                     drop(listener);
                     konsulent::print_farge("Shutdown mottatt! Stoppar TCP-listener...".to_string(), Color::Yellow);
