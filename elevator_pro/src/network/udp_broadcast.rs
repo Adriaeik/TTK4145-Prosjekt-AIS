@@ -2,6 +2,7 @@ use crate::config;
 use crate::utils;
 use super::local_network;
 
+use std::fs::read;
 use std::net::SocketAddr;
 use std::time::Duration;
 use tokio::net::UdpSocket;
@@ -63,6 +64,7 @@ pub async fn start_udp_listener(txs: local_network::BroadcastTxs) -> tokio::io::
     socket_temp.bind(&socket_addr.into())?;
     let socket = UdpSocket::from_std(socket_temp.into())?;
     let mut buf = [0; 1024];
+    let mut read_wv: Vec<u8> = Vec::new();
     
     let mut message: Cow<'_, str> = std::borrow::Cow::Borrowed("a");
 
@@ -70,6 +72,7 @@ pub async fn start_udp_listener(txs: local_network::BroadcastTxs) -> tokio::io::
         match socket.recv_from(&mut buf).await {
             Ok((len, _)) => {
                 message = String::from_utf8_lossy(&buf[..len]);
+                
                 // println!("mottok noe med lenge {}", len);
             }
             Err(e) => {
@@ -80,6 +83,12 @@ pub async fn start_udp_listener(txs: local_network::BroadcastTxs) -> tokio::io::
         
         
         if &message[1..config::KEY_STR.len()+1] == config::KEY_STR { //Plusser på en, siden serialiseringa av stringen tar med '"'-tegnet
+            let clean_message = &message[config::KEY_STR.len()+3..message.len()-1]; // Fjerner `"`
+            read_wv = clean_message
+            .split(", ") // Del opp på ", "
+            .filter_map(|s| s.parse::<u8>().ok()) // Konverter til u8, ignorer feil
+            .collect(); // Samle i Vec<u8>
+
             let mut rxs = rxs_org.resubscribe();
             let wv = async {
                 let mut latest_msg = None;
@@ -95,11 +104,14 @@ pub async fn start_udp_listener(txs: local_network::BroadcastTxs) -> tokio::io::
             }
             if let Some(mut my_wv) = wv {
                 //Bare broadcast hvis du er master
-                if my_wv[config::MASTER_IDX] > buf[config::MASTER_IDX] {
+                println!("UDP sin ID: {}", read_wv[config::MASTER_IDX]);
+                //utils::print_info(format!("read_wv: {:?}", read_wv));
+                //utils::print_info(format!("full message: {:?}", message));
+                if my_wv[config::MASTER_IDX] > read_wv[config::MASTER_IDX] {
                     //Oppdater egen WV
-                    my_wv = message[config::KEY_STR.len()+3..message.len()-1].as_bytes().to_vec();
+                    my_wv = read_wv;
                     //TODO: Send denne wv tilbake til thread som behandler worldview
-                    utils::print_info(format!("Mottok UDP: {:?}", &message[config::KEY_STR.len()+3..message.len()-1]));
+                    utils::print_info(format!("Mottok UDP: {:?}", my_wv));
                 }
                 else {
                     println!("UDP-en har høyere ID, jeg ignorerer den");
