@@ -100,7 +100,8 @@ pub async fn start_udp_listener(txs: local_network::BroadcastTxs) -> tokio::io::
             
             if let None = wv {
                 //println!("msg var ingenting");
-                //utils::print_err("Ingen wv på rxs.wv_rx".to_string());
+                //TODO: legg til atomic bool kanskje (ref tokio_ny) (ikke helt nødvendig)
+                //utils::print_warn("Ingen wv på rxs.wv_rx".to_string());
             }
             if let Some(mut my_wv) = wv {
                 //Bare broadcast hvis du er master
@@ -114,7 +115,7 @@ pub async fn start_udp_listener(txs: local_network::BroadcastTxs) -> tokio::io::
                     utils::print_info(format!("Mottok UDP: {:?}", my_wv));
                 }
                 else {
-                    println!("UDP-en har høyere ID, jeg ignorerer den");
+                    //println!("UDP-en har høyere ID, jeg ignorerer den");
                 }
             }
                 
