@@ -8,3 +8,6 @@ pub static BC_LISTEN_ADDR: &str = "0.0.0.0";
 pub static BC_ADDR: &str = "255.255.255.255";
 
 pub const ERROR_ID: u8 = 255;
+
+pub const MASTER_IDX: usize = 1;
+pub const KEY_STR: &[u8] = b"Gruppe 25";
