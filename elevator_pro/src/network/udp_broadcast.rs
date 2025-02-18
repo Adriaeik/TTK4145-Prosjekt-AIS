@@ -2,7 +2,7 @@ use crate::config;
 use crate::utils;
 use super::local_network;
 
-use core::net::SocketAddr;
+use std::net::SocketAddr;
 use std::time::Duration;
 use tokio::net::UdpSocket;
 use socket2::{Domain, Socket, Type};
