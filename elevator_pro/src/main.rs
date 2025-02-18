@@ -1,5 +1,7 @@
+use std::time::Duration;
+
 use elevator_pro::{network::{local_network, udp_broadcast}, utils, world_view::world_view};
-use tokio::sync::broadcast;
+use tokio::{sync::broadcast, time::sleep};
 use local_ip_address::local_ip;
 
 
@@ -53,6 +55,7 @@ async fn main() {
     
     loop {
         let _ = tx_channels.wv.send(worldview_serialised.clone());
+        sleep(Duration::from_millis(100)).await;
     }
 
     // let tcp_task = start_tcp_listener(); //TCP connection mellom master eller slaver
