@@ -45,14 +45,14 @@ pub async fn start_udp_broadcaster(txs: local_network::BroadcastTxs, min_id: u8)
             //if min_id == message[config::MASTER_IDX] {
                 let mesage = format!("{:?}{:?}", config::KEY_STR, message).to_string();
                 udp_socket.send_to(mesage.as_bytes(), &broadcast_addr).await?;
-                utils::print_ok(format!("Sender UDP-broadcast: {}", mesage));
+                //utils::print_ok(format!("Sender UDP-broadcast: {}", mesage));
             //}
         }
     }
 }
 
 pub async fn start_udp_listener(txs: local_network::BroadcastTxs) -> tokio::io::Result<()> {
-    let rxs_org = txs.subscribe();
+    let mut rxs_org = txs.subscribe();
     let broadcast_listen_addr = format!("{}:{}", config::BC_LISTEN_ADDR, config::DUMMY_PORT);
     let socket_addr: SocketAddr = broadcast_listen_addr.parse().expect("Ugyldig adresse");
     let socket_temp = Socket::new(Domain::IPV4, Type::DGRAM, None)?;
@@ -67,8 +67,6 @@ pub async fn start_udp_listener(txs: local_network::BroadcastTxs) -> tokio::io::
     let mut message: Cow<'_, str> = std::borrow::Cow::Borrowed("a");
 
     loop {
-        let mut rxs = rxs_org.resubscribe();
-        println!("Prøver å motta");
         match socket.recv_from(&mut buf).await {
             Ok((len, _)) => {
                 message = String::from_utf8_lossy(&buf[..len]);
@@ -80,29 +78,34 @@ pub async fn start_udp_listener(txs: local_network::BroadcastTxs) -> tokio::io::
             }
         }
         
-
+        
         if &message[1..config::KEY_STR.len()+1] == config::KEY_STR { //Plusser på en, siden serialiseringa av stringen tar med '"'-tegnet
-            let mut latest_msg = None;
-            let wv = {
+            let mut rxs = rxs_org.resubscribe();
+            let wv = async {
+                let mut latest_msg = None;
                 while let Ok(message) = rxs.wv.try_recv() {
                     latest_msg = Some(message); // Overskriv tidligere meldinger
-                };
+                }
                 latest_msg
-            };
-        
+            }.await; 
+            
             if let None = wv {
+                //println!("msg var ingenting");
                 //utils::print_err("Ingen wv på rxs.wv_rx".to_string());
             }
             if let Some(mut my_wv) = wv {
                 //Bare broadcast hvis du er master
-                //if my_wv[config::MASTER_IDX] > buf[config::MASTER_IDX] {
+                if my_wv[config::MASTER_IDX] > buf[config::MASTER_IDX] {
                     //Oppdater egen WV
-                    my_wv = message.as_bytes().to_vec();
-                    utils::print_info(format!("Mottok UDP: {:?}", my_wv));
+                    my_wv = message[config::KEY_STR.len()+3..message.len()-1].as_bytes().to_vec();
                     //TODO: Send denne wv tilbake til thread som behandler worldview
-                //}
+                    utils::print_info(format!("Mottok UDP: {:?}", &message[config::KEY_STR.len()+3..message.len()-1]));
+                }
+                else {
+                    println!("UDP-en har høyere ID, jeg ignorerer den");
+                }
             }
-
+                
         }
 
     }
