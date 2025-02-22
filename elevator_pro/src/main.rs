@@ -26,9 +26,9 @@ async fn main() {
 
     
     /*Init av lokale channels  */
-    let mut local_chs = local_network::LocalChannels::new();
-    let chs_udp_listen = local_chs.clone();
-    let chs_udp_bc = local_chs.clone();
+    let mut main_local_chs = local_network::LocalChannels::new();
+    let chs_udp_listen = main_local_chs.clone();
+    let chs_udp_bc = main_local_chs.clone();
                                                             
 
 
@@ -48,7 +48,7 @@ async fn main() {
 
     
     loop {
-        let _ = local_chs.broadcasts.txs.wv.send(worldview_serialised.clone());
+        let _ = main_local_chs.broadcasts.txs.wv.send(worldview_serialised.clone());
     }
 
     // let tcp_task = start_tcp_listener(); //TCP connection mellom master eller slaver
