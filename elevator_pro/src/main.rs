@@ -55,9 +55,9 @@ async fn main() {
                 let mut master_wv_deserialised = world_view::deserialize_worldview(&msg);
 
                 for heis in my_wv_deserialised.heis_spesifikke {
-                    if heis.heis_id == self_id {
+                    // if heis.heis_id == self_id {
                         master_wv_deserialised.add_elev(heis);
-                    }
+                    // }
                 }
                 worldview_serialised = world_view::serialize_worldview(&master_wv_deserialised);
                 utils::print_info(format!("Oppdatert wv fra UDP: {:?}", worldview_serialised));
