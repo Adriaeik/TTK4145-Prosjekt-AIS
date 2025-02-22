@@ -127,6 +127,36 @@ pub fn deserialize_worldview(data: &[u8]) -> WorldView {
 }
 
 
+pub fn serialize_elev_container(elev_container: &ElevatorContainer) -> Vec<u8> {
+    let encoded = bincode::serialize(elev_container);
+    match encoded {
+        Ok(serialized_data) => {
+            // Deserialisere WorldView fra binært format
+            return serialized_data;
+        }
+        Err(e) => {
+            utils::print_err(format!("Serialization failed: {} (world_view.rs, serialize_elev_container())", e));
+            panic!();
+        }
+    }
+}
+
+// Funksjon for å deserialisere WorldView
+pub fn deserialize_elev_container(data: &[u8]) -> ElevatorContainer {
+    let decoded = bincode::deserialize(data);
+
+
+    match decoded {
+        Ok(serialized_data) => {
+            // Deserialisere WorldView fra binært format
+            return serialized_data;
+        }
+        Err(e) => {
+            utils::print_err(format!("Serialization failed: {} (world_view.rs, deserialize_elev_container())", e));
+            panic!();
+        }
+    }
+}
 
 
 

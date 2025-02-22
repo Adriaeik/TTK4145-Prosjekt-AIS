@@ -18,7 +18,7 @@ pub fn get_udp_timeout() -> &'static AtomicBool {
     UDP_TIMEOUT.get_or_init(|| AtomicBool::new(false))
 }
 
-pub async fn start_udp_broadcaster(mut chs: local_network::LocalChannels, min_id: u8) -> tokio::io::Result<()> {
+pub async fn start_udp_broadcaster(mut chs: local_network::LocalChannels) -> tokio::io::Result<()> {
     chs.subscribe_broadcast();
     let addr: &str = &format!("{}:{}", config::BC_ADDR, config::DUMMY_PORT);
     let addr2: &str = &format!("{}:0", config::BC_LISTEN_ADDR);
@@ -49,7 +49,7 @@ pub async fn start_udp_broadcaster(mut chs: local_network::LocalChannels, min_id
         }
         if let Some(message) = msg {
             //Bare broadcast hvis du er master
-            if min_id == message[config::MASTER_IDX] {
+            if utils::SELF_ID.load(Ordering::SeqCst) == message[config::MASTER_IDX] {
                 let mesage = format!("{:?}{:?}", config::KEY_STR, message).to_string();
                 udp_socket.send_to(mesage.as_bytes(), &broadcast_addr).await?;
                 //utils::print_ok(format!("Sender UDP-broadcast: {}", mesage));

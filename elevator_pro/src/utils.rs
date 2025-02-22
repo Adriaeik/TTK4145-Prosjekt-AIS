@@ -1,11 +1,12 @@
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::net::IpAddr;
+use std::u8;
 use tokio::net::TcpStream;
 use tokio::io::AsyncWriteExt;
 use anyhow::Context;
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
-use crate::config;
+use crate::{config, world_view::world_view};
 use crate::network::local_network;
 
 use core::panic;
@@ -14,7 +15,10 @@ use local_ip_address::local_ip;
 use tokio::sync::Mutex;
 use std::sync::Arc;
 
+use std::sync::atomic::{AtomicU8, Ordering};
 
+// Definer ein global `AtomicU8`
+pub static SELF_ID: AtomicU8 = AtomicU8::new(u8::MAX); // Startverdi 0
 
 
 
@@ -162,30 +166,6 @@ pub fn print_slave(msg: String) {
 }
 
 
-
-
-pub fn is_master(self_id: u8, mut chs: local_network::LocalChannels) -> bool {
-    let mut wv_option = None;
-    chs.resubscribe_broadcast();
-    let mut wv: Vec<u8> = Vec::new();
-
-    while wv_option.is_none() {
-        wv_option = {
-            let mut latest_msg = None;
-            while let Ok(message) = chs.broadcasts.rxs.wv.try_recv() {
-                latest_msg = Some(message); // Overskriv tidligere meldinger
-            }
-            latest_msg
-        };
-
-        if let Some(ref msg) = wv_option {
-            wv = msg.clone();
-        } 
-    }
-
-    return self_id == wv[config::MASTER_IDX];
-}
-
 pub fn get_wv(mut chs: local_network::LocalChannels) -> Vec<u8> {
     let mut wv_option = None;
     chs.resubscribe_broadcast();
@@ -207,6 +187,43 @@ pub fn get_wv(mut chs: local_network::LocalChannels) -> Vec<u8> {
 
     wv
 }
+
+
+pub fn is_master(mut chs: local_network::LocalChannels) -> bool {
+    let mut wv_option = None;
+    chs.resubscribe_broadcast();
+    let mut wv: Vec<u8> = Vec::new();
+
+    while wv_option.is_none() {
+        wv_option = {
+            let mut latest_msg = None;
+            while let Ok(message) = chs.broadcasts.rxs.wv.try_recv() {
+                latest_msg = Some(message); // Overskriv tidligere meldinger
+            }
+            latest_msg
+        };
+
+        if let Some(ref msg) = wv_option {
+            wv = msg.clone();
+        } 
+    }
+
+    return SELF_ID.load(Ordering::SeqCst) == wv[config::MASTER_IDX];
+}
+
+pub fn extract_elevator_container(chs: local_network::LocalChannels, id: u8) -> world_view::ElevatorContainer {
+    let wv = get_wv(chs.clone());
+    let mut deser_wv = world_view::deserialize_worldview(&wv);
+
+    deser_wv.elevator_containers.retain(|elevator| elevator.elevator_id == id);
+    deser_wv.elevator_containers[0].clone()
+}
+
+pub fn extract_self_elevator_container(chs: local_network::LocalChannels) -> world_view::ElevatorContainer {
+    extract_elevator_container(chs, SELF_ID.load(Ordering::SeqCst))
+}
+
+
 
 pub async fn close_tcp_stream(stream: &mut TcpStream) {
     // Hent IP-adresser

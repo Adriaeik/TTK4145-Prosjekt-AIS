@@ -1,8 +1,11 @@
+
+use std::sync::atomic::Ordering;
+
 use crate::world_view::world_view::{WorldView, ElevatorContainer, serialize_worldview};
-use crate::utils::{print_err, ip2id};
+use crate::utils::{self, ip2id, print_err};
 use local_ip_address::local_ip;
 
-pub fn initialize_worldview() -> (Vec<u8>, u8) {
+pub fn initialize_worldview() -> Vec<u8> {
     let mut worldview = WorldView::default();
     let mut elev_container = ElevatorContainer::default();
 
@@ -15,10 +18,10 @@ pub fn initialize_worldview() -> (Vec<u8>, u8) {
         }
     };
 
-    let self_id = ip2id(ip);
-    elev_container.elevator_id = self_id;
-    worldview.master_id = self_id;
+    utils::SELF_ID.store(ip2id(ip), Ordering::SeqCst); //🐌 Seigast
+    elev_container.elevator_id = utils::SELF_ID.load(Ordering::SeqCst);
+    worldview.master_id = utils::SELF_ID.load(Ordering::SeqCst);
     worldview.add_elev(elev_container);
 
-    (serialize_worldview(&worldview), self_id)
+    serialize_worldview(&worldview)
 }

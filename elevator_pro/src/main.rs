@@ -1,5 +1,6 @@
-use std::time::Duration;
+use std::{sync::atomic::Ordering, time::Duration};
 
+use bincode::config;
 use elevator_pro::{network::{local_network, tcp_network, udp_broadcast}, utils, world_view::{world_view, world_view_update}};
 use elevator_pro::init;
 use termcolor::HyperlinkSpec;
@@ -20,9 +21,7 @@ async fn main() {
 
 
 /*Skaper oss eit verdensbildet ved fødselen, vi tar vår første pust */
-    let (mut worldview_serialised, self_id) = init::initialize_worldview();
-
-
+    let mut worldview_serialised = init::initialize_worldview();
     
 /* START ----------- Init av lokale channels ---------------------- */
     //Kun bruk mpsc-rxene fra main_local_chs
@@ -49,12 +48,12 @@ async fn main() {
 
     let _broadcast_task = tokio::spawn(async move {
         utils::print_info("Starter UDP-broadcaster".to_string());
-        let _ = udp_broadcast::start_udp_broadcaster(chs_udp_bc, self_id).await;
+        let _ = udp_broadcast::start_udp_broadcaster(chs_udp_bc).await;
     });
 
     let _tcp_task = tokio::spawn(async move {
         utils::print_info("Starter å TCPe".to_string());
-        let _ = tcp_network::tcp_listener(self_id, chs_tcp).await;
+        let _ = tcp_network::tcp_listener(chs_tcp).await;
     });
 
     let udp_watchdog = tokio::spawn(async move {
@@ -88,8 +87,8 @@ async fn main() {
             Ok(_) => {
                 //fikse wv
                 let mut deserialized_wv = world_view::deserialize_worldview(&worldview_serialised);
-                deserialized_wv.elevator_containers.retain(|elevator| elevator.elevator_id == self_id);
-                deserialized_wv.master_id = self_id;
+                deserialized_wv.elevator_containers.retain(|elevator| elevator.elevator_id == utils::SELF_ID.load(Ordering::SeqCst));
+                deserialized_wv.master_id = utils::SELF_ID.load(Ordering::SeqCst);
                 worldview_serialised = world_view::serialize_worldview(&deserialized_wv);
             },
             Err(_) => {},
