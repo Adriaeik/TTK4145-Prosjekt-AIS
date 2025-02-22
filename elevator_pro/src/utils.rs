@@ -1,6 +1,8 @@
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::net::IpAddr;
+use tokio::net::TcpStream;
+use tokio::io::AsyncWriteExt;
 use anyhow::Context;
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 use crate::config;
@@ -206,3 +208,27 @@ pub fn get_wv(mut chs: local_network::LocalChannels) -> Vec<u8> {
     wv
 }
 
+pub async fn close_tcp_stream(stream: &mut TcpStream) {
+    // Hent IP-adresser
+    let local_addr = stream.local_addr().map_or_else(
+        |e| format!("Ukjent (Feil: {})", e),
+        |addr| addr.to_string(),
+    );
+
+    let peer_addr = stream.peer_addr().map_or_else(
+        |e| format!("Ukjent (Feil: {})", e),
+        |addr| addr.to_string(),
+    );
+
+    // Prøv å stenge streamen (Asynkront)
+    match stream.shutdown().await {
+        Ok(_) => print_info(format!(
+            "TCP-forbindelsen er avslutta korrekt: {} -> {}",
+            local_addr, peer_addr
+        )),
+        Err(e) => print_err(format!(
+            "Feil ved avslutting av TCP-forbindelsen ({} -> {}): {}",
+            local_addr, peer_addr, e
+        )),
+    }
+}
