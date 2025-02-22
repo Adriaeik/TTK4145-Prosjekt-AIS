@@ -22,13 +22,10 @@ pub async fn tcp_listener(self_id: u8, mut chs: local_network::LocalChannels) {
 
     let mut wv = utils::get_wv(chs.clone());
 
-
-
-
     loop {
         while utils::is_master(self_id, chs.clone()) {
             if world_view_update::get_network_status().load(Ordering::SeqCst) {
-                utils::print_master("Eg er master".to_string());
+                // utils::print_master("Eg er master".to_string());
             }
             else {
                 tokio::time::sleep(Duration::from_millis(100)).await; 
@@ -41,7 +38,7 @@ pub async fn tcp_listener(self_id: u8, mut chs: local_network::LocalChannels) {
         //koble til og legg til master i list
         while !utils::is_master(self_id, chs.clone()) {
             if world_view_update::get_network_status().load(Ordering::SeqCst) {
-                utils::print_slave("Jeg er slave".to_string());
+                // utils::print_slave("Jeg er slave".to_string());
             }
             else {
                 tokio::time::sleep(Duration::from_millis(100)).await; 

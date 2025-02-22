@@ -12,18 +12,18 @@ pub struct CallButton {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct AlenemorDel {
-    pub heis_id: u8,                // Default: 0
+pub struct ElevatorContainer {
+    pub elevator_id: u8,                // Default: 0
     pub inside_button: Vec<CallButton>, // Default: 6 default callbutton
     pub door_open: bool,            // Default: false
     pub obstruction: bool,          // Default: false
     pub motor_dir: u8,              // Default: 0
     pub last_floor_sensor: u8,      // Default: 255
 }
-impl Default for AlenemorDel {
+impl Default for ElevatorContainer {
     fn default() -> Self {
         Self {
-            heis_id: 0,
+            elevator_id: 0,
             inside_button: Vec::new(), // 6 knapper med default-verdi
             door_open: false,
             obstruction: false,
@@ -42,7 +42,7 @@ pub struct WorldView {
     //Generelle oppgaver til heisen
     pub outside_button: Vec<CallButton>,            // Array til knappene trykt på utsiden
     //Heisspesifikt
-    pub heis_spesifikke: Vec<AlenemorDel>,   //Info som gjelder per-heis
+    pub elevator_containers: Vec<ElevatorContainer>,   //Info som gjelder per-heis
 
 }
 
@@ -53,29 +53,28 @@ impl Default for WorldView {
             n: 0,
             master_id: config::ERROR_ID,
             outside_button: Vec::new(), 
-            heis_spesifikke: Vec::new(),
+            elevator_containers: Vec::new(),
         }
     }
 }
 
 
 impl WorldView {
-    pub fn add_elev(&mut self, mor: AlenemorDel) {
+    pub fn add_elev(&mut self, elevator: ElevatorContainer) {
         self.n = self.n + 1;
-        utils::print_ok(format!("Mor med ID {} ble ansatt. (rapporter_annsettelse_av_mor())", mor.heis_id));
-        self.heis_spesifikke.push(mor);
+        utils::print_ok(format!("elevator med ID {} ble ansatt. (add_elev())", elevator.elevator_id));
+        self.elevator_containers.push(elevator);
     }
     
     pub fn remove_elev(&mut self, id: u8) {
-        let initial_len = self.heis_spesifikke.len();
+        let initial_len = self.elevator_containers.len();
 
-        self.heis_spesifikke.retain(|mor| mor.heis_id != id);
+        self.elevator_containers.retain(|elevator| elevator.elevator_id != id);
     
-        if self.heis_spesifikke.len() == initial_len {
-            utils::print_warn(format!("Ingen mor med ID {} ble funnet. (rapporter_sparking_av_mor())", id));
+        if self.elevator_containers.len() == initial_len {
+            utils::print_warn(format!("Ingen elevator med ID {} ble funnet. (remove_elev())", id));
         } else {
-            println!("Mor med ID {} ble fjernet.", id);
-            utils::print_ok(format!("Mor med ID {} ble sparka. (rapporter_sparking_av_mor())", id));
+            utils::print_ok(format!("elevator med ID {} ble sparka. (remove_elev())", id));
         }
     }
 
@@ -124,7 +123,7 @@ pub fn deserialize_worldview(data: &[u8]) -> WorldView {
 //Eksempel på bruk!!
 // async fn main() {
     
-//     let mut am1 = AlenemorDel::default();
+//     let mut am1 = ElevatorContainer::default();
 //     am1.heis_id = 69;
 //     let mut worldview = WorldView::default();
 //     worldview.add_heis(am1);
