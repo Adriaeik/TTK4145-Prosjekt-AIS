@@ -84,7 +84,7 @@ pub async fn tcp_listener(self_id: u8, mut chs: local_network::LocalChannels) {
                 if let Some(ref mut s) = stream {
                     if new_master {
                         utils::close_tcp_stream(s).await;
-                        break;
+                        master_accepted_tcp = false;
                     }
 
                     if let Err(e) = s.write_all(b"hei").await {
