@@ -34,7 +34,7 @@ pub async fn tcp_listener(mut chs: local_network::LocalChannels) {
     };
 
 
-    let listener_handle = tokio::spawn(listener_task(listener, chs.clone()));
+    //let listener_handle = tokio::spawn(listener_task(listener, chs.clone()));
 
     let mut wv = utils::get_wv(chs.clone());
     
