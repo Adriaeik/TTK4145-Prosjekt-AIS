@@ -4,13 +4,19 @@ use super::local_network;
 
 use std::fs::read;
 use std::net::SocketAddr;
+use std::sync::atomic::Ordering;
+use std::sync::OnceLock;
+use std::sync::atomic::AtomicBool;
 use std::time::Duration;
 use tokio::net::UdpSocket;
 use socket2::{Domain, Socket, Type};
 use tokio::time;
 use std::borrow::Cow;
 
-
+static UDP_TIMEOUT: OnceLock<AtomicBool> = OnceLock::new(); // worldview_channel_request
+pub fn get_udp_timeout() -> &'static AtomicBool {
+    UDP_TIMEOUT.get_or_init(|| AtomicBool::new(false))
+}
 
 pub async fn start_udp_broadcaster(mut chs: local_network::LocalChannels, min_id: u8) -> tokio::io::Result<()> {
     chs.subscribe_broadcast();
@@ -82,6 +88,7 @@ pub async fn start_udp_listener(mut chs: local_network::LocalChannels) -> tokio:
         }
         
         if &message[1..config::KEY_STR.len()+1] == config::KEY_STR { //Plusser på en, siden serialiseringa av stringen tar med '"'-tegnet
+            get_udp_timeout().store(false, Ordering::SeqCst);
             let clean_message = &message[config::KEY_STR.len()+3..message.len()-1]; // Fjerner `"`
             read_wv = clean_message
             .split(", ") // Del opp på ", "
@@ -123,6 +130,22 @@ pub async fn start_udp_listener(mut chs: local_network::LocalChannels) -> tokio:
                 
         }
 
+    }
+}
+
+
+
+pub async fn udp_watchdog(chs: local_network::LocalChannels) {
+    loop {
+        if get_udp_timeout().load(Ordering::SeqCst) == false {
+            get_udp_timeout().store(true, Ordering::SeqCst);
+            tokio::time::sleep(Duration::from_millis(1000)).await;
+        }
+        else {
+            get_udp_timeout().store(false, Ordering::SeqCst); //resetter watchdogen
+            utils::print_warn("UDP-watchdog: Timeout".to_string());
+            chs.mpscs.txs.tcp_to_master_failed.send(true).await;
+        }
     }
 }
 

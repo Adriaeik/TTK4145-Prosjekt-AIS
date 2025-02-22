@@ -35,12 +35,13 @@ async fn main() {
     let chs_udp_listen = main_local_chs.clone();
     let chs_udp_bc = main_local_chs.clone();
     let chs_tcp = main_local_chs.clone();
+    let chs_udp_wd = main_local_chs.clone();
 /* SLUTT ----------- Kloning av lokale channels til Tokio Tasks ---------------------- */                                                     
 
 
 
 /* START ----------- Starte Eksterne Nettverkstasks ---------------------- */
-    let _broadcast_task = tokio::spawn(async move {
+    let _listen_task = tokio::spawn(async move {
         utils::print_info("Starter å høre etter UDP-broadcast".to_string());
         let _ = udp_broadcast::start_udp_listener(chs_udp_listen).await;
     });
@@ -54,7 +55,16 @@ async fn main() {
         utils::print_info("Starter å TCPe".to_string());
         let _ = tcp_network::tcp_listener(self_id, chs_tcp).await;
     });
+
+    let udp_watchdog = tokio::spawn(async move {
+        utils::print_info("Starter udp watchdog".to_string());
+        let _ = udp_broadcast::udp_watchdog(chs_udp_wd).await;
+    });
 /* SLUTT ----------- Starte Eksterne Nettverkstasks ---------------------- */
+
+
+
+
 
 
     
