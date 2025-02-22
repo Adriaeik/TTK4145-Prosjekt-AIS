@@ -12,8 +12,8 @@ use std::borrow::Cow;
 
 
 
-pub async fn start_udp_broadcaster(chs: local_network::LocalChannels, min_id: u8) -> tokio::io::Result<()> {
-    let rxs_org = chs.subscribe_broadcast();
+pub async fn start_udp_broadcaster(mut chs: local_network::LocalChannels, min_id: u8) -> tokio::io::Result<()> {
+    chs.subscribe_broadcast();
     let addr: &str = &format!("{}:{}", config::BC_ADDR, config::DUMMY_PORT);
     let addr2: &str = &format!("{}:0", config::BC_LISTEN_ADDR);
 
@@ -28,11 +28,11 @@ pub async fn start_udp_broadcaster(chs: local_network::LocalChannels, min_id: u8
     let udp_socket = UdpSocket::from_std(socket.into())?;
 
     loop{
-        let mut rxs = rxs_org.resubscribe();
+        chs.resubscribe_broadcast();
         //Hent ut nyeste melding på wv_rx
         let msg = async {
             let mut latest_msg = None;
-            while let Ok(message) = rxs.wv.try_recv() {
+            while let Ok(message) = chs.broadcasts.rxs.wv.try_recv() {
                 latest_msg = Some(message); // Overskriv tidligere meldinger
             }
             latest_msg
@@ -52,8 +52,8 @@ pub async fn start_udp_broadcaster(chs: local_network::LocalChannels, min_id: u8
     }
 }
 
-pub async fn start_udp_listener(chs: local_network::LocalChannels) -> tokio::io::Result<()> {
-    let rxs_org = chs.subscribe_broadcast();
+pub async fn start_udp_listener(mut chs: local_network::LocalChannels) -> tokio::io::Result<()> {
+    chs.subscribe_broadcast();
     let broadcast_listen_addr = format!("{}:{}", config::BC_LISTEN_ADDR, config::DUMMY_PORT);
     let socket_addr: SocketAddr = broadcast_listen_addr.parse().expect("Ugyldig adresse");
     let socket_temp = Socket::new(Domain::IPV4, Type::DGRAM, None)?;
@@ -88,10 +88,10 @@ pub async fn start_udp_listener(chs: local_network::LocalChannels) -> tokio::io:
             .filter_map(|s| s.parse::<u8>().ok()) // Konverter til u8, ignorer feil
             .collect(); // Samle i Vec<u8>
 
-            let mut rxs = rxs_org.resubscribe();
+            chs.resubscribe_broadcast();
             let wv = async {
                 let mut latest_msg = None;
-                while let Ok(message) = rxs.wv.try_recv() {
+                while let Ok(message) = chs.broadcasts.rxs.wv.try_recv() {
                     latest_msg = Some(message); // Overskriv tidligere meldinger
                 }
                 latest_msg

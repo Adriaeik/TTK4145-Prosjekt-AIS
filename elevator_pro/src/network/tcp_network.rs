@@ -1,36 +1,54 @@
-// use tokio::net::TcpListener;
-// use tokio::task::JoinHandle;
-// use crate::{config, utils};
+use std::{sync::atomic::Ordering, time::Duration};
+
+use tokio::net::TcpListener;
+use tokio::task::JoinHandle;
+use crate::{config, utils, world_view::world_view_update};
+
+use super::local_network;
 
 
 
-// pub async fn tcp_listener() {
-//     let self_ip = utils::get_self_ip();
-//     let listener = TcpListener::bind(format!("{}:{}", self_ip, config::PN_PORT)).await;
-//     let mut shutdown_rx = shutdown_tx.subscribe();
-//     let mut listeners_tasks: Vec<JoinHandle<()>> = Vec::new();
+pub async fn tcp_listener(self_id: u8, mut chs: local_network::LocalChannels) {
+    let self_ip = format!("{}{}", config::NETWORK_PREFIX, self_id);
 
-//     loop {
-//         let prev_is_master = is_master;
-//         let is_master = min_id == wv_lavest_id;
-//         if is_master & !prev_is_master {
-//             //Koble fra tilkobling på master_connection
+    
+    while !world_view_update::get_network_status().load(Ordering::SeqCst) {
+        tokio::time::sleep(Duration::from_millis(100)).await; 
+    };
+
+    let listener = TcpListener::bind(format!("{}:{}", self_ip, config::PN_PORT)).await;
+    let mut listeners_tasks: Vec<JoinHandle<()>> = Vec::new();
+
+    let mut wv = utils::get_wv(chs.clone());
+
+
+
+
+    loop {
+        while utils::is_master(self_id, chs.clone()) {
+            if world_view_update::get_network_status().load(Ordering::SeqCst) {
+                utils::print_info("Jeg er master".to_string());
+            }
+            else {
+                tokio::time::sleep(Duration::from_millis(100)).await; 
+            }
+
             
-//         }
-//         else if is_master {
-//             //Aksepter inkommende connections -> legg til i connection-array.
-//             //Send tasks mottatt fra task-kanal til riktig heis
-//             //Hvis ikke ACKA eller annet feil -> si fra til worldview
-//         } 
-//         else if !is_master & prev_is_master {
-//             //Koble fra alle slave-connections
-//             //koble til master, joinhandle er master_connection
-//         }
-//         else if !is_master {
-//             //Vent på å motta task
-//             //Mottat task, ACK den
-//             //Send mottat task på kanal til anvarlig for egen heis
-//         }
-        
-//     }
-// }
+        }
+        //mista master -> skru av tasks i listener_tasks
+
+        //koble til og legg til master i list
+        while !utils::is_master(self_id, chs.clone()) {
+            if world_view_update::get_network_status().load(Ordering::SeqCst) {
+                utils::print_info("Jeg er slave".to_string());
+            }
+            else {
+                tokio::time::sleep(Duration::from_millis(100)).await; 
+            }
+            //Det slaven skal gjøre på TCP
+        } 
+        //ble master -> koble fra master  
+      
+    }
+
+}

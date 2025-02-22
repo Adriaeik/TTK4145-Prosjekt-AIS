@@ -25,8 +25,6 @@ pub async fn request_worldview() {
     };
     
     get_worldview_request_flag().store(true, Ordering::SeqCst);
-
-
 }
 
 

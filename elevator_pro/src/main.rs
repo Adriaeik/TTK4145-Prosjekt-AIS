@@ -8,7 +8,6 @@ use local_ip_address::local_ip;
 #[tokio::main]
 async fn main() {
 
-    println!("{}", utils::get_self_ip());
 
 
     let mut worldview = world_view::WorldView::default();

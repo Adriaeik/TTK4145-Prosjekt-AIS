@@ -54,6 +54,8 @@ impl Clone for Mpscs {
 pub struct BroadcastTxs {
     // Shutdown-kanal
     pub shutdown: broadcast::Sender<()>,
+    // true for online
+    pub online: broadcast::Sender<bool>,
 
     // Kanal for å sende wv som `Vec<u8>`-meldingar
     pub wv: broadcast::Sender<Vec<u8>>,
@@ -62,6 +64,8 @@ pub struct BroadcastTxs {
 pub struct BroadcastRxs {
     // Shutdown-kanal
     pub shutdown: broadcast::Receiver<()>,
+    // true for online
+    pub online: broadcast::Receiver<bool>,
 
     // Kanal for å sende wv som `Vec<u8>`-meldingar
     pub wv: broadcast::Receiver<Vec<u8>>,
@@ -72,6 +76,7 @@ impl Clone for BroadcastTxs {
     fn clone(&self) -> BroadcastTxs {
         return BroadcastTxs{
             shutdown: self.shutdown.clone(),
+            online: self.online.clone(),
             wv: self.wv.clone(), 
         }
     }
@@ -81,6 +86,7 @@ impl BroadcastTxs {
     pub fn subscribe(&self) -> BroadcastRxs {
         BroadcastRxs {
             shutdown: self.shutdown.subscribe(),
+            online: self.online.subscribe(),
             wv: self.wv.subscribe(),
         }
     }
@@ -91,6 +97,7 @@ impl BroadcastRxs {
     pub fn resubscribe(&self) -> BroadcastRxs {
         BroadcastRxs {
             shutdown: self.shutdown.resubscribe(),
+            online: self.online.resubscribe(),
             wv: self.wv.resubscribe(),
         }
     }
@@ -104,15 +111,18 @@ pub struct Broadcasts {
 impl Broadcasts {
     pub fn new() -> Self {
         let (shutdown_tx, shutdown_rx) = broadcast::channel(1); // Buffer på 10
+        let (online_tx, online_rx) = broadcast::channel(1); // Buffer på 32
         let (wv_tx, wv_rx) = broadcast::channel(1); // Buffer på 32
 
         Broadcasts {
             txs: BroadcastTxs {
                 shutdown: shutdown_tx,
+                online: online_tx,
                 wv: wv_tx,
             },
             rxs: BroadcastRxs {
                 shutdown: shutdown_rx,
+                online: online_rx,
                 wv: wv_rx,
             },
         }
@@ -150,8 +160,12 @@ impl LocalChannels {
     }
 
     /// Opprettar ein ny `BroadcastRxs` abonnent
-    pub fn subscribe_broadcast(&self) -> BroadcastRxs {
-        self.broadcasts.subscribe()
+    pub fn subscribe_broadcast(&mut self) {
+        self.broadcasts.rxs = self.broadcasts.subscribe()
+    }
+
+    pub fn resubscribe_broadcast(&mut self) {
+        self.broadcasts.rxs = self.broadcasts.rxs.resubscribe();
     }
 }
 

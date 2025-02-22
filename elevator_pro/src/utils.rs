@@ -4,6 +4,7 @@ use std::net::IpAddr;
 use anyhow::Context;
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 use crate::config;
+use crate::network::local_network;
 
 use core::panic;
 use local_ip_address::local_ip;
@@ -37,18 +38,17 @@ pub fn get_terminal_command() -> (String, Vec<String>) {
 }
 
 
-pub fn get_self_ip() -> IpAddr {
+pub fn get_self_ip() -> Result<IpAddr, local_ip_address::Error> {
     let ip = match local_ip() {
         Ok(ip) => {
             ip
         }
         Err(e) => {
-
             print_warn(format!("Fant ikke IP i get_self_ip() -> Vi er offline: {}", e));
-            config::OFFLINE_IP.into()
+            return Err(e);
         }
     };
-    ip
+    Ok(ip)
 }
 
 
@@ -79,6 +79,29 @@ pub fn ip2id(ip: IpAddr) -> u8 {
     }
     ip_int
 }
+
+/// Henter roten av IPen
+/// 
+/// # Eksempel
+/// ```
+/// let id = id_fra_ip("a.b.c.d");
+/// ```
+/// returnerer "a.b.c"
+/// 
+pub fn get_root_ip(ip: IpAddr) -> String {
+    match ip {
+        IpAddr::V4(addr) => {
+            let octets = addr.octets();
+            format!("{}.{}.{}", octets[0], octets[1], octets[2])
+        }
+        IpAddr::V6(addr) => {
+            let segments = addr.segments();
+            let root_segments = &segments[..segments.len() - 1]; // Fjern siste segment
+            root_segments.iter().map(|s| s.to_string()).collect::<Vec<_>>().join(":")
+        }
+    }
+}
+
 
 pub fn print_color(msg: String, color: Color) {
     let mut stdout = StandardStream::stdout(ColorChoice::Always);
@@ -119,3 +142,48 @@ pub fn print_info(msg: String) {
     stdout.set_color(&ColorSpec::new()).unwrap();
     println!("\r\n");
 }
+
+pub fn is_master(self_id: u8, mut chs: local_network::LocalChannels) -> bool {
+    let mut wv_option = None;
+    chs.resubscribe_broadcast();
+    let mut wv: Vec<u8> = Vec::new();
+
+    while wv_option.is_none() {
+        wv_option = {
+            let mut latest_msg = None;
+            while let Ok(message) = chs.broadcasts.rxs.wv.try_recv() {
+                latest_msg = Some(message); // Overskriv tidligere meldinger
+            }
+            latest_msg
+        };
+
+        if let Some(ref msg) = wv_option {
+            wv = msg.clone();
+        } 
+    }
+
+    return self_id == wv[config::MASTER_IDX];
+}
+
+pub fn get_wv(mut chs: local_network::LocalChannels) -> Vec<u8> {
+    let mut wv_option = None;
+    chs.resubscribe_broadcast();
+    let mut wv: Vec<u8> = Vec::new();
+
+    while wv_option.is_none() {
+        wv_option = {
+            let mut latest_msg = None;
+            while let Ok(message) = chs.broadcasts.rxs.wv.try_recv() {
+                latest_msg = Some(message); // Overskriv tidligere meldinger
+            }
+            latest_msg
+        };
+
+        if let Some(ref msg) = wv_option {
+            wv = msg.clone();
+        } 
+    }
+
+    wv
+}
+
