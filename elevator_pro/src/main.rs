@@ -82,7 +82,7 @@ async fn main() {
             Ok(master_wv) => {
                 worldview_serialised = world_view_update::join_wv(worldview_serialised, master_wv);
             },
-            Err(_) => {},
+            Err(_) => {}, 
         }
         match main_local_chs.mpscs.rxs.tcp_to_master_failed.try_recv() {
             Ok(_) => {
