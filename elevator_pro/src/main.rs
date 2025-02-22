@@ -51,7 +51,15 @@ async fn main() {
     loop {
         match main_local_chs.mpscs.rxs.udp_wv.try_recv() {
             Ok(msg) => {
-                worldview_serialised = msg;
+                let my_wv_deserialised = world_view::deserialize_worldview(&worldview_serialised);
+                let mut master_wv_deserialised = world_view::deserialize_worldview(&msg);
+
+                for heis in my_wv_deserialised.heis_spesifikke {
+                    if heis.heis_id == self_id {
+                        master_wv_deserialised.add_elev(heis);
+                    }
+                }
+                worldview_serialised = world_view::serialize_worldview(&master_wv_deserialised);
                 utils::print_info(format!("Oppdatert wv fra UDP: {:?}", worldview_serialised));
             },
             Err(_) => {},
