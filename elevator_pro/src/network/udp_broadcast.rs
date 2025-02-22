@@ -105,7 +105,7 @@ pub async fn start_udp_listener(mut chs: local_network::LocalChannels) -> tokio:
             if let Some(mut my_wv) = wv {
                 //Bare broadcast hvis du er master
                 if read_wv[config::MASTER_IDX] != my_wv[config::MASTER_IDX] {
-                    println!("UDP sin ID: {}", read_wv[config::MASTER_IDX]);
+                    println!("UDP sin ID: {}, egen wv ID: {}", read_wv[config::MASTER_IDX], my_wv[config::MASTER_IDX]);
                 }
 
                 //utils::print_info(format!("read_wv: {:?}", read_wv));
