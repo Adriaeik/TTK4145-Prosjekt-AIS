@@ -171,6 +171,7 @@ pub async fn listener_task(chs: local_network::LocalChannels, socket_tx: mpsc::S
 
 async fn handle_slave(mut stream: TcpStream, mut chs: local_network::LocalChannels) {
     let mut buffer = vec![0; 1024];
+    print_info("Handle slave har starta!".to_string());
 
     loop {
         match stream.read(&mut buffer).await {
