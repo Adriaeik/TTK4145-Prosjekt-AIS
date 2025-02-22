@@ -22,10 +22,11 @@ async fn main() {
     mor.heis_id = self_id;
     worldview.master_id = self_id;
     worldview.add_elev(mor);
-    let worldview_serialised = world_view::serialize_worldview(&worldview);
+    let mut worldview_serialised = world_view::serialize_worldview(&worldview);
 
     
     /*Init av lokale channels  */
+    //Kun bruk mpsc-rxene fra main_local_chs
     let mut main_local_chs = local_network::LocalChannels::new();
     let chs_udp_listen = main_local_chs.clone();
     let chs_udp_bc = main_local_chs.clone();
@@ -48,6 +49,14 @@ async fn main() {
 
     
     loop {
+        match main_local_chs.mpscs.rxs.udp_wv.try_recv() {
+            Ok(msg) => {
+                worldview_serialised = msg;
+                utils::print_info(format!("{:?}", worldview_serialised));
+            },
+            Err(_) => {},
+        }
+
         let _ = main_local_chs.broadcasts.txs.wv.send(worldview_serialised.clone());
     }
 

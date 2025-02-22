@@ -114,7 +114,7 @@ pub async fn start_udp_listener(chs: local_network::LocalChannels) -> tokio::io:
                     //Oppdater egen WV
                     my_wv = read_wv;
                     //TODO: Send denne wv tilbake til thread som behandler worldview
-                    utils::print_info(format!("Mottok UDP: {:?}", my_wv));
+                    let _ = chs.mpscs.txs.udp_wv.send(my_wv).await;
                 }
                 else {
                     //println!("UDP-en har høyere ID, jeg ignorerer den");
