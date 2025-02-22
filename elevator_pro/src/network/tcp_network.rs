@@ -189,12 +189,15 @@ async fn handle_slave(mut stream: TcpStream, mut chs: local_network::LocalChanne
     }
 }
 
-pub async fn send_tcp_message(mut chs: local_network::LocalChannels, s: &mut TcpStream) {
+pub async fn send_tcp_message(chs: local_network::LocalChannels, s: &mut TcpStream) {
     let self_elev_container = utils::extract_self_elevator_container(chs.clone());
 
 
     if let Err(e) = s.write_all(&world_view::serialize_elev_container(&self_elev_container)).await {
         utils::print_err(format!("Feil ved sending av data til master: {}", e));
         let _ = chs.mpscs.txs.tcp_to_master_failed.send(true).await; // Anta at tilkoblingen feila
+    }
+    else{
+        utils::print_info("Sendte elevator_container til master".to_string());
     }
 }
