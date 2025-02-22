@@ -36,6 +36,7 @@ async fn main() {
     let chs_udp_bc = main_local_chs.clone();
     let chs_tcp = main_local_chs.clone();
     let chs_udp_wd = main_local_chs.clone();
+    let chs_print = main_local_chs.clone();
 /* SLUTT ----------- Kloning av lokale channels til Tokio Tasks ---------------------- */                                                     
 
 
@@ -65,7 +66,14 @@ async fn main() {
 
 
 
-
+    let print_task = tokio::spawn(async move {
+        loop {
+            let ch_clone = chs_print.clone();
+            let wv = utils::get_wv(ch_clone);
+            utils::print_info(format!("{:?}", wv));
+            tokio::time::sleep(Duration::from_millis(500)).await;
+        }
+    });
 
     
     loop {
@@ -88,6 +96,8 @@ async fn main() {
         }
 
         let _ = main_local_chs.broadcasts.txs.wv.send(worldview_serialised.clone());
+
+        
     }
 
 
