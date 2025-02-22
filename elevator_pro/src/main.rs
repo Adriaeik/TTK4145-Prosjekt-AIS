@@ -1,13 +1,17 @@
 use std::time::Duration;
 
-use elevator_pro::{network::{local_network, udp_broadcast}, utils, world_view::{world_view, world_view_update}};
+use elevator_pro::{network::{local_network, tcp_network, udp_broadcast}, utils, world_view::{world_view, world_view_update}};
 use tokio::{sync::broadcast, time::sleep};
 use local_ip_address::local_ip;
 
 
 #[tokio::main]
 async fn main() {
-
+    let _network_status_watcher_task = tokio::spawn(async move {
+        // Denne koden kjører i den asynkrone oppgaven (tasken)
+        utils::print_info("Starter å passe på nettverket".to_string());
+        let _ = world_view_update::watch_ethernet().await;
+    });
 
 
     let mut worldview = world_view::WorldView::default();
@@ -33,22 +37,31 @@ async fn main() {
     let mut main_local_chs = local_network::LocalChannels::new();
     let chs_udp_listen = main_local_chs.clone();
     let chs_udp_bc = main_local_chs.clone();
+    let chs_tcp = main_local_chs.clone();
                                                             
 
 
 
 
-    let broadcast_task = tokio::spawn(async move {
+    let _broadcast_task = tokio::spawn(async move {
         // Denne koden kjører i den asynkrone oppgaven (tasken)
         utils::print_info("Starter å høre etter UDP-broadcast".to_string());
         let _ = udp_broadcast::start_udp_listener(chs_udp_listen).await;
     });
 
-    let broadcast_task = tokio::spawn(async move {
+    let _broadcast_task = tokio::spawn(async move {
         // Denne koden kjører i den asynkrone oppgaven (tasken)
         utils::print_info("Starter UDP-broadcaster".to_string());
         let _ = udp_broadcast::start_udp_broadcaster(chs_udp_bc, self_id).await;
     });
+
+    let _tcp_task = tokio::spawn(async move {
+        // Denne koden kjører i den asynkrone oppgaven (tasken)
+        utils::print_info("Starter å høre etter UDP-broadcast".to_string());
+        let _ = tcp_network::tcp_listener(self_id, chs_tcp).await;
+    });
+
+
 
     
     loop {
@@ -63,7 +76,8 @@ async fn main() {
     }
 
 
-    // let tcp_task = start_tcp_listener(); //TCP connection mellom master eller slaver
+    // let tcp_task = tcp_listener(); //TCP connection mellom master eller slaver
+
 
     // let heis_logikk_task = start_process(); //Selve kjøre-mekanismene
 
