@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use elevator_pro::{network::{local_network, udp_broadcast}, utils, world_view::world_view};
+use elevator_pro::{network::{local_network, udp_broadcast}, utils, world_view::{world_view, world_view_update}};
 use tokio::{sync::broadcast, time::sleep};
 use local_ip_address::local_ip;
 
@@ -50,23 +50,15 @@ async fn main() {
     
     loop {
         match main_local_chs.mpscs.rxs.udp_wv.try_recv() {
-            Ok(msg) => {
-                let my_wv_deserialised = world_view::deserialize_worldview(&worldview_serialised);
-                let mut master_wv_deserialised = world_view::deserialize_worldview(&msg);
-
-                for heis in my_wv_deserialised.heis_spesifikke {
-                    // if heis.heis_id == self_id {
-                        master_wv_deserialised.add_elev(heis);
-                    // }
-                }
-                worldview_serialised = world_view::serialize_worldview(&master_wv_deserialised);
-                utils::print_info(format!("Oppdatert wv fra UDP: {:?}", worldview_serialised));
+            Ok(master_wv) => {
+                worldview_serialised = world_view_update::join_wv(worldview_serialised, master_wv);
             },
             Err(_) => {},
         }
 
         let _ = main_local_chs.broadcasts.txs.wv.send(worldview_serialised.clone());
     }
+
 
     // let tcp_task = start_tcp_listener(); //TCP connection mellom master eller slaver
 

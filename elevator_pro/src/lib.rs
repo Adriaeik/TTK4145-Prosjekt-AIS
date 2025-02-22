@@ -8,5 +8,6 @@ pub mod network{
 
 pub mod world_view{
     pub mod world_view_ch;
+    pub mod world_view_update;
     pub mod world_view;
 }
