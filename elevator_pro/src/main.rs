@@ -25,17 +25,11 @@ async fn main() {
     let worldview_serialised = world_view::serialize_worldview(&worldview);
 
     
-    let (shutdown_tx, _) = broadcast::channel::<()>(1);
-    let (wv_tx, _ ) = broadcast::channel::<Vec<u8>>(1);
-
-    let tx_channels = local_network::BroadcastTxs{
-                                                                    shutdown: shutdown_tx,
-                                                                    wv: wv_tx,
-                                                                };
-    let tx_listen = tx_channels.clone();
-    let tx_broadcaster = tx_channels.clone();
-                                                                
-
+    /*Init av lokale channels  */
+    let mut local_chs = local_network::LocalChannels::new();
+    let chs_udp_listen = local_chs.clone();
+    let chs_udp_bc = local_chs.clone();
+                                                            
 
 
 
@@ -43,18 +37,18 @@ async fn main() {
     let broadcast_task = tokio::spawn(async move {
         // Denne koden kjører i den asynkrone oppgaven (tasken)
         utils::print_info("Starter å høre etter UDP-broadcast".to_string());
-        let _ = udp_broadcast::start_udp_listener(tx_listen).await;
+        let _ = udp_broadcast::start_udp_listener(chs_udp_listen).await;
     });
 
     let broadcast_task = tokio::spawn(async move {
         // Denne koden kjører i den asynkrone oppgaven (tasken)
         utils::print_info("Starter UDP-broadcaster".to_string());
-        let _ = udp_broadcast::start_udp_broadcaster(tx_broadcaster, self_id).await;
+        let _ = udp_broadcast::start_udp_broadcaster(chs_udp_bc, self_id).await;
     });
 
     
     loop {
-        let _ = tx_channels.wv.send(worldview_serialised.clone());
+        let _ = local_chs.broadcasts.txs.wv.send(worldview_serialised.clone());
     }
 
     // let tcp_task = start_tcp_listener(); //TCP connection mellom master eller slaver

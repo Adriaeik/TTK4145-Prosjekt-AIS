@@ -12,8 +12,8 @@ use std::borrow::Cow;
 
 
 
-pub async fn start_udp_broadcaster(txs: local_network::BroadcastTxs, min_id: u8) -> tokio::io::Result<()> {
-    let mut rxs_org = txs.subscribe();
+pub async fn start_udp_broadcaster(chs: local_network::LocalChannels, min_id: u8) -> tokio::io::Result<()> {
+    let rxs_org = chs.subscribe_broadcast();
     let addr: &str = &format!("{}:{}", config::BC_ADDR, config::DUMMY_PORT);
     let addr2: &str = &format!("{}:0", config::BC_LISTEN_ADDR);
 
@@ -52,8 +52,8 @@ pub async fn start_udp_broadcaster(txs: local_network::BroadcastTxs, min_id: u8)
     }
 }
 
-pub async fn start_udp_listener(txs: local_network::BroadcastTxs) -> tokio::io::Result<()> {
-    let mut rxs_org = txs.subscribe();
+pub async fn start_udp_listener(chs: local_network::LocalChannels) -> tokio::io::Result<()> {
+    let rxs_org = chs.subscribe_broadcast();
     let broadcast_listen_addr = format!("{}:{}", config::BC_LISTEN_ADDR, config::DUMMY_PORT);
     let socket_addr: SocketAddr = broadcast_listen_addr.parse().expect("Ugyldig adresse");
     let socket_temp = Socket::new(Domain::IPV4, Type::DGRAM, None)?;
