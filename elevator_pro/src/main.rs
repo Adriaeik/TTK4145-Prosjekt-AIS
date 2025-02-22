@@ -3,9 +3,11 @@ use std::{sync::atomic::Ordering, time::Duration};
 use bincode::config;
 use elevator_pro::{network::{local_network, tcp_network, udp_broadcast}, utils, world_view::{world_view, world_view_update}};
 use elevator_pro::init;
-use termcolor::HyperlinkSpec;
+
 use tokio::{sync::broadcast, time::sleep};
-use local_ip_address::local_ip;
+use tokio::sync::mpsc;
+use tokio::net::TcpStream;
+use std::net::SocketAddr;
 
 
 #[tokio::main]
@@ -36,8 +38,9 @@ async fn main() {
     let chs_tcp = main_local_chs.clone();
     let chs_udp_wd = main_local_chs.clone();
     let chs_print = main_local_chs.clone();
-
     let chs_listener = main_local_chs.clone();
+
+    let (socket_tx, mut socket_rx) = mpsc::channel::<(TcpStream, SocketAddr)>(8);
 /* SLUTT ----------- Kloning av lokale channels til Tokio Tasks ---------------------- */                                                     
 
 
@@ -55,7 +58,7 @@ async fn main() {
 
     let _tcp_task = tokio::spawn(async move {
         utils::print_info("Starter å TCPe".to_string());
-        let _ = tcp_network::tcp_listener(chs_tcp).await;
+        let _ = tcp_network::tcp_listener(chs_tcp, socket_rx).await;
     });
 
     let udp_watchdog = tokio::spawn(async move {
@@ -63,6 +66,10 @@ async fn main() {
         let _ = udp_broadcast::udp_watchdog(chs_udp_wd).await;
     });
     
+    let listener_handle = tokio::spawn(async move {
+        utils::print_info("Starter tcp listener".to_string());
+        let _ = tcp_network::listener_task(chs_listener, socket_tx).await;
+    });
 /* SLUTT ----------- Starte Eksterne Nettverkstasks ---------------------- */
 
 

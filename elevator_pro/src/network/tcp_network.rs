@@ -17,15 +17,9 @@ use super::local_network;
 
 
 
-pub async fn tcp_listener(mut chs: local_network::LocalChannels) {
+pub async fn tcp_listener(mut chs: local_network::LocalChannels, mut socket_rx: mpsc::Receiver<(TcpStream, SocketAddr)>) {
 
-    let (socket_tx, mut socket_rx) = mpsc::channel::<(TcpStream, SocketAddr)>(8);
 
-    let chs_listener = chs.clone();
-    let listener_handle = tokio::spawn(async move {
-        utils::print_info("Starter tcp listener".to_string());
-        let _ = listener_task(chs_listener, socket_tx).await;
-    });
 
     let mut wv = utils::get_wv(chs.clone());
     
