@@ -151,6 +151,7 @@ async fn listener_task(listener: TcpListener, chs: local_network::LocalChannels)
     loop {
         match listener.accept().await {
             Ok((socket, addr)) => {
+                utils::print_master(format!("{} kobla på TCP", addr));
                 if chs.mpscs.txs.slave_con.send((socket, addr)).await.is_err() {
                     utils::print_err("Hovudløkken har stengt, avsluttar listener.".to_string());
                     break;
