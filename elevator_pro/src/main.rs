@@ -52,7 +52,7 @@ async fn main() {
         match main_local_chs.mpscs.rxs.udp_wv.try_recv() {
             Ok(msg) => {
                 worldview_serialised = msg;
-                utils::print_info(format!("{:?}", worldview_serialised));
+                utils::print_info(format!("Oppdatert wv fra UDP: {:?}", worldview_serialised));
             },
             Err(_) => {},
         }
