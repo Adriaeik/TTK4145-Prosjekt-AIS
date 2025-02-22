@@ -16,10 +16,7 @@ use super::local_network;
 
 
 pub async fn tcp_listener(mut chs: local_network::LocalChannels) {
-    let chs_listener = chs.clone();
-    let listener_handle = tokio::spawn(async move {
-        listener_task(chs_listener).await;
-    });
+    
 
     let mut wv = utils::get_wv(chs.clone());
     
@@ -132,7 +129,7 @@ async fn connect_to_master(chs: local_network::LocalChannels) -> Option<TcpStrea
     }
 }
 
-async fn listener_task(chs: local_network::LocalChannels) {
+pub async fn listener_task(chs: local_network::LocalChannels) {
     let self_ip = format!("{}.{}", config::NETWORK_PREFIX, utils::SELF_ID.load(Ordering::SeqCst));
 
     while !world_view_update::get_network_status().load(Ordering::SeqCst) {
