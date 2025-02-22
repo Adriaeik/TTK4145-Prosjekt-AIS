@@ -49,7 +49,7 @@ async fn main() {
     let broadcast_task = tokio::spawn(async move {
         // Denne koden kjører i den asynkrone oppgaven (tasken)
         utils::print_info("Starter UDP-broadcaster".to_string());
-        let _ = udp_broadcast::start_udp_broadcaster(tx_broadcaster, 69).await;
+        let _ = udp_broadcast::start_udp_broadcaster(tx_broadcaster, self_id).await;
     });
 
     

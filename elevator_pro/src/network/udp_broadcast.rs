@@ -43,11 +43,11 @@ pub async fn start_udp_broadcaster(txs: local_network::BroadcastTxs, min_id: u8)
         }
         if let Some(message) = msg {
             //Bare broadcast hvis du er master
-            if min_id == message[config::MASTER_IDX] {
+            //if min_id == message[config::MASTER_IDX] {
                 let mesage = format!("{:?}{:?}", config::KEY_STR, message).to_string();
                 udp_socket.send_to(mesage.as_bytes(), &broadcast_addr).await?;
                 //utils::print_ok(format!("Sender UDP-broadcast: {}", mesage));
-            }
+            //}
         }
     }
 }
