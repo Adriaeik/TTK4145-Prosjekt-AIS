@@ -2,6 +2,7 @@ use std::time::Duration;
 
 use elevator_pro::{network::{local_network, tcp_network, udp_broadcast}, utils, world_view::{world_view, world_view_update}};
 use elevator_pro::init;
+use termcolor::HyperlinkSpec;
 use tokio::{sync::broadcast, time::sleep};
 use local_ip_address::local_ip;
 
@@ -62,6 +63,16 @@ async fn main() {
         match main_local_chs.mpscs.rxs.udp_wv.try_recv() {
             Ok(master_wv) => {
                 worldview_serialised = world_view_update::join_wv(worldview_serialised, master_wv);
+            },
+            Err(_) => {},
+        }
+        match main_local_chs.mpscs.rxs.tcp_to_master_failed.try_recv() {
+            Ok(_) => {
+                //fikse wv
+                let mut deserialized_wv = world_view::deserialize_worldview(&worldview_serialised);
+                deserialized_wv.elevator_containers.retain(|elevator| elevator.elevator_id == self_id);
+                deserialized_wv.master_id = self_id;
+                worldview_serialised = world_view::serialize_worldview(&deserialized_wv);
             },
             Err(_) => {},
         }
