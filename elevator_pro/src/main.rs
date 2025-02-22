@@ -62,10 +62,7 @@ async fn main() {
         utils::print_info("Starter udp watchdog".to_string());
         let _ = udp_broadcast::udp_watchdog(chs_udp_wd).await;
     });
-    let listener_handle = tokio::spawn(async move {
-        utils::print_info("Starter tcp listener".to_string());
-        let _ = tcp_network::listener_task(chs_listener).await;
-    });
+    
 /* SLUTT ----------- Starte Eksterne Nettverkstasks ---------------------- */
 
 

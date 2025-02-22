@@ -2,9 +2,11 @@ use std::{sync::atomic::Ordering, time::Duration};
 
 use termcolor::Color;
 use tokio::io::AsyncWriteExt;
+use tokio::sync::mpsc;
 use tokio::{io::AsyncReadExt, net::TcpListener};
 use tokio::task::JoinHandle;
 use tokio::net::TcpStream;
+use std::net::SocketAddr;
 
 use crate::world_view::world_view;
 use crate::{config, utils, world_view::world_view_update};
@@ -16,19 +18,27 @@ use super::local_network;
 
 
 pub async fn tcp_listener(mut chs: local_network::LocalChannels) {
-    
+
+    let (socket_tx, mut socket_rx) = mpsc::channel::<(TcpStream, SocketAddr)>(8);
+
+    let chs_listener = chs.clone();
+    let listener_handle = tokio::spawn(async move {
+        utils::print_info("Starter tcp listener".to_string());
+        let _ = listener_task(chs_listener, socket_tx).await;
+    });
 
     let mut wv = utils::get_wv(chs.clone());
     
     loop {
         let mut master_accepted_tcp = false;
+        chs.resubscribe_broadcast();
 
 
 
 
         while utils::is_master(chs.clone()) {
             if world_view_update::get_network_status().load(Ordering::SeqCst) {
-                if let Ok((socket, addr)) = chs.mpscs.rxs.slave_con.try_recv() {
+                if let Ok((socket, addr)) = socket_rx.try_recv() {
                     utils::print_info(format!("Ny slave tilkobla: {}", addr));
                 
                     let chs_clone = chs.clone();
@@ -129,12 +139,14 @@ async fn connect_to_master(chs: local_network::LocalChannels) -> Option<TcpStrea
     }
 }
 
-pub async fn listener_task(chs: local_network::LocalChannels) {
+pub async fn listener_task(chs: local_network::LocalChannels, socket_tx: mpsc::Sender<(TcpStream, SocketAddr)>) {
     let self_ip = format!("{}.{}", config::NETWORK_PREFIX, utils::SELF_ID.load(Ordering::SeqCst));
 
+    
     while !world_view_update::get_network_status().load(Ordering::SeqCst) {
         tokio::time::sleep(Duration::from_millis(100)).await;
     }
+
 
     let listener = match TcpListener::bind(format!("{}:{}", self_ip, config::PN_PORT)).await {
         Ok(l) => {
@@ -151,7 +163,7 @@ pub async fn listener_task(chs: local_network::LocalChannels) {
         match listener.accept().await {
             Ok((socket, addr)) => {
                 utils::print_master(format!("{} kobla på TCP", addr));
-                if chs.mpscs.txs.slave_con.send((socket, addr)).await.is_err() {
+                if socket_tx.send((socket, addr)).await.is_err() {
                     utils::print_err("Hovudløkken har stengt, avsluttar listener.".to_string());
                     break;
                 }
