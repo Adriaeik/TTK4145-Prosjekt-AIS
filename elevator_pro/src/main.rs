@@ -58,6 +58,7 @@ async fn main() {
 
     
     loop {
+        //Ops. mister internett -> du må bli master (single elevator mode)
         match main_local_chs.mpscs.rxs.udp_wv.try_recv() {
             Ok(master_wv) => {
                 worldview_serialised = world_view_update::join_wv(worldview_serialised, master_wv);

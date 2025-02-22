@@ -10,11 +10,20 @@ pub struct CallButton {
     pub floor: u8, // Default: 0
     pub call: u8,  // Default: 0
 }
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
+pub struct Task {
+    pub to_do: u8, // Default: 0
+    pub status: u8, // 1: done, 0: to_do, 255: be master deligere denne på nytt
+}
+
+
+
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ElevatorContainer {
-    pub elevator_id: u8,                // Default: 0
-    pub inside_button: Vec<CallButton>, // Default: 6 default callbutton
+    pub elevator_id: u8,            // Default: 0
+    pub calls: Vec<(CallButton)>,   // Default: vektor med Tasks
+    pub tasks: Vec<(Task)>,         // Default: vektor med Tasks
     pub door_open: bool,            // Default: false
     pub obstruction: bool,          // Default: false
     pub motor_dir: u8,              // Default: 0
@@ -24,7 +33,8 @@ impl Default for ElevatorContainer {
     fn default() -> Self {
         Self {
             elevator_id: 0,
-            inside_button: Vec::new(), // 6 knapper med default-verdi
+            calls: Vec::new(),
+            tasks: Vec::new(),
             door_open: false,
             obstruction: false,
             motor_dir: 0,
