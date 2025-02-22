@@ -72,7 +72,7 @@ pub async fn tcp_listener(self_id: u8, mut chs: local_network::LocalChannels) {
             master_accepted_tcp = true;
             stream = Some(s);
         }
-
+        wv = utils::get_wv(chs.clone());
         while !utils::is_master(self_id, chs.clone()) && master_accepted_tcp {
             let prev_master = wv[config::MASTER_IDX];
             wv = utils::get_wv(chs.clone());
@@ -83,14 +83,17 @@ pub async fn tcp_listener(self_id: u8, mut chs: local_network::LocalChannels) {
                 // utils::print_slave("Jeg er slave".to_string());
                 if let Some(ref mut s) = stream {
                     if new_master {
+                        println!("Fått ny master");
+
                         utils::close_tcp_stream(s).await;
+                        tokio::time::sleep(Duration::from_millis(10)).await;
                         master_accepted_tcp = false;
                     }
 
-                    if let Err(e) = s.write_all(b"hei").await {
-                        utils::print_err(format!("Feil ved sending av data til master: {}", e));
-                        master_accepted_tcp = false; // Anta at tilkoblingen feila
-                    }
+                    // if let Err(e) = s.write_all(b"hei").await {
+                    //     utils::print_err(format!("Feil ved sending av data til master: {}", e));
+                    //     master_accepted_tcp = false; // Anta at tilkoblingen feila
+                    // }
                 }
 
 
