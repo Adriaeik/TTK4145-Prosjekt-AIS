@@ -157,7 +157,7 @@ pub async fn listener_task(chs: local_network::LocalChannels, socket_tx: mpsc::S
         match listener.accept().await {
             Ok((socket, addr)) => {
                 utils::print_master(format!("{} kobla på TCP", addr));
-                if socket_tx.send((socket, addr)).await.is_err() {
+                if socket_tx.try_send((socket, addr)).is_err() {
                     utils::print_err("Hovudløkken har stengt, avsluttar listener.".to_string());
                     break;
                 }
