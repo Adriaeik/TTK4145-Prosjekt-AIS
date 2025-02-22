@@ -56,9 +56,10 @@ pub async fn tcp_listener(self_id: u8, mut chs: local_network::LocalChannels) {
                 Err(e) => {
                     utils::print_err(format!("Klarte ikke koble på master tcp: {}", e));
                     master_accepted_tcp = false;
-                    chs.mpscs.txs.tcp_to_master_failed.send(true).await
-                    .inspect(|_| utils::print_info("Sa ifra at TCP til master feila".to_string()))
-                    .unwrap_or_else(|err| utils::print_err(format!("Feil ved sending til tcp_to_master_failed (dette er ille): {}", err)));
+                    match chs.mpscs.txs.tcp_to_master_failed.send(true).await {
+                        Ok(_) => utils::print_info("Sa ifra at TCP til master feila".to_string()),
+                        Err(err) => utils::print_err(format!("Feil ved sending til tcp_to_master_failed: {}", err)),
+                    }
                 }
             }
         }
