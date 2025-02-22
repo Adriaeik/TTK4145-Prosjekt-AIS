@@ -143,6 +143,25 @@ pub fn print_info(msg: String) {
     println!("\r\n");
 }
 
+pub fn print_master(msg: String) {
+    let mut stdout = StandardStream::stdout(ColorChoice::Always);
+    stdout.set_color(ColorSpec::new().set_fg(Some(Color::Rgb(255, 51, 255/*Rosa*/)))).unwrap();
+    writeln!(&mut stdout, "[MASTER]:  {}", msg).unwrap();
+    stdout.set_color(&ColorSpec::new()).unwrap();
+    println!("\r\n");
+}
+
+pub fn print_slave(msg: String) {
+    let mut stdout = StandardStream::stdout(ColorChoice::Always);
+    stdout.set_color(ColorSpec::new().set_fg(Some(Color::Rgb(153, 76, 0/*Tilfeldig*/)))).unwrap();
+    writeln!(&mut stdout, "[SLAVE]:   {}", msg).unwrap();
+    stdout.set_color(&ColorSpec::new()).unwrap();
+    println!("\r\n");
+}
+
+
+
+
 pub fn is_master(self_id: u8, mut chs: local_network::LocalChannels) -> bool {
     let mut wv_option = None;
     chs.resubscribe_broadcast();

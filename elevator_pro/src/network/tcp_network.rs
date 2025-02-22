@@ -1,5 +1,6 @@
 use std::{sync::atomic::Ordering, time::Duration};
 
+use termcolor::Color;
 use tokio::net::TcpListener;
 use tokio::task::JoinHandle;
 use crate::{config, utils, world_view::world_view_update};
@@ -27,7 +28,7 @@ pub async fn tcp_listener(self_id: u8, mut chs: local_network::LocalChannels) {
     loop {
         while utils::is_master(self_id, chs.clone()) {
             if world_view_update::get_network_status().load(Ordering::SeqCst) {
-                utils::print_info("Jeg er master".to_string());
+                utils::print_master("Eg er master".to_string());
             }
             else {
                 tokio::time::sleep(Duration::from_millis(100)).await; 
@@ -40,7 +41,7 @@ pub async fn tcp_listener(self_id: u8, mut chs: local_network::LocalChannels) {
         //koble til og legg til master i list
         while !utils::is_master(self_id, chs.clone()) {
             if world_view_update::get_network_status().load(Ordering::SeqCst) {
-                utils::print_info("Jeg er slave".to_string());
+                utils::print_slave("Jeg er slave".to_string());
             }
             else {
                 tokio::time::sleep(Duration::from_millis(100)).await; 
