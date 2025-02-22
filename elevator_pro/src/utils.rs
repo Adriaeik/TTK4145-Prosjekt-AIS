@@ -36,6 +36,22 @@ pub fn get_terminal_command() -> (String, Vec<String>) {
     }
 }
 
+
+pub fn get_self_ip() -> IpAddr {
+    let ip = match local_ip() {
+        Ok(ip) => {
+            ip
+        }
+        Err(e) => {
+
+            print_warn(format!("Fant ikke IP i get_self_ip() -> Vi er offline: {}", e));
+            config::OFFLINE_IP.into()
+        }
+    };
+    ip
+}
+
+
 /// Henter IDen din fra IPen
 /// 
 /// # Eksempel

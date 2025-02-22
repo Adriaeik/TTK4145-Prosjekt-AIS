@@ -7,6 +7,10 @@ use local_ip_address::local_ip;
 
 #[tokio::main]
 async fn main() {
+
+    println!("{}", utils::get_self_ip());
+
+
     let mut worldview = world_view::WorldView::default();
     let mut mor = world_view::AlenemorDel::default();
     let ip = match local_ip() {
@@ -74,31 +78,7 @@ async fn main() {
 
 
 
-// fn start_tcp_listener() {
-//     loop {
-//         let prev_is_master = is_master;
-//         let is_master = min_id == wv_lavest_id;
-//         if is_master & !prev_is_master {
-//             //Koble fra tilkobling på master_connection
-            
-//         }
-//         else if is_master {
-//             //Aksepter inkommende connections -> legg til i connection-array.
-//             //Send tasks mottatt fra task-kanal til riktig heis
-//             //Hvis ikke ACKA eller annet feil -> si fra til worldview
-//         } 
-//         else if !is_master & prev_is_master {
-//             //Koble fra alle slave-connections
-//             //koble til master, joinhandle er master_connection
-//         }
-//         else if !is_master {
-//             //Vent på å motta task
-//             //Mottat task, ACK den
-//             //Send mottat task på kanal til anvarlig for egen heis
-//         }
-        
-//     }
-// }
+
 
 
 // fn start_process() {
