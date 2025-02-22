@@ -81,7 +81,6 @@ pub async fn start_udp_listener(txs: local_network::BroadcastTxs) -> tokio::io::
             }
         }
         
-        
         if &message[1..config::KEY_STR.len()+1] == config::KEY_STR { //Plusser på en, siden serialiseringa av stringen tar med '"'-tegnet
             let clean_message = &message[config::KEY_STR.len()+3..message.len()-1]; // Fjerner `"`
             read_wv = clean_message
@@ -105,7 +104,10 @@ pub async fn start_udp_listener(txs: local_network::BroadcastTxs) -> tokio::io::
             }
             if let Some(mut my_wv) = wv {
                 //Bare broadcast hvis du er master
-                println!("UDP sin ID: {}", read_wv[config::MASTER_IDX]);
+                if read_wv[config::MASTER_IDX] != my_wv[config::MASTER_IDX] {
+                    println!("UDP sin ID: {}", read_wv[config::MASTER_IDX]);
+                }
+
                 //utils::print_info(format!("read_wv: {:?}", read_wv));
                 //utils::print_info(format!("full message: {:?}", message));
                 if my_wv[config::MASTER_IDX] > read_wv[config::MASTER_IDX] {
