@@ -177,7 +177,7 @@ async fn handle_slave(mut stream: TcpStream, mut chs: local_network::LocalChanne
         match receive_message(&mut stream).await {
             Ok(msg) => {
                 let received_data = msg;
-            utils::print_info(format!("Melding frå slave: {:?}", received_data));
+                utils::print_info(format!("Melding frå slave: {:?}", received_data));
             }
             Err(e) => {
                 utils::print_err(format!("Feil ved mottak av data frå slave: {}", e));
