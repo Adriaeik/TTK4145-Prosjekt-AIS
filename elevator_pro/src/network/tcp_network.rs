@@ -31,12 +31,17 @@ pub async fn tcp_handler(mut chs: local_network::LocalChannels, mut socket_rx: m
         while utils::is_master(chs.clone()) {
             if world_view_update::get_network_status().load(Ordering::SeqCst) {
                 while let Ok((socket, addr)) = socket_rx.try_recv() {
-                    utils::print_info(format!("Ny slave tilkobla: {}", addr));
                     let chs_clone = chs.clone();
+                    utils::print_info(format!("Ny slave tilkobla: {}", addr));
                     //TODO: Legg til disse threadsa i en vec, så de kan avsluttes når vi ikke er master mer
-                    tokio::spawn(async move {
+                    println!("Før tokio task");
+                    let _slave_task = tokio::spawn(async move {
+                        println!("Går til handle_slave");
                         handle_slave(socket, chs_clone).await;
                     });
+                    tokio::task::yield_now().await; //Denne tvinger tokio til å sørge for at alle tasks i kø blir behandler
+                                                    //Feilen før var at tasken ble lagd i en loop, og try_recv kaltes så tett att tokio ikke rakk å starte tasken før man fikk en ny melding(og den fikk litt tid da den mottok noe)
+                    
                 }                
             }
             else {
