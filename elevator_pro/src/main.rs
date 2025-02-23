@@ -13,7 +13,7 @@ use std::net::SocketAddr;
 #[tokio::main]
 async fn main() {
 /* START ----------- Task for å overvake Nettverksstatus ---------------------- */
-    /* oppdaterer ein atomicbool der true er onlie, false er då offline */
+    /* oppdaterer ein atomicbool der true er online, false er då offline */
     let _network_status_watcher_task = tokio::spawn(async move {
         utils::print_info("Starter å passe på nettverket".to_string());
         let _ = world_view_update::watch_ethernet().await;
@@ -58,7 +58,7 @@ async fn main() {
 
     let _tcp_task = tokio::spawn(async move {
         utils::print_info("Starter å TCPe".to_string());
-        let _ = tcp_network::tcp_listener(chs_tcp, socket_rx).await;
+        let _ = tcp_network::tcp_handler(chs_tcp, socket_rx).await;
     });
 
     let udp_watchdog = tokio::spawn(async move {

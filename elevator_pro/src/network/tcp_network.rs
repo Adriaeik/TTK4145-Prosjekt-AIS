@@ -17,9 +17,7 @@ use super::local_network;
 
 
 
-pub async fn tcp_listener(mut chs: local_network::LocalChannels, mut socket_rx: mpsc::Receiver<(TcpStream, SocketAddr)>) {
-
-
+pub async fn tcp_handler(mut chs: local_network::LocalChannels, mut socket_rx: mpsc::Receiver<(TcpStream, SocketAddr)>) {
 
     let mut wv = utils::get_wv(chs.clone());
     
@@ -32,11 +30,9 @@ pub async fn tcp_listener(mut chs: local_network::LocalChannels, mut socket_rx: 
 
         while utils::is_master(chs.clone()) {
             if world_view_update::get_network_status().load(Ordering::SeqCst) {
-                if let Ok((socket, addr)) = socket_rx.try_recv() {
+                while let Ok((socket, addr)) = socket_rx.try_recv() {
                     utils::print_info(format!("Ny slave tilkobla: {}", addr));
-                
                     let chs_clone = chs.clone();
-
                     //TODO: Legg til disse threadsa i en vec, så de kan avsluttes når vi ikke er master mer
                     tokio::spawn(async move {
                         handle_slave(socket, chs_clone).await;

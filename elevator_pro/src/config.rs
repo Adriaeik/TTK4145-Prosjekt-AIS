@@ -1,7 +1,8 @@
 //! Globale verdier osv
 use std::net::Ipv4Addr;
 
-pub static NETWORK_PREFIX: &str = "10.100.23"; //Hardkoda subnet må vel vere greit. DEt er jo ekstra sikkerheit
+//pub static NETWORK_PREFIX: &str = "10.100.23"; //Hardkoda subnet må vel vere greit. DEt er jo ekstra sikkerheit
+pub static NETWORK_PREFIX: &str = "192.168.0"; //Hjemme hos ravn
 
 pub static PN_PORT: u16 = u16::MAX; // Port for TCP mellom mastere
 pub static BCU_PORT: u16 = 50000; // Port for TCP mellom lokal master/backup
