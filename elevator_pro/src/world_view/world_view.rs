@@ -1,8 +1,6 @@
 use serde::{Serialize, Deserialize};
-use std::error::Error;
 use crate::config;
 use crate::utils;
-use termcolor::Color;
 
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
@@ -22,8 +20,8 @@ pub struct Task {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ElevatorContainer {
     pub elevator_id: u8,            // Default: 0
-    pub calls: Vec<(CallButton)>,   // Default: vektor med Tasks
-    pub tasks: Vec<(Task)>,         // Default: vektor med Tasks
+    pub calls: Vec<CallButton>,   // Default: vektor med Tasks
+    pub tasks: Vec<Task>,         // Default: vektor med Tasks
     pub door_open: bool,            // Default: false
     pub obstruction: bool,          // Default: false
     pub motor_dir: u8,              // Default: 0

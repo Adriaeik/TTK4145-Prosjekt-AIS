@@ -2,7 +2,6 @@ use crate::config;
 use crate::utils;
 use super::local_network;
 
-use std::fs::read;
 use std::net::SocketAddr;
 use std::sync::atomic::Ordering;
 use std::sync::OnceLock;
@@ -10,7 +9,6 @@ use std::sync::atomic::AtomicBool;
 use std::time::Duration;
 use tokio::net::UdpSocket;
 use socket2::{Domain, Socket, Type};
-use tokio::time;
 use std::borrow::Cow;
 
 static UDP_TIMEOUT: OnceLock<AtomicBool> = OnceLock::new(); // worldview_channel_request
@@ -146,7 +144,7 @@ pub async fn udp_watchdog(chs: local_network::LocalChannels) {
         else {
             get_udp_timeout().store(false, Ordering::SeqCst); //resetter watchdogen
             utils::print_warn("UDP-watchdog: Timeout".to_string());
-            chs.mpscs.txs.tcp_to_master_failed.send(true).await;
+            let _ = chs.mpscs.txs.tcp_to_master_failed.send(true).await;
         }
     }
 }

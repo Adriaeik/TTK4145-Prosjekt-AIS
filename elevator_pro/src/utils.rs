@@ -1,19 +1,12 @@
-use std::fs::OpenOptions;
 use std::io::Write;
 use std::net::IpAddr;
 use std::u8;
 use tokio::net::TcpStream;
 use tokio::io::AsyncWriteExt;
-use anyhow::Context;
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
-use crate::{config, world_view::world_view};
-use crate::network::local_network;
+use crate::{config, world_view::world_view, network::local_network};
 
-use core::panic;
 use local_ip_address::local_ip;
-
-use tokio::sync::Mutex;
-use std::sync::Arc;
 
 use std::sync::atomic::{AtomicU8, Ordering};
 

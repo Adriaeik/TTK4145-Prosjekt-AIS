@@ -1,6 +1,5 @@
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::OnceLock;
-use termcolor::Color;
 use tokio::sync::broadcast;
 use tokio::sync::Mutex;
 use std::sync::Arc;

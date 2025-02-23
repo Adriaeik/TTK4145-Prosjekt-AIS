@@ -1,6 +1,5 @@
 use std::{sync::atomic::Ordering, time::Duration};
 
-use termcolor::Color;
 use tokio::io::AsyncWriteExt;
 use tokio::sync::mpsc;
 use tokio::{io::AsyncReadExt, net::TcpListener};
@@ -22,7 +21,6 @@ pub async fn tcp_handler(mut chs: local_network::LocalChannels, mut socket_rx: m
     let mut wv = utils::get_wv(chs.clone());
     
     loop {
-        let mut master_accepted_tcp = false;
         chs.resubscribe_broadcast();
 
 
@@ -34,9 +32,7 @@ pub async fn tcp_handler(mut chs: local_network::LocalChannels, mut socket_rx: m
                     let chs_clone = chs.clone();
                     utils::print_info(format!("Ny slave tilkobla: {}", addr));
                     //TODO: Legg til disse threadsa i en vec, så de kan avsluttes når vi ikke er master mer
-                    println!("Før tokio task");
-                    let _slave_task = tokio::spawn(async move {
-                        println!("Går til handle_slave");
+                    let _slave_task: JoinHandle<()> = tokio::spawn(async move {
                         handle_slave(socket, chs_clone).await;
                     });
                     tokio::task::yield_now().await; //Denne tvinger tokio til å sørge for at alle tasks i kø blir behandler
@@ -65,18 +61,15 @@ pub async fn tcp_handler(mut chs: local_network::LocalChannels, mut socket_rx: m
             wv = utils::get_wv(chs.clone());
             let new_master = prev_master != wv[config::MASTER_IDX];
                 
-            
             if world_view_update::get_network_status().load(Ordering::SeqCst) {
                 // utils::print_slave("Jeg er slave".to_string());
                 if let Some(ref mut s) = stream {
                     if new_master {
                         println!("Fått ny master");
-
                         utils::close_tcp_stream(s).await;
                         tokio::time::sleep(Duration::from_millis(10)).await; //TODO: test om denne trengs
                         master_accepted_tcp = false;
                     }
-
                     send_tcp_message(chs.clone(), s).await;
                     //TODO: lag bedre delay
                     tokio::time::sleep(Duration::from_millis(100)).await;
@@ -133,18 +126,18 @@ async fn connect_to_master(chs: local_network::LocalChannels) -> Option<TcpStrea
     }
 }
 
-pub async fn listener_task(chs: local_network::LocalChannels, socket_tx: mpsc::Sender<(TcpStream, SocketAddr)>) {
+pub async fn listener_task(_chs: local_network::LocalChannels, socket_tx: mpsc::Sender<(TcpStream, SocketAddr)>) {
     let self_ip = format!("{}.{}", config::NETWORK_PREFIX, utils::SELF_ID.load(Ordering::SeqCst));
 
     
     while !world_view_update::get_network_status().load(Ordering::SeqCst) {
-        tokio::time::sleep(Duration::from_millis(100)).await;
+        tokio::time::sleep(Duration::from_millis(10)).await;
     }
 
 
     let listener = match TcpListener::bind(format!("{}:{}", self_ip, config::PN_PORT)).await {
         Ok(l) => {
-            utils::print_ok(format!("Master lyttar på {}:{}", self_ip, config::PN_PORT));
+            utils::print_ok(format!("Master lytter på {}:{}", self_ip, config::PN_PORT));
             l
         }
         Err(e) => {
@@ -169,7 +162,7 @@ pub async fn listener_task(chs: local_network::LocalChannels, socket_tx: mpsc::S
     }
 }
 
-async fn handle_slave(mut stream: TcpStream, mut chs: local_network::LocalChannels) {
+async fn handle_slave(mut stream: TcpStream, _chs: local_network::LocalChannels) {
     print_info("Handle slave har starta!".to_string());
 
     loop {
@@ -190,9 +183,10 @@ async fn handle_slave(mut stream: TcpStream, mut chs: local_network::LocalChanne
 }
 
 async fn receive_message(stream: &mut tokio::net::TcpStream) -> tokio::io::Result<Vec<u8>> {
-    let mut len_buf = [0u8; 4]; // 4 byte header
+    let mut len_buf = [0u8; 2]; // 4 byte header
     stream.read_exact(&mut len_buf).await?; // Les lengden først
-    let len = u32::from_be_bytes(len_buf) as usize; // Konverter fra bytes til integer
+
+    let len = u16::from_be_bytes(len_buf) as usize; // Konverter fra bytes til integer
 
     let mut buffer = vec![0u8; len]; // Lag buffer
     stream.read_exact(&mut buffer).await?; // Les eksakt `len` bytes
@@ -244,6 +238,4 @@ pub async fn send_tcp_message(chs: local_network::LocalChannels, s: &mut TcpStre
         utils::print_err(format!("Feil ved flushing av stream: {}", e));
         let _ = chs.mpscs.txs.tcp_to_master_failed.send(true).await; // Anta at tilkoblingen feila
     }
-
-    
 }

@@ -1,6 +1,5 @@
 use std::{sync::atomic::Ordering, time::Duration};
 
-use bincode::config;
 use elevator_pro::{network::{local_network, tcp_network, udp_broadcast}, utils, world_view::{world_view, world_view_update}};
 use elevator_pro::init;
 
@@ -40,7 +39,7 @@ async fn main() {
     let chs_print = main_local_chs.clone();
     let chs_listener = main_local_chs.clone();
 
-    let (socket_tx, mut socket_rx) = mpsc::channel::<(TcpStream, SocketAddr)>(8);
+    let (socket_tx, socket_rx) = mpsc::channel::<(TcpStream, SocketAddr)>(8);
 /* SLUTT ----------- Kloning av lokale channels til Tokio Tasks ---------------------- */                                                     
 
 
@@ -61,12 +60,12 @@ async fn main() {
         let _ = tcp_network::tcp_handler(chs_tcp, socket_rx).await;
     });
 
-    let udp_watchdog = tokio::spawn(async move {
+    let _udp_watchdog = tokio::spawn(async move {
         utils::print_info("Starter udp watchdog".to_string());
         let _ = udp_broadcast::udp_watchdog(chs_udp_wd).await;
     });
     
-    let listener_handle = tokio::spawn(async move {
+    let _listener_handle = tokio::spawn(async move {
         utils::print_info("Starter tcp listener".to_string());
         let _ = tcp_network::listener_task(chs_listener, socket_tx).await;
     });
