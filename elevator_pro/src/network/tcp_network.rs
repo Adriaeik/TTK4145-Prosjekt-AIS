@@ -41,7 +41,6 @@ pub async fn tcp_handler(mut chs: local_network::LocalChannels, mut socket_rx: m
                     });
                     tokio::task::yield_now().await; //Denne tvinger tokio til å sørge for at alle tasks i kø blir behandler
                                                     //Feilen før var at tasken ble lagd i en loop, og try_recv kaltes så tett att tokio ikke rakk å starte tasken før man fikk en ny melding(og den fikk litt tid da den mottok noe)
-                    
                 }                
             }
             else {
@@ -171,41 +170,80 @@ pub async fn listener_task(chs: local_network::LocalChannels, socket_tx: mpsc::S
 }
 
 async fn handle_slave(mut stream: TcpStream, mut chs: local_network::LocalChannels) {
-    let mut buffer = vec![0; 1024];
     print_info("Handle slave har starta!".to_string());
 
     loop {
-        match stream.read(&mut buffer).await {
-            Ok(0) => {
-                utils::print_info("Slave har kopla frå.".to_string());
-                break;
-            }
-            Ok(n) => {
-                let received_data = &buffer[..n];
-                utils::print_info(format!("Melding frå slave: {:?}", received_data));
 
-                if let Err(e) = stream.write_all(b"Ack\n").await {
-                    utils::print_err(format!("Feil ved sending til slave: {}", e));
-                    break;
-                }
+        match receive_message(&mut stream).await {
+            Ok(msg) => {
+                let received_data = msg;
+            utils::print_info(format!("Melding frå slave: {:?}", received_data));
             }
             Err(e) => {
                 utils::print_err(format!("Feil ved mottak av data frå slave: {}", e));
                 break;
             }
         }
+         // Konverter fra bytes til integer
+        
     }
+}
+
+async fn receive_message(stream: &mut tokio::net::TcpStream) -> tokio::io::Result<Vec<u8>> {
+    let mut len_buf = [0u8; 4]; // 4 byte header
+    stream.read_exact(&mut len_buf).await?; // Les lengden først
+    let len = u32::from_be_bytes(len_buf) as usize; // Konverter fra bytes til integer
+
+    let mut buffer = vec![0u8; len]; // Lag buffer
+    stream.read_exact(&mut buffer).await?; // Les eksakt `len` bytes
+
+    Ok(buffer)
+
+
+    /* Legg til feil som dette: */
+    // match stream.read(&mut buffer).await {
+    //     Ok(0) => {
+    //         utils::print_info("Slave har kopla frå.".to_string());
+    //         break;
+    //     }
+    //     Ok(n) => {
+    //         let received_data = &buffer[..n];
+    //         utils::print_info(format!("Melding frå slave: {:?}", received_data));
+
+    //         // if let Err(e) = stream.write_all(b"Ack\n").await {
+    //         //     utils::print_err(format!("Feil ved sending til slave: {}", e));
+    //         //     break;
+    //         // }
+    //     }
+    //     Err(e) => {
+    //         utils::print_err(format!("Feil ved mottak av data frå slave: {}", e));
+    //         break;
+    //     }
+    // }
 }
 
 pub async fn send_tcp_message(chs: local_network::LocalChannels, s: &mut TcpStream) {
     let self_elev_container = utils::extract_self_elevator_container(chs.clone());
 
-
-    if let Err(e) = s.write_all(&world_view::serialize_elev_container(&self_elev_container)).await {
+    let self_elev_serialized = world_view::serialize_elev_container(&self_elev_container);
+    let len = (self_elev_serialized.len() as u16).to_be_bytes(); // Konverter lengde til big-endian bytes
+   
+    
+    if let Err(e) = s.write_all(&len).await {
+        utils::print_err(format!("Feil ved sending av data til master: {}", e));
+        let _ = chs.mpscs.txs.tcp_to_master_failed.send(true).await; // Anta at tilkoblingen feila
+    }
+    if let Err(e) = s.write_all(&self_elev_serialized).await {
         utils::print_err(format!("Feil ved sending av data til master: {}", e));
         let _ = chs.mpscs.txs.tcp_to_master_failed.send(true).await; // Anta at tilkoblingen feila
     }
     else{
         utils::print_info("Sendte elevator_container til master".to_string());
     }
+    if let Err(e) = s.flush().await {
+        utils::print_err(format!("Feil ved flushing av stream: {}", e));
+        let _ = chs.mpscs.txs.tcp_to_master_failed.send(true).await; // Anta at tilkoblingen feila
+    }
+
+    
 }
