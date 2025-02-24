@@ -45,7 +45,7 @@ impl Default for ElevatorContainer {
 }
 
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct WorldView {
     //Generelt nettverk
     n: u8,                             // Antall heiser
@@ -72,9 +72,12 @@ impl Default for WorldView {
 
 impl WorldView {
     pub fn add_elev(&mut self, elevator: ElevatorContainer) {
-        self.n = self.n + 1;
+        let init_len = self.elevator_containers.len();
         utils::print_ok(format!("elevator med ID {} ble ansatt. (add_elev())", elevator.elevator_id));
         self.elevator_containers.push(elevator);
+        if self.elevator_containers.len() > init_len {
+            self.n = self.n + 1;
+        }
     }
     
     pub fn remove_elev(&mut self, id: u8) {

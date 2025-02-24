@@ -71,8 +71,6 @@ pub async fn tcp_handler(mut chs: local_network::LocalChannels, mut socket_rx: m
                     //TODO: lag bedre delay
                     tokio::time::sleep(Duration::from_millis(100)).await;
                 }
-
-
                 // Snde din worldview vweed oppstart av connection
                 // fortelle kva du har fullført eller ikkje fått til
                 /* Mister slalven nettverk skal den fullføre sine tasks -> for så å fortsette i singel mode 
