@@ -168,13 +168,12 @@ async fn handle_slave(mut stream: TcpStream, chs: local_network::LocalChannels) 
     loop {
 
         match receive_message(&mut stream).await {
-            Ok(msg) => {
+            Some(msg) => {
                 let received_data = msg;
                 let _ = chs.mpscs.txs.container.send(received_data).await;
                 //utils::print_info(format!("Melding frå slave: {:?}", received_data));
             }
-            Err(e) => {
-                utils::print_err(format!("Feil ved mottak av data frå slave: {}", e));
+            None => {
                 break;
             }
         }
@@ -183,38 +182,44 @@ async fn handle_slave(mut stream: TcpStream, chs: local_network::LocalChannels) 
     }
 }
 
-async fn receive_message(stream: &mut tokio::net::TcpStream) -> tokio::io::Result<Vec<u8>> {
-    let mut len_buf = [0u8; 2]; // 4 byte header
-    stream.read_exact(&mut len_buf).await?; // Les lengden først
+async fn receive_message(stream: &mut tokio::net::TcpStream) -> Option<Vec<u8>> {
+    let mut len_buf = [0u8; 2]; // 2-byte header
 
-    let len = u16::from_be_bytes(len_buf) as usize; // Konverter fra bytes til integer
+    match stream.read_exact(&mut len_buf).await {
+        Ok(0) => {
+            utils::print_info("Slave har kopla fra.".to_string());
+            utils::print_info(format!("Stenger stream til slave: {:?}", stream.peer_addr()));
+            let _ = stream.shutdown().await;
+            return None;
+        }
+        Ok(_) => {
+            let len = u16::from_be_bytes(len_buf) as usize;
+            let mut buffer = vec![0u8; len];
 
-    let mut buffer = vec![0u8; len]; // Lag buffer
-    stream.read_exact(&mut buffer).await?; // Les eksakt `len` bytes
-
-    Ok(buffer)
-
-
-    /* Legg til feil som dette: */
-    // match stream.read(&mut buffer).await {
-    //     Ok(0) => {
-    //         utils::print_info("Slave har kopla frå.".to_string());
-    //         break;
-    //     }
-    //     Ok(n) => {
-    //         let received_data = &buffer[..n];
-    //         utils::print_info(format!("Melding frå slave: {:?}", received_data));
-
-    //         // if let Err(e) = stream.write_all(b"Ack\n").await {
-    //         //     utils::print_err(format!("Feil ved sending til slave: {}", e));
-    //         //     break;
-    //         // }
-    //     }
-    //     Err(e) => {
-    //         utils::print_err(format!("Feil ved mottak av data frå slave: {}", e));
-    //         break;
-    //     }
-    // }
+            match stream.read_exact(&mut buffer).await { 
+                Ok(0) => {
+                    utils::print_info("Slave har kopla fra.".to_string());
+                    utils::print_info(format!("Stenger stream til slave: {:?}", stream.peer_addr()));
+                    let _ = stream.shutdown().await;
+                    return None;
+                }
+                Ok(_) => return Some(buffer),
+                Err(e) => {
+                    utils::print_err(format!("Feil ved mottak av data fra slave: {}", e));
+                    utils::print_info(format!("Stenger stream til slave: {:?}", stream.peer_addr()));
+                    let _ = stream.shutdown().await;
+                    return None;
+                }
+            }
+            
+        }
+        Err(e) => {
+            utils::print_err(format!("Feil ved mottak av data fra slave: {}", e));
+            utils::print_info(format!("Stenger stream til slave: {:?}", stream.peer_addr()));
+            let _ = stream.shutdown().await;
+            return None;
+        }
+    }
 }
 
 pub async fn send_tcp_message(chs: local_network::LocalChannels, s: &mut TcpStream) {
