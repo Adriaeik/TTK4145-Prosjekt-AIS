@@ -36,7 +36,7 @@ pub fn join_wv(mut my_wv: Vec<u8>, master_wv: Vec<u8>) -> Vec<u8> {
         } 
     }
     my_wv = world_view::serialize_worldview(&master_wv_deserialised);
-    utils::print_info(format!("Oppdatert wv fra UDP: {:?}", my_wv));
+    //utils::print_info(format!("Oppdatert wv fra UDP: {:?}", my_wv));
     my_wv
 }
 

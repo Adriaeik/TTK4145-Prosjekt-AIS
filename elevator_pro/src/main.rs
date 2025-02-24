@@ -79,7 +79,7 @@ async fn main() {
             let ch_clone = chs_print.clone();
             let wv = utils::get_wv(ch_clone);
             world_view::print_wv(wv);
-            tokio::time::sleep(Duration::from_millis(500)).await;
+            // tokio::time::sleep(Duration::from_millis(500)).await;
         }
     });
 
