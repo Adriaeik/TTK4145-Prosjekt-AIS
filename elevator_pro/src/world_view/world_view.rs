@@ -270,4 +270,5 @@ pub fn print_wv(worldview: Vec<u8>) {
 
     // Skriv ut tabellen med fargar (ANSI-kodar)
     table.printstd();
+    print!("\n\n");
 }
