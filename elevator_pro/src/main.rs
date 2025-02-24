@@ -97,6 +97,7 @@ async fn main() {
                 //fikse wv
                 let mut deserialized_wv = world_view::deserialize_worldview(&worldview_serialised);
                 deserialized_wv.elevator_containers.retain(|elevator| elevator.elevator_id == utils::SELF_ID.load(Ordering::SeqCst));
+                deserialized_wv.set_num_elev(deserialized_wv.elevator_containers.len() as u8);
                 deserialized_wv.master_id = utils::SELF_ID.load(Ordering::SeqCst);
                 worldview_serialised = world_view::serialize_worldview(&deserialized_wv);
             },

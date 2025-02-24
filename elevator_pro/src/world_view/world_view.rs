@@ -93,6 +93,10 @@ impl WorldView {
     pub fn get_num_elev(&self) -> u8 {
         return self.n;
     }
+
+    pub fn set_num_elev(&mut self, n: u8)  {
+        self.n = n;
+    }
 }
 
 
