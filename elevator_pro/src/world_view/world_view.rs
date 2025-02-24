@@ -1,7 +1,7 @@
 use serde::{Serialize, Deserialize};
 use crate::config;
 use crate::utils;
-use ansi_term::Colour::{Blue, Green, Red, Yellow};
+use ansi_term::Colour::{Blue, Green, Red, Yellow, Purple};
 use ansi_term::Style;
 use prettytable::{Table, Row, Cell, format};
 
@@ -204,7 +204,7 @@ pub fn print_wv(worldview: Vec<u8>) {
     table.set_format(*format::consts::FORMAT_CLEAN);
 
     // Overskrift i blå feittskrift
-    println!("{}", Blue.bold().paint("WORLD VIEW STATUS"));
+    println!("{}", Purple.bold().paint("WORLD VIEW STATUS"));
 
     // Legg til hovudrad (header) med blå feittskrift
     table.add_row(Row::new(vec![
@@ -224,15 +224,15 @@ pub fn print_wv(worldview: Vec<u8>) {
 
         // Door og obstruction i grøn/raud
         let door_status = if elev.door_open {
-            Green.paint("Åpen").to_string()
+            Yellow.paint("Åpen").to_string()
         } else {
-            Red.paint("Lukket").to_string()
+            Green.paint("Lukket").to_string()
         };
 
         let obstruction_status = if elev.obstruction {
-            Green.paint("Ja").to_string()
+            Red.paint("Ja").to_string()
         } else {
-            Red.paint("Nei").to_string()
+            Green.paint("Nei").to_string()
         };
 
         // Farge basert på `to_do`
