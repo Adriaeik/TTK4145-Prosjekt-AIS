@@ -162,7 +162,7 @@ pub async fn listener_task(_chs: local_network::LocalChannels, socket_tx: mpsc::
     }
 }
 
-async fn handle_slave(mut stream: TcpStream, _chs: local_network::LocalChannels) {
+async fn handle_slave(mut stream: TcpStream, chs: local_network::LocalChannels) {
     print_info("Handle slave har starta!".to_string());
 
     loop {
@@ -170,6 +170,7 @@ async fn handle_slave(mut stream: TcpStream, _chs: local_network::LocalChannels)
         match receive_message(&mut stream).await {
             Ok(msg) => {
                 let received_data = msg;
+                chs.mpscs.txs.container.send(msg).await;
                 //utils::print_info(format!("Melding frå slave: {:?}", received_data));
             }
             Err(e) => {

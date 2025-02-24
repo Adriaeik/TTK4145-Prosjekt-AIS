@@ -8,7 +8,7 @@ use crate::world_view::world_view::ElevatorContainer;
 pub struct MpscTxs {
     pub udp_wv: mpsc::Sender<Vec<u8>>,
     pub tcp_to_master_failed: mpsc::Sender<bool>,
-    pub mpsc_buffer_ch2: mpsc::Sender<(TcpStream, SocketAddr)>,
+    pub container: mpsc::Sender<Vec<u8>>,
     pub mpsc_buffer_ch3: mpsc::Sender<bool>,
     pub mpsc_buffer_ch4: mpsc::Sender<bool>,
     pub mpsc_buffer_ch5: mpsc::Sender<bool>,
@@ -17,7 +17,7 @@ pub struct MpscTxs {
 pub struct MpscRxs {
     pub udp_wv: mpsc::Receiver<Vec<u8>>,
     pub tcp_to_master_failed: mpsc::Receiver<bool>,
-    pub mpsc_buffer_ch2: mpsc::Receiver<(TcpStream, SocketAddr)>,
+    pub container: mpsc::Receiver<Vec<u8>>,
     pub mpsc_buffer_ch3: mpsc::Receiver<bool>,
     pub mpsc_buffer_ch4: mpsc::Receiver<bool>,
     pub mpsc_buffer_ch5: mpsc::Receiver<bool>,
@@ -28,7 +28,7 @@ impl Clone for MpscTxs {
         MpscTxs {
             udp_wv: self.udp_wv.clone(),
             tcp_to_master_failed: self.tcp_to_master_failed.clone(),
-            mpsc_buffer_ch2: self.mpsc_buffer_ch2.clone(),
+            container: self.container.clone(),
             mpsc_buffer_ch3: self.mpsc_buffer_ch3.clone(),
             mpsc_buffer_ch4: self.mpsc_buffer_ch4.clone(),
             mpsc_buffer_ch5: self.mpsc_buffer_ch5.clone(),
@@ -54,7 +54,7 @@ impl Mpscs {
             txs: MpscTxs { 
                 udp_wv: tx_udp,
                 tcp_to_master_failed: tx1,
-                mpsc_buffer_ch2: tx2,
+                container: tx2,
                 mpsc_buffer_ch3: tx3,
                 mpsc_buffer_ch4: tx4,
                 mpsc_buffer_ch5: tx5,
@@ -62,7 +62,7 @@ impl Mpscs {
             rxs: MpscRxs { 
                 udp_wv: rx_udp,
                 tcp_to_master_failed: rx1,
-                mpsc_buffer_ch2: rx2,
+                container: rx2,
                 mpsc_buffer_ch3: rx3,
                 mpsc_buffer_ch4: rx4,
                 mpsc_buffer_ch5: rx5,
@@ -85,7 +85,7 @@ impl Clone for Mpscs {
             rxs: MpscRxs { 
                 udp_wv: rx_udp,
                 tcp_to_master_failed: rx1,
-                mpsc_buffer_ch2: rx2,
+                container: rx2,
                 mpsc_buffer_ch3: rx3,
                 mpsc_buffer_ch4: rx4,
                 mpsc_buffer_ch5: rx5,
