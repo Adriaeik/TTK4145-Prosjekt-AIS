@@ -167,7 +167,7 @@ async fn handle_slave(mut stream: TcpStream, chs: local_network::LocalChannels) 
 
     loop {
 
-        match receive_message(&mut stream).await {
+        match receive_message(&mut stream, chs.clone()).await {
             Some(msg) => {
                 let received_data = msg;
                 let _ = chs.mpscs.txs.container.send(received_data).await;
@@ -182,13 +182,15 @@ async fn handle_slave(mut stream: TcpStream, chs: local_network::LocalChannels) 
     }
 }
 
-async fn receive_message(stream: &mut tokio::net::TcpStream) -> Option<Vec<u8>> {
+async fn receive_message(stream: &mut tokio::net::TcpStream, chs: local_network::LocalChannels) -> Option<Vec<u8>> {
     let mut len_buf = [0u8; 2]; // 2-byte header
 
     match stream.read_exact(&mut len_buf).await {
         Ok(0) => {
             utils::print_info("Slave har kopla fra.".to_string());
             utils::print_info(format!("Stenger stream til slave: {:?}", stream.peer_addr()));
+            let id = utils::ip2id(stream.peer_addr().expect("Peer har ingen IP?").ip());
+            let _ = chs.mpscs.txs.remove_container.send(id).await;
             let _ = stream.shutdown().await;
             return None;
         }
