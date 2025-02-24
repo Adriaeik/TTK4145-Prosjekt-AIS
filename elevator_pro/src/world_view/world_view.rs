@@ -3,6 +3,7 @@ use crate::config;
 use crate::utils;
 use prettytable::{Table, Row, Cell, format};
 use std::collections::HashMap;
+use termcolor::WriteColor;
 
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
@@ -235,5 +236,10 @@ pub fn print_wv(worldview: Vec<u8>) {
     }
 
     // 📌 Skriv ut tabellen
+    utils::print_color("___________________________________________________________".to_string(), termcolor::Color::Rgb(255, 51, 255/*Rosa*/));
+    let mut stdout = termcolor::StandardStream::stdout(termcolor::ColorChoice::Always);
+    stdout.set_color(termcolor::ColorSpec::new().set_fg(Some(termcolor::Color::Rgb(255, 51, 255/*Rosa*/)))).unwrap();
     table.printstd();
+    stdout.set_color(&termcolor::ColorSpec::new()).unwrap();
+    utils::print_color("___________________________________________________________".to_string(), termcolor::Color::Rgb(255, 51, 255/*Rosa*/));
 }
