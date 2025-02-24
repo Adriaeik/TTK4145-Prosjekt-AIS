@@ -1,9 +1,9 @@
 use serde::{Serialize, Deserialize};
 use crate::config;
 use crate::utils;
-use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
+use ansi_term::Colour::{Blue, Green, Red, Yellow};
+use ansi_term::Style;
 use prettytable::{Table, Row, Cell, format};
-use std::io::Write;
 
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
@@ -203,49 +203,64 @@ pub fn print_wv(worldview: Vec<u8>) {
     let mut table = Table::new();
     table.set_format(*format::consts::FORMAT_CLEAN);
 
-    let mut stdout = StandardStream::stdout(ColorChoice::Always);
+    // Overskrift i blå feittskrift
+    println!("{}", Blue.bold().paint("WORLD VIEW STATUS"));
 
-    // 📌 Blå overskrift (sikrar at fargen blir sett korrekt)
-    stdout.set_color(ColorSpec::new().set_fg(Some(Color::Blue)).set_bold(true)).unwrap();
-    writeln!(&mut stdout, "\nWORLD VIEW STATUS").unwrap();
-    stdout.reset().unwrap();
-
-    // 📌 Legg til hovudrad (header)
+    // Legg til hovudrad (header) med blå feittskrift
     table.add_row(Row::new(vec![
-        Cell::new("ID"),
-        Cell::new("Dør"),
-        Cell::new("Obstruksjon"),
-        Cell::new("Motor Retning"),
-        Cell::new("Siste etasje"),
-        Cell::new("Tasks (ToDo:Status)"),
-        Cell::new("Calls (Etg:Call)"),
+        Cell::new(&Blue.bold().paint("ID").to_string()),
+        Cell::new(&Blue.bold().paint("Dør").to_string()),
+        Cell::new(&Blue.bold().paint("Obstruksjon").to_string()),
+        Cell::new(&Blue.bold().paint("Motor Retning").to_string()),
+        Cell::new(&Blue.bold().paint("Siste etasje").to_string()),
+        Cell::new(&Blue.bold().paint("Tasks (ToDo:Status)").to_string()),
+        Cell::new(&Blue.bold().paint("Calls (Etg:Call)").to_string()),
     ]));
 
+    // Iterer over alle heisane
     for elev in wv_deser.elevator_containers {
+        // Lag ein fargerik streng for ID
+        let id_text = Yellow.bold().paint(format!("{}", elev.elevator_id)).to_string();
+
+        // Door og obstruction i grøn/raud
+        let door_status = if elev.door_open {
+            Green.paint("Åpen").to_string()
+        } else {
+            Red.paint("Lukket").to_string()
+        };
+
+        let obstruction_status = if elev.obstruction {
+            Green.paint("Ja").to_string()
+        } else {
+            Red.paint("Nei").to_string()
+        };
+
+        // Farge basert på `to_do`
         let task_list = elev.tasks.iter()
-            .map(|t| format!("{}:{}", t.to_do, t.status))
+            .map(|t| {
+                let color = match t.to_do {
+                    0..=3 => Green,
+                    4..=10 => Yellow,
+                    _ => Red,
+                };
+                format!("{}:{}",
+                    color.paint(t.to_do.to_string()),
+                    color.paint(t.status.to_string())
+                )
+            })
             .collect::<Vec<String>>()
             .join(", ");
 
+        // Vanleg utskrift av calls
         let call_list = elev.calls.iter()
             .map(|c| format!("{}:{}", c.floor, c.call))
             .collect::<Vec<String>>()
             .join(", ");
 
-        // 📌 ID-en i gul, med sikker buffer
-        let id_text = format_colored_buffer(&format!("{}", elev.elevator_id), Color::Yellow);
-
-        // 📌 Dørstatus grønn/rød
-        let door_status = format_colored_buffer("Åpen", Color::Green);
-        let door_status_closed = format_colored_buffer("Lukket", Color::Red);
-
-        let obstruction_status = format_colored_buffer("Ja", Color::Green);
-        let obstruction_status_no = format_colored_buffer("Nei", Color::Red);
-
         table.add_row(Row::new(vec![
             Cell::new(&id_text),
-            Cell::new(if elev.door_open { &door_status } else { &door_status_closed }),
-            Cell::new(if elev.obstruction { &obstruction_status } else { &obstruction_status_no }),
+            Cell::new(&door_status),
+            Cell::new(&obstruction_status),
             Cell::new(&format!("{}", elev.motor_dir)),
             Cell::new(&format!("{}", elev.last_floor_sensor)),
             Cell::new(&task_list),
@@ -253,18 +268,6 @@ pub fn print_wv(worldview: Vec<u8>) {
         ]));
     }
 
-    // 📌 Skriv ut tabellen
+    // Skriv ut tabellen med fargar (ANSI-kodar)
     table.printstd();
-}
-
-// 📌 Forhindrar at fargane blir feil ved å formatere i ein buffer
-fn format_colored_buffer(text: &str, color: Color) -> String {
-    let mut buf = Vec::new();
-    {
-        let mut stdout = StandardStream::stdout(ColorChoice::Always);
-        stdout.set_color(ColorSpec::new().set_fg(Some(color))).unwrap();
-        write!(&mut buf, "{}", text).unwrap();
-        stdout.reset().unwrap();
-    }
-    String::from_utf8(buf).unwrap()
 }
