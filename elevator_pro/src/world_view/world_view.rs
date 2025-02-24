@@ -213,9 +213,9 @@ pub fn print_wv(worldview: Vec<u8>) {
     //Legg til generell worldview-info
     //Funka ikke når jeg brukte fargene på lik måte som under. gudene vet hvorfor
     gen_table.add_row(Row::new(vec![
-        Cell::new("Num heiser").with_style(Attr::ForegroundColor(color::BLUE)),
-        Cell::new("MasterID").with_style(Attr::ForegroundColor(color::BLUE)),
-        Cell::new("Outside Buttons").with_style(Attr::ForegroundColor(color::BLUE)),
+        Cell::new("Num heiser").with_style(Attr::ForegroundColor(color::BRIGHT_BLUE)),
+        Cell::new("MasterID").with_style(Attr::ForegroundColor(color::BRIGHT_BLUE)),
+        Cell::new("Outside Buttons").with_style(Attr::ForegroundColor(color::BRIGHT_BLUE)),
     ]));
 
     let n_text = format!("{}", wv_deser.get_num_elev()); // Fjern ANSI og bruk prettytable farge
@@ -232,7 +232,6 @@ pub fn print_wv(worldview: Vec<u8>) {
     ]));
 
     gen_table.printstd();
-    print!("\n");
 
 
 
