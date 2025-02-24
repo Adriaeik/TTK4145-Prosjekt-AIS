@@ -117,7 +117,7 @@ async fn main() {
             Err(_) => {},
         }
         let mut ww_des = world_view::deserialize_worldview(&worldview_serialised);
-        ww_des.elevator_containers[0].last_floor_sensor = (ww_des.elevator_containers[0].last_floor_sensor + 1) % 255;
+        ww_des.elevator_containers[0].last_floor_sensor = (ww_des.elevator_containers[0].last_floor_sensor %255) + 1;
         worldview_serialised = world_view::serialize_worldview(&ww_des);
         let _ = main_local_chs.broadcasts.txs.wv.send(worldview_serialised.clone());
 
