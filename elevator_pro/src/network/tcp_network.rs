@@ -170,7 +170,7 @@ async fn handle_slave(mut stream: TcpStream, _chs: local_network::LocalChannels)
         match receive_message(&mut stream).await {
             Ok(msg) => {
                 let received_data = msg;
-                utils::print_info(format!("Melding frå slave: {:?}", received_data));
+                //utils::print_info(format!("Melding frå slave: {:?}", received_data));
             }
             Err(e) => {
                 utils::print_err(format!("Feil ved mottak av data frå slave: {}", e));
@@ -232,7 +232,7 @@ pub async fn send_tcp_message(chs: local_network::LocalChannels, s: &mut TcpStre
         let _ = chs.mpscs.txs.tcp_to_master_failed.send(true).await; // Anta at tilkoblingen feila
     }
     else{
-        utils::print_info("Sendte elevator_container til master".to_string());
+        //utils::print_info("Sendte elevator_container til master".to_string());
     }
     if let Err(e) = s.flush().await {
         utils::print_err(format!("Feil ved flushing av stream: {}", e));
