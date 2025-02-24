@@ -120,9 +120,7 @@ async fn main() {
             Ok(id) => {
                 utils::print_master(format!("Mottok at jeg skal fjerne heis med ID: {}", id));
             },
-            Err(e) => {
-                utils::print_master(format!("error ved mottak av fjenre id: {}", e));
-            },
+            Err(e) => {},
         }
         // let mut ww_des = world_view::deserialize_worldview(&worldview_serialised);
         // ww_des.elevator_containers[0].last_floor_sensor = (ww_des.elevator_containers[0].last_floor_sensor %255) + 1;
