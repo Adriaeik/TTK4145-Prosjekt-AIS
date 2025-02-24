@@ -3,7 +3,7 @@ use crate::config;
 use crate::utils;
 use ansi_term::Colour::{Blue, Green, Red, Yellow, Purple};
 use ansi_term::Style;
-use prettytable::{Table, Row, Cell, format};
+use prettytable::{Table, Row, Cell, format, Attr, color};
 
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
@@ -211,22 +211,23 @@ pub fn print_wv(worldview: Vec<u8>) {
 
      
     //Legg til generell worldview-info
+    //Funka ikke når jeg brukte fargene på lik måte som under. gudene vet hvorfor
     gen_table.add_row(Row::new(vec![
-        Cell::new(&Blue.bold().paint("Num heiser".to_string())),
-        Cell::new(&Blue.bold().paint("MasterID".to_string())),
-        Cell::new(&Blue.bold().paint("Outside Buttons".to_string())),
+        Cell::new("Num heiser").with_style(Attr::ForegroundColor(color::BLUE)),
+        Cell::new("MasterID").with_style(Attr::ForegroundColor(color::BLUE)),
+        Cell::new("Outside Buttons").with_style(Attr::ForegroundColor(color::BLUE)),
     ]));
 
-    let n_text = Yellow.bold().paint(format!("{}", wv_deser.get_num_elev())).to_string();
-    let m_id_text = Yellow.bold().paint(format!("{}", wv_deser.master_id)).to_string();
+    let n_text = format!("{}", wv_deser.get_num_elev()); // Fjern ANSI og bruk prettytable farge
+    let m_id_text = format!("{}", wv_deser.master_id);
     let button_list = wv_deser.outside_button.iter()
-            .map(|c| format!("{}:{}", c.floor, c.call))
-            .collect::<Vec<String>>()
-            .join(", ");
-    
+        .map(|c| format!("{}:{}", c.floor, c.call))
+        .collect::<Vec<String>>()
+        .join(", ");
+
     gen_table.add_row(Row::new(vec![
-        Cell::new(&n_text),
-        Cell::new(&m_id_text),
+        Cell::new(&n_text).with_style(Attr::ForegroundColor(color::BRIGHT_YELLOW)),
+        Cell::new(&m_id_text).with_style(Attr::ForegroundColor(color::BRIGHT_YELLOW)),
         Cell::new(&button_list),
     ]));
 
