@@ -163,42 +163,6 @@ pub fn deserialize_elev_container(data: &[u8]) -> ElevatorContainer {
 
 
 
-//Eksempel på bruk!!
-// async fn main() {
-    
-//     let mut am1 = ElevatorContainer::default();
-//     am1.heis_id = 69;
-//     let mut worldview = WorldView::default();
-//     worldview.add_heis(am1);
-
-
-//     // Serialisere WorldView til binært format (Result<Vec<u8>, Box<dyn Error>>)
-//     let serialized = serialize_worldview(&worldview);
-
-//     match serialized {
-//         Ok(serialized_data) => {
-//             // Deserialisere WorldView fra binært format
-//             let deserialized = deserialize_worldview(&serialized_data);
-
-//             match deserialized {
-//                 Ok(worldview) => {
-//                     println!("Deserialized: {:?}", worldview);
-//                     println!("worldview size: {}", std::mem::size_of_val(&worldview));
-//                 }
-//                 Err(e) => {
-//                     println!("Deserialization failed: {}", e);
-//                 }
-//             }
-//         }
-//         Err(e) => {
-//             println!("Serialization failed: {}", e);
-//         }
-//     }
-// }
-
-
-
-
 pub fn print_wv(worldview: Vec<u8>) {
     let wv_deser = deserialize_worldview(&worldview);
     let mut gen_table = Table::new();
