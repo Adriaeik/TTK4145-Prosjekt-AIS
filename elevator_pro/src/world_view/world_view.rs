@@ -216,9 +216,9 @@ pub fn print_wv(worldview: Vec<u8>) {
         Cell::new(&Blue.bold().paint("MasterID".to_string())),
         Cell::new(&Blue.bold().paint("Outside Buttons".to_string())),
     ]));
-    let n_text = Yellow.paint(format!("{}", wv_deser.get_num_elev())).to_string();
-    let m_id_text = Yellow.paint(format!("{}", wv_deser.master_id)).to_string();
 
+    let n_text = Yellow.bold().paint(format!("{}", wv_deser.get_num_elev())).to_string();
+    let m_id_text = Yellow.bold().paint(format!("{}", wv_deser.master_id)).to_string();
     let button_list = wv_deser.outside_button.iter()
             .map(|c| format!("{}:{}", c.floor, c.call))
             .collect::<Vec<String>>()
