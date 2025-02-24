@@ -15,23 +15,20 @@ pub fn get_network_status() -> &'static AtomicBool {
 
 
 pub fn join_wv(mut my_wv: Vec<u8>, master_wv: Vec<u8>) -> Vec<u8> {
-    //TODO: Lag copy funkjon for worldview structen
-    let mut my_wv_deserialised = world_view::deserialize_worldview(&my_wv);
-    let mut my_wv_deserialised_copy = world_view::deserialize_worldview(&my_wv);
+    let my_wv_deserialised = world_view::deserialize_worldview(&my_wv);
     let mut master_wv_deserialised = world_view::deserialize_worldview(&master_wv);
-    let mut master_wv_deserialised_copy = world_view::deserialize_worldview(&master_wv);
 
 
     let mut my_elev_exists = false;
 
 
-    for elevator in master_wv_deserialised_copy.elevator_containers {
+    for elevator in master_wv_deserialised.clone().elevator_containers {
         if elevator.elevator_id == utils::SELF_ID.load(Ordering::SeqCst) {
             my_elev_exists = true;
         }
     }
     if !my_elev_exists {
-        if let Some(index) = my_wv_deserialised_copy.elevator_containers.iter().position(|x| x.elevator_id == utils::SELF_ID.load(Ordering::SeqCst)) {
+        if let Some(index) = my_wv_deserialised.clone().elevator_containers.iter().position(|x| x.elevator_id == utils::SELF_ID.load(Ordering::SeqCst)) {
             master_wv_deserialised.add_elev(my_wv_deserialised.elevator_containers[index].clone());   
         } 
     }

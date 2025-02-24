@@ -1,12 +1,14 @@
+use std::sync::Arc;
 use std::{sync::atomic::Ordering, time::Duration};
 
 use tokio::io::AsyncWriteExt;
-use tokio::sync::mpsc;
+use tokio::sync::{broadcast, mpsc, Mutex};
 use tokio::{io::AsyncReadExt, net::TcpListener};
 use tokio::task::JoinHandle;
 use tokio::net::TcpStream;
 use std::net::SocketAddr;
 
+use crate::utils::ip2id;
 use crate::world_view::world_view;
 use crate::{config, utils, world_view::world_view_update};
 use utils::{print_info, print_ok, print_err, get_wv};
@@ -19,22 +21,23 @@ use super::local_network;
 pub async fn tcp_handler(mut chs: local_network::LocalChannels, mut socket_rx: mpsc::Receiver<(TcpStream, SocketAddr)>) {
 
     let mut wv = utils::get_wv(chs.clone());
+    let mut connected_slaves: Vec<(crossbeam_channel::Sender<()>, SocketAddr)> = Vec::new();
     
     loop {
         chs.resubscribe_broadcast();
 
-
-
-
         while utils::is_master(chs.clone()) {
             if world_view_update::get_network_status().load(Ordering::SeqCst) {
                 while let Ok((socket, addr)) = socket_rx.try_recv() {
-                    let chs_clone = chs.clone();
                     utils::print_info(format!("Ny slave tilkobla: {}", addr));
+
+                    let (disconnect_tx, disconnect_rx) = crossbeam_channel::bounded::<()>(1); //Lag channel så du kan shutdowne tcp-stream
+                    let chs_clone = chs.clone();
                     //TODO: Legg til disse threadsa i en vec, så de kan avsluttes når vi ikke er master mer
                     let _slave_task: JoinHandle<()> = tokio::spawn(async move {
-                        handle_slave(socket, chs_clone).await;
+                        handle_slave(socket, chs_clone, disconnect_rx).await;
                     });
+                    connected_slaves.push((disconnect_tx, addr)); //Legg til i vektor med slavene dine
                     tokio::task::yield_now().await; //Denne tvinger tokio til å sørge for at alle tasks i kø blir behandler
                                                     //Feilen før var at tasken ble lagd i en loop, og try_recv kaltes så tett att tokio ikke rakk å starte tasken før man fikk en ny melding(og den fikk litt tid da den mottok noe)
                 }                
@@ -42,12 +45,15 @@ pub async fn tcp_handler(mut chs: local_network::LocalChannels, mut socket_rx: m
             else {
                 tokio::time::sleep(Duration::from_millis(100)).await; 
             }
-
-            
+        }
+        // Ikke master lenger -> lukk alle TCP forbindelser til slavene
+        for (tx, addr) in &connected_slaves {
+            let _ = tx.send(());
+            let _ = chs.mpscs.txs.remove_container.send(ip2id(addr.ip())).await;
+            utils::print_master(format!("sendte stenge-melding til {:?}", addr));
         }
 
 
-        //mista master -> skru av tasks i listener_tasks
         // sjekker at vi faktisk har ein socket å bruke med masteren
         let mut master_accepted_tcp = false;
         let mut stream:Option<TcpStream> = None;
@@ -162,59 +168,73 @@ pub async fn listener_task(_chs: local_network::LocalChannels, socket_tx: mpsc::
     }
 }
 
-async fn handle_slave(mut stream: TcpStream, chs: local_network::LocalChannels) {
+async fn handle_slave(mut stream: TcpStream, chs: local_network::LocalChannels, disconnect_rx: crossbeam_channel::Receiver<()>) {
     print_info("Handle slave har starta!".to_string());
-
     loop {
-
-        match receive_message(&mut stream).await {
-            Ok(msg) => {
+        let disconnect_rx_clone = disconnect_rx.clone();
+        match receive_message(&mut stream, disconnect_rx_clone).await {
+            Some(msg) => {
                 let received_data = msg;
                 let _ = chs.mpscs.txs.container.send(received_data).await;
-                //utils::print_info(format!("Melding frå slave: {:?}", received_data));
             }
-            Err(e) => {
-                utils::print_err(format!("Feil ved mottak av data frå slave: {}", e));
+            None => {
+                utils::print_info("Går ut av handle_slave()".to_string());
                 break;
             }
         }
+        //TODO: finne en god måte å synkronisere her
          // Konverter fra bytes til integer
         
     }
 }
 
-async fn receive_message(stream: &mut tokio::net::TcpStream) -> tokio::io::Result<Vec<u8>> {
-    let mut len_buf = [0u8; 2]; // 4 byte header
-    stream.read_exact(&mut len_buf).await?; // Les lengden først
+async fn receive_message(stream: &mut tokio::net::TcpStream, mut disconnect_rx: crossbeam_channel::Receiver<()>) -> Option<Vec<u8>> {
+    let mut len_buf = [0u8; 2]; // 2-byte header
 
-    let len = u16::from_be_bytes(len_buf) as usize; // Konverter fra bytes til integer
+    tokio::select! {
+        res = stream.read_exact(&mut len_buf) => {
+            match res {
+                Ok(0) => {
+                    utils::print_info("Slave har kopla fra.".to_string());
+                    utils::print_info(format!("Stenger stream til slave: {:?}", stream.peer_addr()));
+                    let _ = stream.shutdown().await;
+                    return None;
+                }
+                Ok(_) => {
+                    let len = u16::from_be_bytes(len_buf) as usize;
+                    let mut buffer = vec![0u8; len];
 
-    let mut buffer = vec![0u8; len]; // Lag buffer
-    stream.read_exact(&mut buffer).await?; // Les eksakt `len` bytes
-
-    Ok(buffer)
-
-
-    /* Legg til feil som dette: */
-    // match stream.read(&mut buffer).await {
-    //     Ok(0) => {
-    //         utils::print_info("Slave har kopla frå.".to_string());
-    //         break;
-    //     }
-    //     Ok(n) => {
-    //         let received_data = &buffer[..n];
-    //         utils::print_info(format!("Melding frå slave: {:?}", received_data));
-
-    //         // if let Err(e) = stream.write_all(b"Ack\n").await {
-    //         //     utils::print_err(format!("Feil ved sending til slave: {}", e));
-    //         //     break;
-    //         // }
-    //     }
-    //     Err(e) => {
-    //         utils::print_err(format!("Feil ved mottak av data frå slave: {}", e));
-    //         break;
-    //     }
-    // }
+                    match stream.read_exact(&mut buffer).await { 
+                        Ok(0) => {
+                            utils::print_info("Slave har kopla fra.".to_string());
+                            utils::print_info(format!("Stenger stream til slave: {:?}", stream.peer_addr()));
+                            let _ = stream.shutdown().await;
+                            return None;
+                        }
+                        Ok(_) => return Some(buffer),
+                        Err(e) => {
+                            utils::print_err(format!("Feil ved mottak av data fra slave: {}", e));
+                            utils::print_info(format!("Stenger stream til slave: {:?}", stream.peer_addr()));
+                            let _ = stream.shutdown().await;
+                            return None;
+                        }
+                    }
+                    
+                }
+                Err(e) => {
+                    utils::print_err(format!("Feil ved mottak av data fra slave: {}", e));
+                    utils::print_info(format!("Stenger stream til slave: {:?}", stream.peer_addr()));
+                    let _ = stream.shutdown().await;
+                    return None;
+                }
+            }
+        }
+        _ = async { disconnect_rx.recv().ok() } => {
+            utils::print_master("Disconnect-signal mottatt! Avslutter mottak fra slaven.".to_string());
+            let _ = stream.shutdown().await;
+            return None;
+        }
+    }
 }
 
 pub async fn send_tcp_message(chs: local_network::LocalChannels, s: &mut TcpStream) {
