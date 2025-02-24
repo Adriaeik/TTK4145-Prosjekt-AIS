@@ -120,7 +120,7 @@ async fn main() {
             Ok(id) => {
                 let mut deserialized_wv = world_view::deserialize_worldview(&worldview_serialised);
                 deserialized_wv.remove_elev(id);
-                worldview_serialised = world_view::serialize_worldview(&deserialized_wv);
+                worldview_serialised = world_view::serialize_worldview(&deserialized_wv); 
             },
             Err(e) => {},
         }
