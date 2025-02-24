@@ -45,7 +45,7 @@ impl Default for ElevatorContainer {
 }
 
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct WorldView {
     //Generelt nettverk
     n: u8,                             // Antall heiser
