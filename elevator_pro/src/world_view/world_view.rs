@@ -201,12 +201,41 @@ pub fn deserialize_elev_container(data: &[u8]) -> ElevatorContainer {
 
 pub fn print_wv(worldview: Vec<u8>) {
     let wv_deser = deserialize_worldview(&worldview);
+    let mut gen_table = Table::new();
+    gen_table.set_format(*format::consts::FORMAT_CLEAN);
     let mut table = Table::new();
     table.set_format(*format::consts::FORMAT_CLEAN);
 
     // Overskrift i blå feittskrift
     println!("{}", Purple.bold().paint("WORLD VIEW STATUS"));
 
+     
+    //Legg til generell worldview-info
+    gen_table.add_row(Row::new(vec![
+        Cell::new(&Blue.bold().paint("Num heiser".to_string())),
+        Cell::new(&Blue.bold().paint("MasterID".to_string())),
+        Cell::new(&Blue.bold().paint("Outside Buttons".to_string())),
+    ]));
+    let n_text = Yellow.paint(format!("{}", wv_deser.get_num_elev())).to_string();
+    let m_id_text = Yellow.paint(format!("{}", wv_deser.master_id)).to_string();
+
+    let button_list = wv_deser.outside_button.iter()
+            .map(|c| format!("{}:{}", c.floor, c.call))
+            .collect::<Vec<String>>()
+            .join(", ");
+    
+    gen_table.add_row(Row::new(vec![
+        Cell::new(&n_text),
+        Cell::new(&m_id_text),
+        Cell::new(&button_list),
+    ]));
+
+    gen_table.printstd();
+    print!("\n");
+
+
+
+    // Legg til heis-spesifikke deler
     // Legg til hovudrad (header) med blå feittskrift
     table.add_row(Row::new(vec![
         Cell::new(&Blue.bold().paint("ID").to_string()),
