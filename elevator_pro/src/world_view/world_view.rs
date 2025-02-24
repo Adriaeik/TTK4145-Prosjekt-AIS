@@ -1,9 +1,9 @@
 use serde::{Serialize, Deserialize};
 use crate::config;
 use crate::utils;
+use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 use prettytable::{Table, Row, Cell, format};
-use std::collections::HashMap;
-use termcolor::WriteColor;
+use std::io::Write;
 
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
@@ -196,11 +196,20 @@ pub fn deserialize_elev_container(data: &[u8]) -> ElevatorContainer {
 // }
 
 
-// 📌 Tar inn ein vektor med `ElevatorContainer`-ar og skriv ut ein tabell
+
+
 pub fn print_wv(worldview: Vec<u8>) {
     let wv_deser = deserialize_worldview(&worldview);
     let mut table = Table::new();
     table.set_format(*format::consts::FORMAT_CLEAN);
+
+    // 📌 Fargeterminal
+    let mut stdout = StandardStream::stdout(ColorChoice::Always);
+
+    // 📌 Blå overskrift
+    stdout.set_color(ColorSpec::new().set_fg(Some(Color::Blue)).set_bold(true)).unwrap();
+    writeln!(&mut stdout, "WORLD VIEW STATUS").unwrap();
+    stdout.reset().unwrap();
 
     // 📌 Legg til hovudrad (header)
     table.add_row(Row::new(vec![
@@ -224,10 +233,29 @@ pub fn print_wv(worldview: Vec<u8>) {
             .collect::<Vec<String>>()
             .join(", ");
 
+        // 📌 Farg ID-en gul
+        let mut id_stream = StandardStream::stdout(ColorChoice::Always);
+        id_stream.set_color(ColorSpec::new().set_fg(Some(Color::Yellow)).set_bold(true)).unwrap();
+        let id_text = format!("{}", elev.elevator_id);
+        id_stream.reset().unwrap();
+
+        // 📌 Grønn for `true`, Raud for `false`
+        let door_status = if elev.door_open {
+            format_colored("Åpen", Color::Green)
+        } else {
+            format_colored("Lukket", Color::Red)
+        };
+
+        let obstruction_status = if elev.obstruction {
+            format_colored("Ja", Color::Green)
+        } else {
+            format_colored("Nei", Color::Red)
+        };
+
         table.add_row(Row::new(vec![
-            Cell::new(&format!("{}", elev.elevator_id)),
-            Cell::new(if elev.door_open { "Åpen" } else { "Lukket" }),
-            Cell::new(if elev.obstruction { "Ja" } else { "Nei" }),
+            Cell::new(&id_text),
+            Cell::new(&door_status),
+            Cell::new(&obstruction_status),
             Cell::new(&format!("{}", elev.motor_dir)),
             Cell::new(&format!("{}", elev.last_floor_sensor)),
             Cell::new(&task_list),
@@ -236,10 +264,14 @@ pub fn print_wv(worldview: Vec<u8>) {
     }
 
     // 📌 Skriv ut tabellen
-    utils::print_color("___________________________________________________________".to_string(), termcolor::Color::Rgb(255, 51, 255/*Rosa*/));
-    let mut stdout = termcolor::StandardStream::stdout(termcolor::ColorChoice::Always);
-    stdout.set_color(termcolor::ColorSpec::new().set_fg(Some(termcolor::Color::Rgb(255, 51, 255/*Rosa*/)))).unwrap();
     table.printstd();
-    stdout.set_color(&termcolor::ColorSpec::new()).unwrap();
-    utils::print_color("___________________________________________________________".to_string(), termcolor::Color::Rgb(255, 51, 255/*Rosa*/));
+}
+
+// 📌 Funksjon for å fargelegge tekst
+fn format_colored(text: &str, color: Color) -> String {
+    let mut stdout = StandardStream::stdout(ColorChoice::Always);
+    stdout.set_color(ColorSpec::new().set_fg(Some(color))).unwrap();
+    let colored_text = format!("{}", text);
+    stdout.reset().unwrap();
+    colored_text
 }
