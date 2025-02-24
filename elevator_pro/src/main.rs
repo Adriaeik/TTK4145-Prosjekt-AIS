@@ -1,4 +1,4 @@
-use std::{sync::atomic::Ordering, time::Duration};
+use std::{fmt::format, sync::atomic::Ordering, time::Duration};
 
 use elevator_pro::{network::{local_network, tcp_network, udp_broadcast}, utils, world_view::{world_view, world_view_update}};
 use elevator_pro::init;
@@ -120,7 +120,9 @@ async fn main() {
             Ok(id) => {
                 utils::print_master(format!("Mottok at jeg skal fjerne heis med ID: {}", id));
             },
-            Err(_) => {},
+            Err(e) => {
+                utils::print_master(format!("error ved mottak av fjenre id: {}", e));
+            },
         }
         // let mut ww_des = world_view::deserialize_worldview(&worldview_serialised);
         // ww_des.elevator_containers[0].last_floor_sensor = (ww_des.elevator_containers[0].last_floor_sensor %255) + 1;
