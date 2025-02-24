@@ -119,7 +119,9 @@ pub async fn start_udp_listener(mut chs: local_network::LocalChannels) -> tokio:
                 //utils::print_info(format!("full message: {:?}", message));
                 if my_wv[config::MASTER_IDX] >= read_wv[config::MASTER_IDX] && !(utils::SELF_ID.load(Ordering::SeqCst) == read_wv[config::MASTER_IDX]) {
                     //Oppdater egen WV
-                    let _ = chs.mpscs.txs.udp_wv.send(read_wv).await;
+                    my_wv = read_wv;
+                    //TODO: Send denne wv tilbake til thread som behandler worldview
+                    let _ = chs.mpscs.txs.udp_wv.send(my_wv).await;
                 }
                 else {
                     //println!("UDP-en har høyere ID, jeg ignorerer den");

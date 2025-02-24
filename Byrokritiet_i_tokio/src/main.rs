@@ -39,6 +39,7 @@ use local_ip_address::local_ip;
 
 #[tokio::main] // Hvis du bruker async/await
 async fn main() {
+    // TODO:: INititialiser ein strttup for x antall heisa.
     /*Initialiser ein sjefpakke basert på argument (Rolle, ID) */
     let sjefenpakke = match Sjefen::hent_sjefpakke() {
         Ok(sjef) => {

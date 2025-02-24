@@ -116,14 +116,6 @@ async fn main() {
             },
             Err(_) => {},
         }
-        match main_local_chs.mpscs.rxs.remove_container.try_recv() {
-            Ok(id) => {
-                let mut wv_deser = world_view::deserialize_worldview(&worldview_serialised);
-                wv_deser.remove_elev(id);
-                worldview_serialised = world_view::serialize_worldview(&wv_deser);
-            },
-            Err(e) => {},
-        }
         let mut ww_des = world_view::deserialize_worldview(&worldview_serialised);
         ww_des.elevator_containers[0].last_floor_sensor = (ww_des.elevator_containers[0].last_floor_sensor %255) + 1;
         worldview_serialised = world_view::serialize_worldview(&ww_des);
