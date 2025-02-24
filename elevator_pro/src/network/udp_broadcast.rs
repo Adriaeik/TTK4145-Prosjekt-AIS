@@ -117,7 +117,7 @@ pub async fn start_udp_listener(mut chs: local_network::LocalChannels) -> tokio:
 
                 //utils::print_info(format!("read_wv: {:?}", read_wv));
                 //utils::print_info(format!("full message: {:?}", message));
-                if my_wv[config::MASTER_IDX] >= read_wv[config::MASTER_IDX] {
+                if my_wv[config::MASTER_IDX] >= read_wv[config::MASTER_IDX] && !(utils::SELF_ID.load(Ordering::SeqCst) == read_wv[config::MASTER_IDX]) {
                     //Oppdater egen WV
                     my_wv = read_wv;
                     //TODO: Send denne wv tilbake til thread som behandler worldview
