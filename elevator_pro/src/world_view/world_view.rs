@@ -72,12 +72,9 @@ impl Default for WorldView {
 
 impl WorldView {
     pub fn add_elev(&mut self, elevator: ElevatorContainer) {
-        let init_len = self.elevator_containers.len();
         utils::print_ok(format!("elevator med ID {} ble ansatt. (add_elev())", elevator.elevator_id));
         self.elevator_containers.push(elevator);
-        if self.elevator_containers.len() > init_len {
-            self.n = self.n + 1;
-        }
+        self.n = self.elevator_containers.len() as u8;
     }
     
     pub fn remove_elev(&mut self, id: u8) {
@@ -89,8 +86,8 @@ impl WorldView {
             utils::print_warn(format!("Ingen elevator med ID {} ble funnet. (remove_elev())", id));
         } else {
             utils::print_ok(format!("elevator med ID {} ble sparka. (remove_elev())", id));
-            self.n = self.n - 1;
         }
+        self.n = self.elevator_containers.len() as u8;
     }
 
     pub fn get_num_elev(&self) -> u8 {
