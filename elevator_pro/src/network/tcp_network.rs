@@ -1,4 +1,4 @@
-use std::{sync::atomic::Ordering, time::Duration};
+use std::{sync::atomic::{Ordering, AtomicBool}, time::Duration};
 
 use tokio::io::AsyncWriteExt;
 use tokio::sync::mpsc;
@@ -11,9 +11,10 @@ use crate::world_view::world_view;
 use crate::{config, utils, world_view::world_view_update};
 use utils::{print_info, print_ok, print_err, get_wv};
 
-
 use super::local_network;
 
+// Definer ein global `AtomicU8`
+pub static IS_MASTER: AtomicBool = AtomicBool::new(false); // Startverdi 0
 
 
 pub async fn tcp_handler(mut chs: local_network::LocalChannels, mut socket_rx: mpsc::Receiver<(TcpStream, SocketAddr)>) {
@@ -22,10 +23,7 @@ pub async fn tcp_handler(mut chs: local_network::LocalChannels, mut socket_rx: m
     
     loop {
         chs.resubscribe_broadcast();
-
-
-
-
+        IS_MASTER.store(true, Ordering::SeqCst);
         while utils::is_master(chs.clone()) {
             if world_view_update::get_network_status().load(Ordering::SeqCst) {
                 while let Ok((socket, addr)) = socket_rx.try_recv() {
@@ -42,12 +40,11 @@ pub async fn tcp_handler(mut chs: local_network::LocalChannels, mut socket_rx: m
             else {
                 tokio::time::sleep(Duration::from_millis(100)).await; 
             }
-
-            
         }
-
-
         //mista master -> skru av tasks i listener_tasks
+        IS_MASTER.store(false, Ordering::SeqCst);
+
+
         // sjekker at vi faktisk har ein socket å bruke med masteren
         let mut master_accepted_tcp = false;
         let mut stream:Option<TcpStream> = None;
@@ -167,7 +164,7 @@ async fn handle_slave(mut stream: TcpStream, chs: local_network::LocalChannels) 
 
     loop {
 
-        match receive_message(&mut stream, chs.clone()).await {
+        match read_from_stream(&mut stream, chs.clone()).await {
             Some(msg) => {
                 let received_data = msg;
                 let _ = chs.mpscs.txs.container.send(received_data).await;
@@ -182,47 +179,61 @@ async fn handle_slave(mut stream: TcpStream, chs: local_network::LocalChannels) 
     }
 }
 
-async fn receive_message(stream: &mut tokio::net::TcpStream, chs: local_network::LocalChannels) -> Option<Vec<u8>> {
-    let mut len_buf = [0u8; 2]; // 2-byte header
+async fn read_from_stream(stream: &mut TcpStream, chs: local_network::LocalChannels) -> Option<Vec<u8>> {
+    let mut len_buf = [0u8; 2];
 
-    match stream.read_exact(&mut len_buf).await {
-        Ok(0) => {
-            utils::print_info("Slave har kopla fra.".to_string());
-            utils::print_info(format!("Stenger stream til slave 1: {:?}", stream.peer_addr()));
-            let id = utils::ip2id(stream.peer_addr().expect("Peer har ingen IP?").ip());
-            let _ = chs.mpscs.txs.remove_container.send(id).await;
-            let _ = stream.shutdown().await;
-            return None;
-        }
-        Ok(_) => {
-            let len = u16::from_be_bytes(len_buf) as usize;
-            let mut buffer = vec![0u8; len];
-
-            match stream.read_exact(&mut buffer).await { 
+    tokio::select! {
+        result = stream.read_exact(&mut len_buf) => {
+            match result {
                 Ok(0) => {
                     utils::print_info("Slave har kopla fra.".to_string());
-                    utils::print_info(format!("Stenger stream til slave 2: {:?}", stream.peer_addr()));
+                    utils::print_info(format!("Stenger stream til slave 1: {:?}", stream.peer_addr()));
                     let id = utils::ip2id(stream.peer_addr().expect("Peer har ingen IP?").ip());
                     let _ = chs.mpscs.txs.remove_container.send(id).await;
                     let _ = stream.shutdown().await;
                     return None;
                 }
-                Ok(_) => return Some(buffer),
+                Ok(_) => {
+                    let len = u16::from_be_bytes(len_buf) as usize;
+                    let mut buffer = vec![0u8; len];
+
+                    match stream.read_exact(&mut buffer).await { 
+                        Ok(0) => {
+                            utils::print_info("Slave har kopla fra.".to_string());
+                            utils::print_info(format!("Stenger stream til slave 2: {:?}", stream.peer_addr()));
+                            let id = utils::ip2id(stream.peer_addr().expect("Peer har ingen IP?").ip());
+                            let _ = chs.mpscs.txs.remove_container.send(id).await;
+                            let _ = stream.shutdown().await;
+                            return None;
+                        }
+                        Ok(_) => return Some(buffer),
+                        Err(e) => {
+                            utils::print_err(format!("Feil ved mottak av data fra slave: {}", e));
+                            utils::print_info(format!("Stenger stream til slave 3: {:?}", stream.peer_addr()));
+                            let id = utils::ip2id(stream.peer_addr().expect("Peer har ingen IP?").ip());
+                            let _ = chs.mpscs.txs.remove_container.send(id).await;
+                            let _ = stream.shutdown().await;
+                            return None;
+                        }
+                    }
+                }
                 Err(e) => {
                     utils::print_err(format!("Feil ved mottak av data fra slave: {}", e));
-                    utils::print_info(format!("Stenger stream til slave 3: {:?}", stream.peer_addr()));
+                    utils::print_info(format!("Stenger stream til slave 4: {:?}", stream.peer_addr()));
                     let id = utils::ip2id(stream.peer_addr().expect("Peer har ingen IP?").ip());
                     let _ = chs.mpscs.txs.remove_container.send(id).await;
                     let _ = stream.shutdown().await;
                     return None;
                 }
             }
-            
         }
-        Err(e) => {
-            utils::print_err(format!("Feil ved mottak av data fra slave: {}", e));
-            utils::print_info(format!("Stenger stream til slave 4: {:?}", stream.peer_addr()));
+        _ = async {
+            while IS_MASTER.load(Ordering::SeqCst) {
+                tokio::time::sleep(Duration::from_millis(50)).await;
+            }
+        } => {
             let id = utils::ip2id(stream.peer_addr().expect("Peer har ingen IP?").ip());
+            utils::print_info(format!("Mistar masterstatus, stenger stream til slave {}", id));
             let _ = chs.mpscs.txs.remove_container.send(id).await;
             let _ = stream.shutdown().await;
             return None;

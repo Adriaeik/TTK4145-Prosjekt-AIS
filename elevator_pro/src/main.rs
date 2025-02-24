@@ -122,7 +122,7 @@ async fn main() {
                 deserialized_wv.remove_elev(id);
                 worldview_serialised = world_view::serialize_worldview(&deserialized_wv); 
             },
-            Err(e) => {},
+            Err(_) => {},
         }
         // let mut ww_des = world_view::deserialize_worldview(&worldview_serialised);
         // ww_des.elevator_containers[0].last_floor_sensor = (ww_des.elevator_containers[0].last_floor_sensor %255) + 1;
