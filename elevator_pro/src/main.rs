@@ -118,7 +118,9 @@ async fn main() {
         }
         match main_local_chs.mpscs.rxs.remove_container.try_recv() {
             Ok(id) => {
-                utils::print_master(format!("Mottok at jeg skal fjerne heis med ID: {}", id));
+                let mut deserialized_wv = world_view::deserialize_worldview(&worldview_serialised);
+                deserialized_wv.remove_elev(id);
+                worldview_serialised = world_view::serialize_worldview(&deserialized_wv);
             },
             Err(e) => {},
         }

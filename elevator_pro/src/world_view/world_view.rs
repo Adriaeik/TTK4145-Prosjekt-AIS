@@ -86,6 +86,7 @@ impl WorldView {
             utils::print_warn(format!("Ingen elevator med ID {} ble funnet. (remove_elev())", id));
         } else {
             utils::print_ok(format!("elevator med ID {} ble sparka. (remove_elev())", id));
+            self.n = self.n - 1;
         }
     }
 
