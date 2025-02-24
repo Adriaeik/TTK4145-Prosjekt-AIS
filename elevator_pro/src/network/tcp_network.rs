@@ -167,7 +167,7 @@ async fn handle_slave(mut stream: TcpStream, chs: local_network::LocalChannels) 
 
     loop {
 
-        match receive_message(&mut stream, chs.clone()).await {
+        match receive_message(&mut stream).await {
             Some(msg) => {
                 let received_data = msg;
                 let _ = chs.mpscs.txs.container.send(received_data).await;
@@ -182,15 +182,13 @@ async fn handle_slave(mut stream: TcpStream, chs: local_network::LocalChannels) 
     }
 }
 
-async fn receive_message(stream: &mut tokio::net::TcpStream, chs: local_network::LocalChannels) -> Option<Vec<u8>> {
+async fn receive_message(stream: &mut tokio::net::TcpStream) -> Option<Vec<u8>> {
     let mut len_buf = [0u8; 2]; // 2-byte header
 
     match stream.read_exact(&mut len_buf).await {
         Ok(0) => {
             utils::print_info("Slave har kopla fra.".to_string());
             utils::print_info(format!("Stenger stream til slave: {:?}", stream.peer_addr()));
-            let id = stream.peer_addr().expect("TCP-streamen har ikke en IP?");
-            let _ = chs.mpscs.txs.remove_container.send(utils::ip2id(id.ip())).await;
             let _ = stream.shutdown().await;
             return None;
         }
@@ -202,8 +200,6 @@ async fn receive_message(stream: &mut tokio::net::TcpStream, chs: local_network:
                 Ok(0) => {
                     utils::print_info("Slave har kopla fra.".to_string());
                     utils::print_info(format!("Stenger stream til slave: {:?}", stream.peer_addr()));
-                    let id = stream.peer_addr().expect("TCP-streamen har ikke en IP?");
-                    let _ = chs.mpscs.txs.remove_container.send(utils::ip2id(id.ip())).await;
                     let _ = stream.shutdown().await;
                     return None;
                 }
@@ -211,8 +207,6 @@ async fn receive_message(stream: &mut tokio::net::TcpStream, chs: local_network:
                 Err(e) => {
                     utils::print_err(format!("Feil ved mottak av data fra slave: {}", e));
                     utils::print_info(format!("Stenger stream til slave: {:?}", stream.peer_addr()));
-                    let id = stream.peer_addr().expect("TCP-streamen har ikke en IP?");
-                    let _ = chs.mpscs.txs.remove_container.send(utils::ip2id(id.ip())).await;
                     let _ = stream.shutdown().await;
                     return None;
                 }
@@ -222,8 +216,6 @@ async fn receive_message(stream: &mut tokio::net::TcpStream, chs: local_network:
         Err(e) => {
             utils::print_err(format!("Feil ved mottak av data fra slave: {}", e));
             utils::print_info(format!("Stenger stream til slave: {:?}", stream.peer_addr()));
-            let id = stream.peer_addr().expect("TCP-streamen har ikke en IP?");
-            let _ = chs.mpscs.txs.remove_container.send(utils::ip2id(id.ip())).await;
             let _ = stream.shutdown().await;
             return None;
         }
