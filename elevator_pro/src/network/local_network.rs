@@ -9,7 +9,7 @@ pub struct MpscTxs {
     pub udp_wv: mpsc::Sender<Vec<u8>>,
     pub tcp_to_master_failed: mpsc::Sender<bool>,
     pub container: mpsc::Sender<Vec<u8>>,
-    pub mpsc_buffer_ch3: mpsc::Sender<bool>,
+    pub remove_container: mpsc::Sender<u8>,
     pub mpsc_buffer_ch4: mpsc::Sender<bool>,
     pub mpsc_buffer_ch5: mpsc::Sender<bool>,
 }
@@ -18,7 +18,7 @@ pub struct MpscRxs {
     pub udp_wv: mpsc::Receiver<Vec<u8>>,
     pub tcp_to_master_failed: mpsc::Receiver<bool>,
     pub container: mpsc::Receiver<Vec<u8>>,
-    pub mpsc_buffer_ch3: mpsc::Receiver<bool>,
+    pub remove_container: mpsc::Receiver<u8>,
     pub mpsc_buffer_ch4: mpsc::Receiver<bool>,
     pub mpsc_buffer_ch5: mpsc::Receiver<bool>,
 }
@@ -29,7 +29,7 @@ impl Clone for MpscTxs {
             udp_wv: self.udp_wv.clone(),
             tcp_to_master_failed: self.tcp_to_master_failed.clone(),
             container: self.container.clone(),
-            mpsc_buffer_ch3: self.mpsc_buffer_ch3.clone(),
+            remove_container: self.remove_container.clone(),
             mpsc_buffer_ch4: self.mpsc_buffer_ch4.clone(),
             mpsc_buffer_ch5: self.mpsc_buffer_ch5.clone(),
         }
@@ -55,7 +55,7 @@ impl Mpscs {
                 udp_wv: tx_udp,
                 tcp_to_master_failed: tx1,
                 container: tx2,
-                mpsc_buffer_ch3: tx3,
+                remove_container: tx3,
                 mpsc_buffer_ch4: tx4,
                 mpsc_buffer_ch5: tx5,
             }, 
@@ -63,7 +63,7 @@ impl Mpscs {
                 udp_wv: rx_udp,
                 tcp_to_master_failed: rx1,
                 container: rx2,
-                mpsc_buffer_ch3: rx3,
+                remove_container: rx3,
                 mpsc_buffer_ch4: rx4,
                 mpsc_buffer_ch5: rx5,
             }
@@ -86,7 +86,7 @@ impl Clone for Mpscs {
                 udp_wv: rx_udp,
                 tcp_to_master_failed: rx1,
                 container: rx2,
-                mpsc_buffer_ch3: rx3,
+                remove_container: rx3,
                 mpsc_buffer_ch4: rx4,
                 mpsc_buffer_ch5: rx5,
             }

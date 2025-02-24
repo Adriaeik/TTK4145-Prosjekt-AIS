@@ -85,6 +85,7 @@ impl WorldView {
         if self.elevator_containers.len() == initial_len {
             utils::print_warn(format!("Ingen elevator med ID {} ble funnet. (remove_elev())", id));
         } else {
+            self.n = self.n - 1;
             utils::print_ok(format!("elevator med ID {} ble sparka. (remove_elev())", id));
         }
     }
