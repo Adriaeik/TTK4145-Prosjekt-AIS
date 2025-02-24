@@ -74,14 +74,14 @@ async fn main() {
 
 
 
-    // let print_task = tokio::spawn(async move {
-    //     loop {
-    //         let ch_clone = chs_print.clone();
-    //         let wv = utils::get_wv(ch_clone);
-    //         utils::print_info(format!("{:?}", wv));
-    //         tokio::time::sleep(Duration::from_millis(500)).await;
-    //     }
-    // });
+    let print_task = tokio::spawn(async move {
+        loop {
+            let ch_clone = chs_print.clone();
+            let wv = utils::get_wv(ch_clone);
+            utils::print_info(format!("{:?}", wv));
+            tokio::time::sleep(Duration::from_millis(500)).await;
+        }
+    });
 
     
     loop {
