@@ -170,7 +170,7 @@ async fn handle_slave(mut stream: TcpStream, chs: local_network::LocalChannels) 
         match receive_message(&mut stream).await {
             Ok(msg) => {
                 let received_data = msg;
-                chs.mpscs.txs.container.send(msg).await;
+                let _ = chs.mpscs.txs.container.send(received_data).await;
                 //utils::print_info(format!("Melding frå slave: {:?}", received_data));
             }
             Err(e) => {

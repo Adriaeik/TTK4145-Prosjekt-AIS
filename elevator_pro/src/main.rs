@@ -102,6 +102,20 @@ async fn main() {
             },
             Err(_) => {},
         }
+        match main_local_chs.mpscs.rxs.container.try_recv() {
+            Ok(container) => {
+                let deser_container = world_view::deserialize_elev_container(&container);
+                let mut deserialized_wv = world_view::deserialize_worldview(&worldview_serialised);
+                if let Some(index) = deserialized_wv.elevator_containers.iter().position(|x| x.elevator_id == deser_container.elevator_id) {
+                    //TODO: sjekk at den er riktig / som forventa?
+                    deserialized_wv.elevator_containers[index] = deser_container;
+                } else {
+                    deserialized_wv.add_elev(deser_container);
+                } 
+                worldview_serialised = world_view::serialize_worldview(&deserialized_wv);
+            },
+            Err(_) => {},
+        }
 
         let _ = main_local_chs.broadcasts.txs.wv.send(worldview_serialised.clone());
 
