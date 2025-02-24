@@ -203,12 +203,11 @@ pub fn print_wv(worldview: Vec<u8>) {
     let mut table = Table::new();
     table.set_format(*format::consts::FORMAT_CLEAN);
 
-    // 📌 Fargeterminal
     let mut stdout = StandardStream::stdout(ColorChoice::Always);
 
-    // 📌 Blå overskrift
+    // 📌 Blå overskrift (sikrar at fargen blir sett korrekt)
     stdout.set_color(ColorSpec::new().set_fg(Some(Color::Blue)).set_bold(true)).unwrap();
-    writeln!(&mut stdout, "WORLD VIEW STATUS").unwrap();
+    writeln!(&mut stdout, "\nWORLD VIEW STATUS").unwrap();
     stdout.reset().unwrap();
 
     // 📌 Legg til hovudrad (header)
@@ -233,29 +232,20 @@ pub fn print_wv(worldview: Vec<u8>) {
             .collect::<Vec<String>>()
             .join(", ");
 
-        // 📌 Farg ID-en gul
-        let mut id_stream = StandardStream::stdout(ColorChoice::Always);
-        id_stream.set_color(ColorSpec::new().set_fg(Some(Color::Yellow)).set_bold(true)).unwrap();
-        let id_text = format!("{}", elev.elevator_id);
-        id_stream.reset().unwrap();
+        // 📌 ID-en i gul, med sikker buffer
+        let id_text = format_colored_buffer(&format!("{}", elev.elevator_id), Color::Yellow);
 
-        // 📌 Grønn for `true`, Raud for `false`
-        let door_status = if elev.door_open {
-            format_colored("Åpen", Color::Green)
-        } else {
-            format_colored("Lukket", Color::Red)
-        };
+        // 📌 Dørstatus grønn/rød
+        let door_status = format_colored_buffer("Åpen", Color::Green);
+        let door_status_closed = format_colored_buffer("Lukket", Color::Red);
 
-        let obstruction_status = if elev.obstruction {
-            format_colored("Ja", Color::Green)
-        } else {
-            format_colored("Nei", Color::Red)
-        };
+        let obstruction_status = format_colored_buffer("Ja", Color::Green);
+        let obstruction_status_no = format_colored_buffer("Nei", Color::Red);
 
         table.add_row(Row::new(vec![
             Cell::new(&id_text),
-            Cell::new(&door_status),
-            Cell::new(&obstruction_status),
+            Cell::new(if elev.door_open { &door_status } else { &door_status_closed }),
+            Cell::new(if elev.obstruction { &obstruction_status } else { &obstruction_status_no }),
             Cell::new(&format!("{}", elev.motor_dir)),
             Cell::new(&format!("{}", elev.last_floor_sensor)),
             Cell::new(&task_list),
@@ -267,11 +257,14 @@ pub fn print_wv(worldview: Vec<u8>) {
     table.printstd();
 }
 
-// 📌 Funksjon for å fargelegge tekst
-fn format_colored(text: &str, color: Color) -> String {
-    let mut stdout = StandardStream::stdout(ColorChoice::Always);
-    stdout.set_color(ColorSpec::new().set_fg(Some(color))).unwrap();
-    let colored_text = format!("{}", text);
-    stdout.reset().unwrap();
-    colored_text
+// 📌 Forhindrar at fargane blir feil ved å formatere i ein buffer
+fn format_colored_buffer(text: &str, color: Color) -> String {
+    let mut buf = Vec::new();
+    {
+        let mut stdout = StandardStream::stdout(ColorChoice::Always);
+        stdout.set_color(ColorSpec::new().set_fg(Some(color))).unwrap();
+        write!(&mut buf, "{}", text).unwrap();
+        stdout.reset().unwrap();
+    }
+    String::from_utf8(buf).unwrap()
 }
