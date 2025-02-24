@@ -1,6 +1,8 @@
 use serde::{Serialize, Deserialize};
 use crate::config;
 use crate::utils;
+use prettytable::{Table, Row, Cell, format};
+use std::collections::HashMap;
 
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
@@ -90,6 +92,7 @@ impl WorldView {
         return self.n;
     }
 }
+
 
 
 
@@ -190,3 +193,47 @@ pub fn deserialize_elev_container(data: &[u8]) -> ElevatorContainer {
 //         }
 //     }
 // }
+
+
+// 📌 Tar inn ein vektor med `ElevatorContainer`-ar og skriv ut ein tabell
+pub fn print_wv(worldview: Vec<u8>) {
+    let wv_deser = deserialize_worldview(&worldview);
+    let mut table = Table::new();
+    table.set_format(*format::consts::FORMAT_CLEAN);
+
+    // 📌 Legg til hovudrad (header)
+    table.add_row(Row::new(vec![
+        Cell::new("ID"),
+        Cell::new("Dør"),
+        Cell::new("Obstruksjon"),
+        Cell::new("Motor Retning"),
+        Cell::new("Siste etasje"),
+        Cell::new("Tasks (ToDo:Status)"),
+        Cell::new("Calls (Etg:Call)"),
+    ]));
+
+    for elev in wv_deser.elevator_containers {
+        let task_list = elev.tasks.iter()
+            .map(|t| format!("{}:{}", t.to_do, t.status))
+            .collect::<Vec<String>>()
+            .join(", ");
+
+        let call_list = elev.calls.iter()
+            .map(|c| format!("{}:{}", c.floor, c.call))
+            .collect::<Vec<String>>()
+            .join(", ");
+
+        table.add_row(Row::new(vec![
+            Cell::new(&format!("{}", elev.elevator_id)),
+            Cell::new(if elev.door_open { "Åpen" } else { "Lukket" }),
+            Cell::new(if elev.obstruction { "Ja" } else { "Nei" }),
+            Cell::new(&format!("{}", elev.motor_dir)),
+            Cell::new(&format!("{}", elev.last_floor_sensor)),
+            Cell::new(&task_list),
+            Cell::new(&call_list),
+        ]));
+    }
+
+    // 📌 Skriv ut tabellen
+    table.printstd();
+}

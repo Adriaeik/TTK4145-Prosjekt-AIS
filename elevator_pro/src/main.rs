@@ -78,7 +78,7 @@ async fn main() {
         loop {
             let ch_clone = chs_print.clone();
             let wv = utils::get_wv(ch_clone);
-            utils::print_info(format!("{:?}", wv));
+            world_view::print_wv(wv);
             tokio::time::sleep(Duration::from_millis(500)).await;
         }
     });
