@@ -70,10 +70,10 @@ async fn main() {
         let _ = tcp_network::tcp_handler(chs_tcp, socket_rx).await;
     });
 
-    let _udp_watchdog = tokio::spawn(async move {
-        utils::print_info("Starter udp watchdog".to_string());
-        let _ = udp_broadcast::udp_watchdog(chs_udp_wd).await;
-    });
+    // let _udp_watchdog = tokio::spawn(async move {
+    //     utils::print_info("Starter udp watchdog".to_string());
+    //     let _ = udp_broadcast::udp_watchdog(chs_udp_wd).await;
+    // });
     
     let _listener_handle = tokio::spawn(async move {
         utils::print_info("Starter tcp listener".to_string());
@@ -90,7 +90,7 @@ async fn main() {
             tokio::time::sleep(Duration::from_millis(500)).await;
         }
     });
-    
+
     loop {
         sleep(Duration::from_millis(100)).await;
     }
