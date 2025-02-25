@@ -9,7 +9,7 @@ use std::net::SocketAddr;
 
 use crate::world_view::world_view;
 use crate::{config, utils, world_view::world_view_update};
-use utils::{print_info, print_ok, print_err, get_wv};
+use utils::{print_info, print_ok, print_err};
 
 use super::local_network;
 
@@ -17,12 +17,11 @@ use super::local_network;
 pub static IS_MASTER: AtomicBool = AtomicBool::new(false); // Startverdi 0
 
 
-pub async fn tcp_handler(mut chs: local_network::LocalChannels, mut socket_rx: mpsc::Receiver<(TcpStream, SocketAddr)>) {
-
-    let mut wv = utils::get_wv(chs.clone());
+pub async fn tcp_handler(mut chs_o: local_network::LocalChannels, mut socket_rx: mpsc::Receiver<(TcpStream, SocketAddr)>) {
+    let mut wv = utils::get_wv(chs_o.clone());
     
     loop {
-        chs.resubscribe_broadcast();
+        let chs = chs_o.clone();
         IS_MASTER.store(true, Ordering::SeqCst);
         while utils::is_master(chs.clone()) {
             if world_view_update::get_network_status().load(Ordering::SeqCst) {
@@ -52,10 +51,11 @@ pub async fn tcp_handler(mut chs: local_network::LocalChannels, mut socket_rx: m
             master_accepted_tcp = true;
             stream = Some(s);
         }
-        wv = utils::get_wv(chs.clone());
-        while !utils::is_master(chs.clone()) && master_accepted_tcp {
+        utils::update_worldview(chs.clone(), &mut wv);
+        let chs_slave = chs_o.clone();
+        while !utils::is_master(chs_slave.clone()) && master_accepted_tcp {
             let prev_master = wv[config::MASTER_IDX];
-            wv = utils::get_wv(chs.clone());
+            utils::update_worldview(chs_slave.clone(), &mut wv);
             let new_master = prev_master != wv[config::MASTER_IDX];
                 
             if world_view_update::get_network_status().load(Ordering::SeqCst) {
@@ -67,7 +67,7 @@ pub async fn tcp_handler(mut chs: local_network::LocalChannels, mut socket_rx: m
                         tokio::time::sleep(Duration::from_millis(10)).await; //TODO: test om denne trengs
                         master_accepted_tcp = false;
                     }
-                    send_tcp_message(chs.clone(), s).await;
+                    send_tcp_message(chs.clone(), s, wv.clone()).await;
                     //TODO: lag bedre delay
                     tokio::time::sleep(Duration::from_millis(100)).await;
                 }
@@ -94,7 +94,7 @@ pub async fn tcp_handler(mut chs: local_network::LocalChannels, mut socket_rx: m
 /// Forsøker å koble til master via TCP.
 /// Returnerer `Some(TcpStream)` ved suksess, `None` ved feil.
 async fn connect_to_master(chs: local_network::LocalChannels) -> Option<TcpStream> {
-    let wv = get_wv(chs.clone());
+    let wv = utils::get_wv(chs.clone());
 
     if world_view_update::get_network_status().load(Ordering::SeqCst) {
         let master_ip = format!("{}.{}:{}", config::NETWORK_PREFIX, wv[config::MASTER_IDX], config::PN_PORT);
@@ -239,8 +239,8 @@ async fn read_from_stream(stream: &mut TcpStream, chs: local_network::LocalChann
     }
 }
 
-pub async fn send_tcp_message(chs: local_network::LocalChannels, s: &mut TcpStream) {
-    let self_elev_container = utils::extract_self_elevator_container(chs.clone());
+pub async fn send_tcp_message(chs: local_network::LocalChannels, s: &mut TcpStream, wv: Vec<u8>) {
+    let self_elev_container = utils::extract_self_elevator_container(wv);
 
     let self_elev_serialized = world_view::serialize_elev_container(&self_elev_container);
     let len = (self_elev_serialized.len() as u16).to_be_bytes(); // Konverter lengde til big-endian bytes
