@@ -159,9 +159,6 @@ pub fn print_slave(msg: String) {
 }
 
 
-/// Henter worldview
-/// 
-/// Funksjonen vil blocke helt til den har fått en worldview. Fungerer for å hente første worldview i en task
 pub fn get_wv(mut chs: local_network::LocalChannels) -> Vec<u8> {
     let mut wv_option = None;
     chs.resubscribe_broadcast();
@@ -182,15 +179,6 @@ pub fn get_wv(mut chs: local_network::LocalChannels) -> Vec<u8> {
     }
 
     wv
-}
-
-/// Oppdaterer worldview
-/// 
-/// Funksjonen vil endre wv til ny worldview om en ny worldview har kommet på wv_kanalen
-pub fn update_worldview(mut chs: local_network::LocalChannels, org_wv: &mut Vec<u8>) {
-    while let Ok(new_wv) = chs.broadcasts.rxs.wv.try_recv() {
-        *org_wv = new_wv;
-    }
 }
 
 
@@ -216,15 +204,16 @@ pub fn is_master(mut chs: local_network::LocalChannels) -> bool {
     return SELF_ID.load(Ordering::SeqCst) == wv[config::MASTER_IDX];
 }
 
-pub fn extract_elevator_container(wv: Vec<u8>, id: u8) -> world_view::ElevatorContainer {
+pub fn extract_elevator_container(chs: local_network::LocalChannels, id: u8) -> world_view::ElevatorContainer {
+    let wv = get_wv(chs.clone());
     let mut deser_wv = world_view::deserialize_worldview(&wv);
 
     deser_wv.elevator_containers.retain(|elevator| elevator.elevator_id == id);
     deser_wv.elevator_containers[0].clone()
 }
 
-pub fn extract_self_elevator_container(wv: Vec<u8>) -> world_view::ElevatorContainer {
-    extract_elevator_container(wv, SELF_ID.load(Ordering::SeqCst))
+pub fn extract_self_elevator_container(chs: local_network::LocalChannels) -> world_view::ElevatorContainer {
+    extract_elevator_container(chs, SELF_ID.load(Ordering::SeqCst))
 }
 
 
