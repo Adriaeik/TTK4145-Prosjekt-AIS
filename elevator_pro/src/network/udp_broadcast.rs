@@ -102,7 +102,7 @@ pub async fn udp_watchdog(chs: local_network::LocalChannels) {
     loop {
         if get_udp_timeout().load(Ordering::SeqCst) == false {
             get_udp_timeout().store(true, Ordering::SeqCst);
-            tokio::time::sleep(Duration::from_millis(1000)).await;
+            tokio::time::sleep(Duration::from_millis(1000000)).await;
         }
         else {
             get_udp_timeout().store(false, Ordering::SeqCst); //resetter watchdogen
