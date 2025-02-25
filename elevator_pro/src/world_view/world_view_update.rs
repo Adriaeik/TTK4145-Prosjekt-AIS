@@ -28,14 +28,14 @@ pub fn join_wv(mut my_wv: Vec<u8>, master_wv: Vec<u8>) -> Vec<u8> {
             my_elev_exists = true;
 
             //Vi har bedre styr på interne var. enn master. Hent egt bare ut tasks'
-            for my_elevator in my_wv_deserialised.clone().elevator_containers {
-                if my_elevator.elevator_id == utils::SELF_ID.load(Ordering::SeqCst) {
-                    elevator.door_open = my_elevator.door_open;
-                    elevator.obstruction = my_elevator.obstruction;
-                    elevator.last_floor_sensor = my_elevator.last_floor_sensor;
-                    elevator.motor_dir = my_elevator.motor_dir;
-                }
-            }
+            // for my_elevator in my_wv_deserialised.clone().elevator_containers {
+            //     if my_elevator.elevator_id == utils::SELF_ID.load(Ordering::SeqCst) {
+            //         elevator.door_open = my_elevator.door_open;
+            //         elevator.obstruction = my_elevator.obstruction;
+            //         elevator.last_floor_sensor = my_elevator.last_floor_sensor;
+            //         elevator.motor_dir = my_elevator.motor_dir;
+            //     }
+            // }
         }
     }
     if !my_elev_exists {
