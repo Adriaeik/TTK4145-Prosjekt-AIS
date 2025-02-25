@@ -20,7 +20,7 @@ pub static IS_MASTER: AtomicBool = AtomicBool::new(false); // Startverdi 0
 pub async fn tcp_handler(mut chs: local_network::LocalChannels, mut socket_rx: mpsc::Receiver<(TcpStream, SocketAddr)>) {
 
     let mut wv = utils::get_wv(chs.clone());
-    
+     
     loop {
         chs.resubscribe_broadcast();
         IS_MASTER.store(true, Ordering::SeqCst);
