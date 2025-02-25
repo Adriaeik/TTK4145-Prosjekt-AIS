@@ -181,6 +181,13 @@ pub fn get_wv(mut chs: local_network::LocalChannels) -> Vec<u8> {
     wv
 }
 
+pub fn update_wv(mut chs: local_network::LocalChannels, wv: &mut Vec<u8>) {
+    chs.resubscribe_broadcast();
+    while let Ok(new_wv) = chs.broadcasts.rxs.wv.try_recv() {
+        *wv = new_wv; // Overstyr wv med den nyaste meldinga
+    }
+}
+
 
 pub fn is_master(mut chs: local_network::LocalChannels) -> bool {
     let mut wv_option = None;
