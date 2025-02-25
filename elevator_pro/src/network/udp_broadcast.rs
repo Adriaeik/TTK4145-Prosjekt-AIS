@@ -6,6 +6,7 @@ use std::net::SocketAddr;
 use std::sync::atomic::Ordering;
 use std::sync::OnceLock;
 use std::sync::atomic::AtomicBool;
+use std::thread::sleep;
 use std::time::Duration;
 use tokio::net::UdpSocket;
 use socket2::{Domain, Socket, Type};
@@ -37,6 +38,7 @@ pub async fn start_udp_broadcaster(mut chs: local_network::LocalChannels) -> tok
         wv = utils::get_wv(chs_clone);
         if utils::SELF_ID.load(Ordering::SeqCst) == wv[config::MASTER_IDX] {
             println!("Jeg er master, sender UDP, master ID: {}", wv[config::MASTER_IDX]);
+            sleep(Duration::from_millis(100));
             let mesage = format!("{:?}{:?}", config::KEY_STR, wv).to_string();
             udp_socket.send_to(mesage.as_bytes(), &broadcast_addr).await?;
         }
