@@ -119,7 +119,7 @@ async fn init_local_elevator_connection(txs: LocalElevTxs, elevator: e::Elevator
 }
 
 pub async fn run_local_elevator(chs: local_network::LocalChannels) -> std::io::Result<()> {
-    start_elevator_server().await;
+    // start_elevator_server().await;
     let local_elev_channels: LocalElevChannels = LocalElevChannels::new();
     sleep(Duration::from_millis(100)).await;
     let elevator: e::Elevator = e::Elevator::init(config::LOCAL_ELEV_IP, config::DEFAULT_NUM_FLOORS).expect("Feil!");
