@@ -23,7 +23,7 @@ pub async fn tcp_handler(mut chs_o: local_network::LocalChannels, mut socket_rx:
     loop {
         let chs = chs_o.clone();
         IS_MASTER.store(true, Ordering::SeqCst);
-        while utils::is_master(chs.clone()) {
+        while utils::is_master(chs.clone(), wv.clone()) {
             if world_view_update::get_network_status().load(Ordering::SeqCst) {
                 while let Ok((socket, addr)) = socket_rx.try_recv() {
                     let chs_clone = chs.clone();
@@ -53,7 +53,7 @@ pub async fn tcp_handler(mut chs_o: local_network::LocalChannels, mut socket_rx:
         }
         utils::update_worldview(chs.clone(), &mut wv);
         let chs_slave = chs_o.clone();
-        while !utils::is_master(chs_slave.clone()) && master_accepted_tcp {
+        while !utils::is_master(chs_slave.clone(), wv.clone()) && master_accepted_tcp {
             let prev_master = wv[config::MASTER_IDX];
             utils::update_worldview(chs_slave.clone(), &mut wv);
             let new_master = prev_master != wv[config::MASTER_IDX];

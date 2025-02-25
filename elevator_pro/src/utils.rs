@@ -188,31 +188,16 @@ pub fn get_wv(mut chs: local_network::LocalChannels) -> Vec<u8> {
 /// 
 /// Funksjonen vil endre wv til ny worldview om en ny worldview har kommet på wv_kanalen
 pub fn update_worldview(mut chs: local_network::LocalChannels, org_wv: &mut Vec<u8>) {
+    chs.resubscribe_broadcast();
     while let Ok(new_wv) = chs.broadcasts.rxs.wv.try_recv() {
         *org_wv = new_wv;
     }
 }
 
 
-pub fn is_master(mut chs: local_network::LocalChannels) -> bool {
-    let mut wv_option = None;
+pub fn is_master(mut chs: local_network::LocalChannels, mut wv: Vec<u8>) -> bool {
     chs.resubscribe_broadcast();
-    let mut wv: Vec<u8> = Vec::new();
-
-    while wv_option.is_none() {
-        wv_option = {
-            let mut latest_msg = None;
-            while let Ok(message) = chs.broadcasts.rxs.wv.try_recv() {
-                latest_msg = Some(message); // Overskriv tidligere meldinger
-            }
-            latest_msg
-        };
-
-        if let Some(ref msg) = wv_option {
-            wv = msg.clone();
-        } 
-    }
-
+    update_worldview(chs, &mut wv);
     return SELF_ID.load(Ordering::SeqCst) == wv[config::MASTER_IDX];
 }
 
