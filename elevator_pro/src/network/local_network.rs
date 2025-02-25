@@ -3,6 +3,7 @@ use crate::world_view::world_view::ElevatorContainer;
 
 // --- MPSC-KANALAR ---
 
+
 pub struct MpscTxs {
     pub udp_wv: mpsc::Sender<Vec<u8>>,
     pub tcp_to_master_failed: mpsc::Sender<bool>,
@@ -34,6 +35,18 @@ impl Clone for MpscTxs {
     }
 }
 
+/// ## Structen inneholder alle Mpsc kanalene
+/// 
+/// Navn på kanalene er matchende for `txs` og `rxs`:
+///
+/// | Variabel  | Beskrivelse  |
+/// |-----------|-------------|
+/// | **udp_wv**  | Sender WV fra `udp_listener` til `world_view_handler` |
+/// | **tcp_to_master_failed**  | Signaliserer at TCP-til master har feila til `world_view_handler` |
+/// | **container**  | Sender slave-heis sin container fra `handle_slave` til `world_view_handler` |
+/// | **remove_container**  | Sender ID til 'død' slave til `world_view_handler` |
+/// | **mpsc_buffer_ch4**  | Buffer til fremtidig bruk |
+/// | **mpsc_buffer_ch5**  | Buffer til fremtidig bruk |
 pub struct Mpscs {
     pub txs: MpscTxs,
     pub rxs: MpscRxs,
@@ -96,7 +109,7 @@ impl Clone for Mpscs {
 
 pub struct BroadcastTxs {
     pub shutdown: broadcast::Sender<()>,
-    pub self_elevator_container: broadcast::Sender<ElevatorContainer>,
+    pub broadcast_buffer_ch1: broadcast::Sender<bool>,
     pub broadcast_buffer_ch2: broadcast::Sender<bool>,
     pub broadcast_buffer_ch3: broadcast::Sender<bool>,
     pub broadcast_buffer_ch4: broadcast::Sender<bool>,
@@ -105,7 +118,7 @@ pub struct BroadcastTxs {
 
 pub struct BroadcastRxs {
     pub shutdown: broadcast::Receiver<()>,
-    pub self_elevator_container: broadcast::Receiver<ElevatorContainer>,
+    pub broadcast_buffer_ch1: broadcast::Receiver<bool>,
     pub broadcast_buffer_ch2: broadcast::Receiver<bool>,
     pub broadcast_buffer_ch3: broadcast::Receiver<bool>,
     pub broadcast_buffer_ch4: broadcast::Receiver<bool>,
@@ -116,7 +129,7 @@ impl Clone for BroadcastTxs {
     fn clone(&self) -> BroadcastTxs {
         BroadcastTxs {
             shutdown: self.shutdown.clone(),
-            self_elevator_container: self.self_elevator_container.clone(),
+            broadcast_buffer_ch1: self.broadcast_buffer_ch1.clone(),
             broadcast_buffer_ch2: self.broadcast_buffer_ch2.clone(),
             broadcast_buffer_ch3: self.broadcast_buffer_ch3.clone(),
             broadcast_buffer_ch4: self.broadcast_buffer_ch4.clone(),
@@ -129,7 +142,7 @@ impl BroadcastTxs {
     pub fn subscribe(&self) -> BroadcastRxs {
         BroadcastRxs {
             shutdown: self.shutdown.subscribe(),
-            self_elevator_container: self.self_elevator_container.subscribe(),
+            broadcast_buffer_ch1: self.broadcast_buffer_ch1.subscribe(),
             broadcast_buffer_ch2: self.broadcast_buffer_ch2.subscribe(),
             broadcast_buffer_ch3: self.broadcast_buffer_ch3.subscribe(),
             broadcast_buffer_ch4: self.broadcast_buffer_ch4.subscribe(),
@@ -142,7 +155,7 @@ impl BroadcastRxs {
     pub fn resubscribe(&self) -> BroadcastRxs {
         BroadcastRxs {
             shutdown: self.shutdown.resubscribe(),
-            self_elevator_container: self.self_elevator_container.resubscribe(),
+            broadcast_buffer_ch1: self.broadcast_buffer_ch1.resubscribe(),
             broadcast_buffer_ch2: self.broadcast_buffer_ch2.resubscribe(),
             broadcast_buffer_ch3: self.broadcast_buffer_ch3.resubscribe(),
             broadcast_buffer_ch4: self.broadcast_buffer_ch4.resubscribe(),
@@ -151,6 +164,18 @@ impl BroadcastRxs {
     }
 }
 
+/// ## Structen inneholder alle Broadcast kanalene
+/// 
+/// Navn på kanalene er matchende for `txs` og `rxs`:
+///
+/// | Variabel  | Beskrivelse  |
+/// |-----------|-------------|
+/// | **shutdown**  | Signaliserer til alle tråder at de skal avslutte |
+/// | **mpsc_buffer_ch1**  | Buffer til fremtidig bruk |
+/// | **mpsc_buffer_ch2**  | Buffer til fremtidig bruk |
+/// | **mpsc_buffer_ch3**  | Buffer til fremtidig bruk |
+/// | **mpsc_buffer_ch4**  | Buffer til fremtidig bruk |
+/// | **mpsc_buffer_ch5**  | Buffer til fremtidig bruk |
 pub struct Broadcasts {
     pub txs: BroadcastTxs,
     pub rxs: BroadcastRxs,
@@ -168,7 +193,7 @@ impl Broadcasts {
         Broadcasts {
             txs: BroadcastTxs {
                 shutdown: shutdown_tx,
-                self_elevator_container: tx1,
+                broadcast_buffer_ch1: tx1,
                 broadcast_buffer_ch2: tx2,
                 broadcast_buffer_ch3: tx3,
                 broadcast_buffer_ch4: tx4,
@@ -176,7 +201,7 @@ impl Broadcasts {
             },
             rxs: BroadcastRxs {
                 shutdown: shutdown_rx,
-                self_elevator_container: rx1,
+                broadcast_buffer_ch1: rx1,
                 broadcast_buffer_ch2: rx2,
                 broadcast_buffer_ch3: rx3,
                 broadcast_buffer_ch4: rx4,
@@ -235,8 +260,8 @@ impl Clone for WatchRxs {
     fn clone(&self) -> WatchRxs {
         WatchRxs {
             wv: self.wv.clone(),
-            broadcast_buffer_ch2: self.broadcast_buffer_ch1.clone(),
-            broadcast_buffer_ch1: self.broadcast_buffer_ch2.clone(),
+            broadcast_buffer_ch1: self.broadcast_buffer_ch1.clone(),
+            broadcast_buffer_ch2: self.broadcast_buffer_ch2.clone(),
             broadcast_buffer_ch3: self.broadcast_buffer_ch3.clone(),
             broadcast_buffer_ch4: self.broadcast_buffer_ch4.clone(),
             broadcast_buffer_ch5: self.broadcast_buffer_ch5.clone(),
@@ -244,7 +269,18 @@ impl Clone for WatchRxs {
     }
 }
 
-
+/// ## Structen inneholder alle Watch kanalene
+/// 
+/// Navn på kanalene er matchende for `txs` og `rxs`:
+///
+/// | Variabel  | Beskrivelse  |
+/// |-----------|-------------|
+/// | **wv**  | wv oppdateres av ´world_view_handler´ og leses av i ´get_wv´ |
+/// | **mpsc_buffer_ch1**  | Buffer til fremtidig bruk |
+/// | **mpsc_buffer_ch2**  | Buffer til fremtidig bruk |
+/// | **mpsc_buffer_ch3**  | Buffer til fremtidig bruk |
+/// | **mpsc_buffer_ch4**  | Buffer til fremtidig bruk |
+/// | **mpsc_buffer_ch5**  | Buffer til fremtidig bruk |
 pub struct Watches {
     pub txs: WatchTxs,
     pub rxs: WatchRxs,
@@ -293,6 +329,10 @@ impl Watches {
 
 // --- OVERKLASSE FOR ALLE KANALAR ---
 
+
+/// ## Overklasse for alle interne kanaler
+/// 
+/// Inneholder `MPSC`, `Broadcast` og `Watch` kanaler
 pub struct LocalChannels {
     pub mpscs: Mpscs,
     pub broadcasts: Broadcasts,

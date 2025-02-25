@@ -36,7 +36,9 @@ pub fn get_terminal_command() -> (String, Vec<String>) {
     }
 }
 
-
+/// Returnerer lokal IPv4-addresse til maskinen som `IpAddr` 
+/// 
+/// Om lokal IPv4-addresse ikke fins, returneres `local_ip_address::Error`
 pub fn get_self_ip() -> Result<IpAddr, local_ip_address::Error> {
     let ip = match local_ip() {
         Ok(ip) => {
@@ -158,16 +160,18 @@ pub fn print_slave(msg: String) {
     println!("\r\n");
 }
 
-
+/// Henter klone av nyeste wv i systemet
 pub fn get_wv(chs: local_network::LocalChannels) -> Vec<u8> {
     chs.watches.rxs.wv.borrow().clone()
 }
 
-pub fn is_master(mut chs: local_network::LocalChannels) -> bool {
+/// Sjekker om du er master, basert på nyeste worldview
+pub fn is_master(chs: local_network::LocalChannels) -> bool {
     let wv: Vec<u8> = get_wv(chs.clone());
     return SELF_ID.load(Ordering::SeqCst) == wv[config::MASTER_IDX];
 }
 
+/// Henter klone av elevator_container med `id` fra nyeste worldview
 pub fn extract_elevator_container(chs: local_network::LocalChannels, id: u8) -> world_view::ElevatorContainer {
     let wv = get_wv(chs.clone());
     let mut deser_wv = world_view::deserialize_worldview(&wv);
@@ -176,6 +180,7 @@ pub fn extract_elevator_container(chs: local_network::LocalChannels, id: u8) -> 
     deser_wv.elevator_containers[0].clone()
 }
 
+/// Henter klone av elevator_container med `SELF_ID` fra nyeste worldview
 pub fn extract_self_elevator_container(chs: local_network::LocalChannels) -> world_view::ElevatorContainer {
     extract_elevator_container(chs, SELF_ID.load(Ordering::SeqCst))
 }
