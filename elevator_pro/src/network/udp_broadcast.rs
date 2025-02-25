@@ -38,7 +38,6 @@ pub async fn start_udp_broadcaster(mut chs: local_network::LocalChannels) -> tok
         if utils::SELF_ID.load(Ordering::SeqCst) == wv[config::MASTER_IDX] {
             let mesage = format!("{:?}{:?}", config::KEY_STR, wv).to_string();
             udp_socket.send_to(mesage.as_bytes(), &broadcast_addr).await?;
-            //utils::print_ok(format!("Sender UDP-broadcast: {}", mesage));
         }
     }
 }
@@ -63,8 +62,6 @@ pub async fn start_udp_listener(mut chs: local_network::LocalChannels) -> tokio:
         match socket.recv_from(&mut buf).await {
             Ok((len, _)) => {
                 message = String::from_utf8_lossy(&buf[..len]);
-                
-                // println!("mottok noe med lenge {}", len);
             }
             Err(e) => {
                 utils::print_err(format!("udp_broadcast.rs, udp_listener(): {}", e));
@@ -73,16 +70,12 @@ pub async fn start_udp_listener(mut chs: local_network::LocalChannels) -> tokio:
         }
         
         if &message[1..config::KEY_STR.len()+1] == config::KEY_STR { //Plusser på en, siden serialiseringa av stringen tar med '"'-tegnet
-            
             let clean_message = &message[config::KEY_STR.len()+3..message.len()-1]; // Fjerner `"`
             read_wv = clean_message
             .split(", ") // Del opp på ", "
             .filter_map(|s| s.parse::<u8>().ok()) // Konverter til u8, ignorer feil
             .collect(); // Samle i Vec<u8>
 
-
-
-            
             my_wv = utils::get_wv(chs.clone());
             //Bare broadcast hvis du er master
             if read_wv[config::MASTER_IDX] != my_wv[config::MASTER_IDX] {
@@ -99,45 +92,7 @@ pub async fn start_udp_listener(mut chs: local_network::LocalChannels) -> tokio:
                 //TODO: Send denne wv tilbake til thread som behandler worldview
                 let _ = chs.mpscs.txs.udp_wv.send(my_wv.clone()).await;
             }
-
-
-            // chs.resubscribe_broadcast();
-            // let wv = async {
-            //     let mut latest_msg = None;
-            //     while let Ok(message) = chs.broadcasts.rxs.wv.try_recv() {
-            //         latest_msg = Some(message); // Overskriv tidligere meldinger
-            //     }
-            //     latest_msg
-            // }.await; 
-            
-            // if let None = wv {
-            //     //println!("msg var ingenting");
-            //     //TODO: legg til atomic bool kanskje (ref tokio_ny) (ikke helt nødvendig)
-            //     //utils::print_warn("Ingen wv på rxs.wv_rx".to_string());
-            // }
-            // if let Some(mut my_wv) = wv {
-            //     //Bare broadcast hvis du er master
-            //     if read_wv[config::MASTER_IDX] != my_wv[config::MASTER_IDX] {
-            //         println!("UDP sin ID: {}, egen wv ID: {}", read_wv[config::MASTER_IDX], my_wv[config::MASTER_IDX]);
-            //     } else {
-            //         get_udp_timeout().store(false, Ordering::SeqCst);
-            //     }
-
-            //     //utils::print_info(format!("read_wv: {:?}", read_wv));
-            //     //utils::print_info(format!("full message: {:?}", message));
-            //     if my_wv[config::MASTER_IDX] >= read_wv[config::MASTER_IDX] && !(utils::SELF_ID.load(Ordering::SeqCst) == read_wv[config::MASTER_IDX]) {
-            //         //Oppdater egen WV
-            //         my_wv = read_wv;
-            //         //TODO: Send denne wv tilbake til thread som behandler worldview
-            //         let _ = chs.mpscs.txs.udp_wv.send(my_wv).await;
-            //     }
-            //     else {
-            //         //println!("UDP-en har høyere ID, jeg ignorerer den");
-            //     }
-            // }
-                
         }
-
     }
 }
 

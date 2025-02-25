@@ -163,11 +163,8 @@ pub fn get_wv(chs: local_network::LocalChannels) -> Vec<u8> {
     chs.watches.rxs.wv.borrow().clone()
 }
 
-
-
 pub fn is_master(mut chs: local_network::LocalChannels) -> bool {
     let wv: Vec<u8> = get_wv(chs.clone());
-
     return SELF_ID.load(Ordering::SeqCst) == wv[config::MASTER_IDX];
 }
 

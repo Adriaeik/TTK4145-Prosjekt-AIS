@@ -101,7 +101,6 @@ pub struct BroadcastTxs {
     pub broadcast_buffer_ch3: broadcast::Sender<bool>,
     pub broadcast_buffer_ch4: broadcast::Sender<bool>,
     pub broadcast_buffer_ch5: broadcast::Sender<bool>,
-    pub wv: broadcast::Sender<Vec<u8>>,
 }
 
 pub struct BroadcastRxs {
@@ -111,7 +110,6 @@ pub struct BroadcastRxs {
     pub broadcast_buffer_ch3: broadcast::Receiver<bool>,
     pub broadcast_buffer_ch4: broadcast::Receiver<bool>,
     pub broadcast_buffer_ch5: broadcast::Receiver<bool>,
-    pub wv: broadcast::Receiver<Vec<u8>>,
 }
 
 impl Clone for BroadcastTxs {
@@ -123,7 +121,6 @@ impl Clone for BroadcastTxs {
             broadcast_buffer_ch3: self.broadcast_buffer_ch3.clone(),
             broadcast_buffer_ch4: self.broadcast_buffer_ch4.clone(),
             broadcast_buffer_ch5: self.broadcast_buffer_ch5.clone(),
-            wv: self.wv.clone(),
         }
     }
 }
@@ -137,7 +134,6 @@ impl BroadcastTxs {
             broadcast_buffer_ch3: self.broadcast_buffer_ch3.subscribe(),
             broadcast_buffer_ch4: self.broadcast_buffer_ch4.subscribe(),
             broadcast_buffer_ch5: self.broadcast_buffer_ch5.subscribe(),
-            wv: self.wv.subscribe(),
         }
     }
 }
@@ -151,7 +147,6 @@ impl BroadcastRxs {
             broadcast_buffer_ch3: self.broadcast_buffer_ch3.resubscribe(),
             broadcast_buffer_ch4: self.broadcast_buffer_ch4.resubscribe(),
             broadcast_buffer_ch5: self.broadcast_buffer_ch5.resubscribe(),
-            wv: self.wv.resubscribe(),
         }
     }
 }
@@ -169,7 +164,6 @@ impl Broadcasts {
         let (tx3, rx3) = broadcast::channel(1);
         let (tx4, rx4) = broadcast::channel(1);
         let (tx5, rx5) = broadcast::channel(1);
-        let (wv_tx, wv_rx) = broadcast::channel(1);
 
         Broadcasts {
             txs: BroadcastTxs {
@@ -179,7 +173,6 @@ impl Broadcasts {
                 broadcast_buffer_ch3: tx3,
                 broadcast_buffer_ch4: tx4,
                 broadcast_buffer_ch5: tx5,
-                wv: wv_tx,
             },
             rxs: BroadcastRxs {
                 shutdown: shutdown_rx,
@@ -188,7 +181,6 @@ impl Broadcasts {
                 broadcast_buffer_ch3: rx3,
                 broadcast_buffer_ch4: rx4,
                 broadcast_buffer_ch5: rx5,
-                wv: wv_rx,
             },
         }
     }
@@ -221,8 +213,8 @@ impl Clone for WatchTxs {
     fn clone(&self) -> WatchTxs {
         WatchTxs {
             wv: self.wv.clone(),
-            broadcast_buffer_ch2: self.broadcast_buffer_ch1.clone(),
-            broadcast_buffer_ch1: self.broadcast_buffer_ch2.clone(),
+            broadcast_buffer_ch1: self.broadcast_buffer_ch1.clone(),
+            broadcast_buffer_ch2: self.broadcast_buffer_ch2.clone(),
             broadcast_buffer_ch3: self.broadcast_buffer_ch3.clone(),
             broadcast_buffer_ch4: self.broadcast_buffer_ch4.clone(),
             broadcast_buffer_ch5: self.broadcast_buffer_ch5.clone(),
