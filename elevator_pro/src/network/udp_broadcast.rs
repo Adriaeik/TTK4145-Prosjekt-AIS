@@ -79,7 +79,7 @@ pub async fn start_udp_listener(mut chs: local_network::LocalChannels) -> tokio:
             my_wv = utils::get_wv(chs.clone());
             //Bare broadcast hvis du er master
             if read_wv[config::MASTER_IDX] != my_wv[config::MASTER_IDX] {
-                println!("UDP sin ID: {}, egen wv ID: {}", read_wv[config::MASTER_IDX], my_wv[config::MASTER_IDX]);
+                //println!("UDP sin ID: {}, egen wv ID: {}", read_wv[config::MASTER_IDX], my_wv[config::MASTER_IDX]);
             } else {
                 get_udp_timeout().store(false, Ordering::SeqCst);
             }
@@ -102,7 +102,7 @@ pub async fn udp_watchdog(chs: local_network::LocalChannels) {
     loop {
         if get_udp_timeout().load(Ordering::SeqCst) == false {
             get_udp_timeout().store(true, Ordering::SeqCst);
-            tokio::time::sleep(Duration::from_millis(10000)).await;
+            tokio::time::sleep(Duration::from_millis(1000)).await;
         }
         else {
             get_udp_timeout().store(false, Ordering::SeqCst); //resetter watchdogen

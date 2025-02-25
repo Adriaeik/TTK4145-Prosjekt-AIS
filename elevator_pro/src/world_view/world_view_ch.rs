@@ -108,7 +108,7 @@ pub async fn update_wv(mut main_local_chs: local_network::LocalChannels, mut wor
         if wv_edited_I {
             let _ = main_local_chs.watches.txs.wv.send(worldview_serialised.clone());
             // println!("WV er endra");
-            println!("Worldview ble endra");
+            //println!("Worldview ble endra");
             wv_edited_I = false;
         }
     }
