@@ -85,11 +85,13 @@ async fn main() {
     });
 
     
+    let mut wv_edited_I = true;
     loop {
         //Ops. mister internett -> du må bli master (single elevator mode)
         match main_local_chs.mpscs.rxs.udp_wv.try_recv() {
             Ok(master_wv) => {
                 worldview_serialised = world_view_update::join_wv(worldview_serialised, master_wv);
+                wv_edited_I = true;
             },
             Err(_) => {}, 
         }
@@ -101,6 +103,7 @@ async fn main() {
                 deserialized_wv.set_num_elev(deserialized_wv.elevator_containers.len() as u8);
                 deserialized_wv.master_id = utils::SELF_ID.load(Ordering::SeqCst);
                 worldview_serialised = world_view::serialize_worldview(&deserialized_wv);
+                wv_edited_I = true;
             },
             Err(_) => {},
         }
@@ -115,6 +118,7 @@ async fn main() {
                     deserialized_wv.add_elev(deser_container);
                 } 
                 worldview_serialised = world_view::serialize_worldview(&deserialized_wv);
+                wv_edited_I = true;
             },
             Err(_) => {},
         }
@@ -122,14 +126,18 @@ async fn main() {
             Ok(id) => {
                 let mut deserialized_wv = world_view::deserialize_worldview(&worldview_serialised);
                 deserialized_wv.remove_elev(id);
-                worldview_serialised = world_view::serialize_worldview(&deserialized_wv); 
+                worldview_serialised = world_view::serialize_worldview(&deserialized_wv);
+                wv_edited_I = true; 
             },
             Err(_) => {},
         }
         // let mut ww_des = world_view::deserialize_worldview(&worldview_serialised);
         // ww_des.elevator_containers[0].last_floor_sensor = (ww_des.elevator_containers[0].last_floor_sensor %255) + 1;
         // worldview_serialised = world_view::serialize_worldview(&ww_des);
-        let _ = main_local_chs.broadcasts.txs.wv.send(worldview_serialised.clone());
+        if wv_edited_I {
+            let _ = main_local_chs.broadcasts.txs.wv.send(worldview_serialised.clone());
+            wv_edited_I = false;
+        }
 
         
     }
