@@ -43,6 +43,9 @@ async fn start_tcp_watchdog(watchdog: TcpWatchdog) -> Result<(), ()> {
             println!("Timeout utløyst! Avsluttar.");
             break;
         }
+        else {
+            println!("Ingen timeout denne gangen");
+        }
         // Sett timeout til false igjen
         timeout.store(false, Ordering::SeqCst);
     }
@@ -104,7 +107,7 @@ pub async fn tcp_handler(chs: local_network::LocalChannels, mut socket_rx: mpsc:
                     }
                     send_tcp_message(chs.clone(), s).await;
                     //TODO: lag bedre delay
-                    tokio::time::sleep(Duration::from_millis(2000)).await; //Ikke behold 2 sek
+                    tokio::time::sleep(Duration::from_millis(2000)).await; // NB: Ikke behold 2 sek
                 }
             }
             else {
