@@ -182,7 +182,7 @@ pub fn get_wv(mut chs: local_network::LocalChannels) -> Vec<u8> {
 }
 
 pub async fn update_wv(mut chs: local_network::LocalChannels, wv: &mut Vec<u8>) {
-
+    chs.resubscribe_broadcast();
     let msg = async {
         let mut latest_msg = None;
         while let Ok(message) = chs.broadcasts.rxs.wv.try_recv() {
