@@ -37,13 +37,15 @@ pub async fn start_udp_broadcaster(mut chs: local_network::LocalChannels) -> tok
         //Hent ut nyeste melding på wv_rx
         utils::update_worldview(chs.clone(), &mut wv);
 
-        // Gjør til bitstream
-        let mesage = format!("{:?}{:?}", config::KEY_STR, wv).to_string();
-
-        //Send broadcasten
-        udp_socket.send_to(mesage.as_bytes(), &broadcast_addr).await?;
-
-        //TODO: delay?
+        if utils::is_master(chs.clone(), wv.clone()) {
+            // Gjør til bitstream
+            let mesage = format!("{:?}{:?}", config::KEY_STR, wv).to_string();
+    
+            //Send broadcasten
+            udp_socket.send_to(mesage.as_bytes(), &broadcast_addr).await?;
+    
+            //TODO: delay?
+        }
     }
 }
 
