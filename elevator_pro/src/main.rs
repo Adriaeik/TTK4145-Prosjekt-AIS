@@ -137,7 +137,6 @@ async fn main() {
         let _ = main_local_chs.broadcasts.txs.wv.send(worldview_serialised.clone());
         if wv_edited_I {
             wv_edited_I = false;
-            println!("Worldview ble endra!!!");
         }
 
         
