@@ -1,4 +1,4 @@
-use std::{sync::atomic::{Ordering, AtomicBool}, time::Duration};
+use std::{f32::consts::FRAC_1_PI, future::Future, sync::atomic::{AtomicBool, Ordering}, time::Duration};
 
 use tokio::io::AsyncWriteExt;
 use tokio::sync::mpsc;
@@ -6,6 +6,7 @@ use tokio::{io::AsyncReadExt, net::TcpListener};
 use tokio::task::JoinHandle;
 use tokio::net::TcpStream;
 use std::net::SocketAddr;
+use std::sync::Arc;
 
 use crate::world_view::world_view;
 use crate::{config, utils, world_view::world_view_update};
@@ -15,6 +16,40 @@ use super::local_network;
 
 // Definer ein global `AtomicU8`
 pub static IS_MASTER: AtomicBool = AtomicBool::new(false); // Startverdi 0
+
+
+#[derive(Debug, Clone)]
+struct TcpWatchdog {
+    pub timeout: Arc<AtomicBool>,
+    timeout_duration: u16,
+}
+
+impl TcpWatchdog {
+    pub fn new() -> Self {
+        TcpWatchdog {
+            timeout: Arc::new(AtomicBool::new(false)), // Initialiserer OnceLock
+            timeout_duration: config::TCP_TIMEOUT,
+        }
+    }
+}
+async fn start_tcp_watchdog(watchdog: TcpWatchdog) -> Result<(), ()> {
+    let timeout_duration = watchdog.timeout_duration; 
+    let timeout = watchdog.timeout; // Vi låner referanse til AtomicBool
+    loop {
+        tokio::time::sleep(Duration::from_millis(timeout_duration as u64)).await;
+
+        // Sjekk om timeout-flagget er sett
+        if timeout.load(Ordering::SeqCst) {
+            println!("Timeout utløyst! Avsluttar.");
+            break;
+        }
+        // Sett timeout til false igjen
+        timeout.store(false, Ordering::SeqCst);
+    }
+    Ok(())
+}
+
+
 
 
 pub async fn tcp_handler(chs: local_network::LocalChannels, mut socket_rx: mpsc::Receiver<(TcpStream, SocketAddr)>) {
@@ -69,7 +104,7 @@ pub async fn tcp_handler(chs: local_network::LocalChannels, mut socket_rx: mpsc:
                     }
                     send_tcp_message(chs.clone(), s).await;
                     //TODO: lag bedre delay
-                    tokio::time::sleep(Duration::from_millis(100)).await;
+                    tokio::time::sleep(Duration::from_millis(2000)).await; //Ikke behold 2 sek
                 }
             }
             else {
@@ -152,15 +187,30 @@ pub async fn listener_task(_chs: local_network::LocalChannels, socket_tx: mpsc::
 /// 
 /// For nå leser den kun fra slaven.
 async fn handle_slave(mut stream: TcpStream, chs: local_network::LocalChannels) {
+    let watchdog = TcpWatchdog::new();
+
     print_info("Handle slave har starta!".to_string());
+    
     loop {
-        match read_from_stream(&mut stream, chs.clone()).await {
-            Some(msg) => {
-                let received_data = msg;
-                let _ = chs.mpscs.txs.container.send(received_data).await;
-                //utils::print_info(format!("Melding frå slave: {:?}", received_data));
-            }
-            None => {
+        let wd_clone = watchdog.clone();
+        tokio::select! {
+            // Lesing frå stream
+            res = read_from_stream(&mut stream, chs.clone()) => match res {
+                Some(msg) => {
+                    wd_clone.timeout.store(false, Ordering::SeqCst);
+                    let _ = chs.mpscs.txs.container.send(msg).await;
+                }
+                None => {
+                    break;
+                }
+            },
+
+            // Vent på timeout
+            _ = start_tcp_watchdog(watchdog.clone()) => {
+                let id = utils::ip2id(stream.peer_addr().expect("Peer har ingen IP?").ip());
+                utils::print_err(format!("Timeout utløyst! Avsluttar handle_slave til {}", id));
+                let _ = chs.mpscs.txs.remove_container.send(id).await;
+                let _ = stream.shutdown().await;
                 break;
             }
         }

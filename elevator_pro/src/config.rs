@@ -15,3 +15,6 @@ pub const ERROR_ID: u8 = 255;
 
 pub const MASTER_IDX: usize = 1;
 pub const KEY_STR: &str = "Gruppe 25";
+
+pub const TCP_TIMEOUT: u16 = 1000; // i millisekunder
+
