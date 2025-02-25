@@ -23,7 +23,6 @@ struct TcpWatchdog {
 impl TcpWatchdog {
     /// Starter en asynkron løkke der vi veksler mellom å lese fra stream og sjekke for timeout.
     async fn start_reading_from_slave(&self, mut stream: TcpStream, chs: local_network::LocalChannels) {
-        // Tidspunktet for siste vellykkede lesing.
         let mut last_success = Instant::now();
 
         loop {
@@ -80,10 +79,8 @@ pub async fn tcp_handler(chs: local_network::LocalChannels, mut socket_rx: mpsc:
                         let tcp_watchdog = TcpWatchdog {
                             timeout: Duration::from_millis(config::TCP_TIMEOUT),
                         };
-                    
-                        // Starter watchdog‑løkken med referanse til stream og channels.
+                        // Starter watchdog‑løkken, håndterer også mottak av meldinger på socketen
                         tcp_watchdog.start_reading_from_slave(socket, chs_clone).await;
-                        // handle_slave(socket, chs_clone).await;
                     });
                     tokio::task::yield_now().await; //Denne tvinger tokio til å sørge for at alle tasks i kø blir behandler
                                                     //Feilen før var at tasken ble lagd i en loop, og try_recv kaltes så tett att tokio ikke rakk å starte tasken før man fikk en ny melding(og den fikk litt tid da den mottok noe)
@@ -104,7 +101,6 @@ pub async fn tcp_handler(chs: local_network::LocalChannels, mut socket_rx: mpsc:
             master_accepted_tcp = true;
             stream = Some(s);
         }
-        wv = utils::get_wv(chs.clone());
 
         /* Mens du er slave: Sjekk om det har kommet ny master / connection til master har dødd */
         let mut i = 0;
@@ -122,10 +118,7 @@ pub async fn tcp_handler(chs: local_network::LocalChannels, mut socket_rx: mpsc:
                         tokio::time::sleep(Duration::from_millis(10)).await; //TODO: test om denne trengs
                         master_accepted_tcp = false;
                     }
-                    if i < 10 {
-                        send_tcp_message(chs.clone(), s).await;
-                        i += 1;
-                    }
+                    send_tcp_message(chs.clone(), s).await;
                     //TODO: lag bedre delay
                     tokio::time::sleep(Duration::from_millis(100)).await; 
                 }
@@ -207,26 +200,6 @@ pub async fn listener_task(_chs: local_network::LocalChannels, socket_tx: mpsc::
 }
 
 
-
-
-// /// ### Håndtering av slave, koblet til `stream`
-// /// 
-// /// For nå leser den kun fra slaven.
-// async fn handle_slave(mut stream: TcpStream, chs: local_network::LocalChannels) {
-//     print_info("Handle slave har starta!".to_string());
-    
-//     loop {
-//         // Lesing frå stream
-//         match read_from_stream(&mut stream, chs.clone()).await {
-//             Some(msg) => {
-//                 let _ = chs.mpscs.txs.container.send(msg).await;
-//             }
-//             None => {
-//                 break;
-//             }
-//         }
-//     }
-// }
 
 /// ## Leser fra `stream`
 /// 
