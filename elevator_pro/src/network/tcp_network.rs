@@ -120,7 +120,7 @@ pub async fn tcp_handler(chs: local_network::LocalChannels, mut socket_rx: mpsc:
                     }
                     send_tcp_message(chs.clone(), s, wv.clone()).await;
                     //TODO: lag bedre delay
-                    tokio::time::sleep(Duration::from_millis(100)).await; 
+                    tokio::time::sleep(Duration::from_millis(10)).await; 
                 }
             }
             else {
