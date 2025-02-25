@@ -18,8 +18,6 @@ pub fn get_udp_timeout() -> &'static AtomicBool {
 
 pub async fn start_udp_broadcaster(mut chs: local_network::LocalChannels) -> tokio::io::Result<()> {
     chs.subscribe_broadcast();
-    let mut wv = utils::get_wv(chs.clone());
-
     let addr: &str = &format!("{}:{}", config::BC_ADDR, config::DUMMY_PORT);
     let addr2: &str = &format!("{}:0", config::BC_LISTEN_ADDR);
 
@@ -34,23 +32,32 @@ pub async fn start_udp_broadcaster(mut chs: local_network::LocalChannels) -> tok
     let udp_socket = UdpSocket::from_std(socket.into())?;
 
     loop{
+        chs.resubscribe_broadcast();
         //Hent ut nyeste melding på wv_rx
-        utils::update_worldview(chs.clone(), &mut wv);
-
-        if utils::is_master(chs.clone(), wv.clone()) {
-            // Gjør til bitstream
-            let mesage = format!("{:?}{:?}", config::KEY_STR, wv).to_string();
+        let msg = async {
+            let mut latest_msg = None;
+            while let Ok(message) = chs.broadcasts.rxs.wv.try_recv() {
+                latest_msg = Some(message); // Overskriv tidligere meldinger
+            }
+            latest_msg
+        }.await; 
     
-            //Send broadcasten
-            udp_socket.send_to(mesage.as_bytes(), &broadcast_addr).await?;
-    
-            //TODO: delay?
+        if let None = msg {
+            //utils::print_err("Ingen wv på rxs.wv_rx".to_string());
+        }
+        if let Some(message) = msg {
+            //Bare broadcast hvis du er master
+            if utils::SELF_ID.load(Ordering::SeqCst) == message[config::MASTER_IDX] {
+                let mesage = format!("{:?}{:?}", config::KEY_STR, message).to_string();
+                udp_socket.send_to(mesage.as_bytes(), &broadcast_addr).await?;
+                //utils::print_ok(format!("Sender UDP-broadcast: {}", mesage));
+            }
         }
     }
 }
 
 pub async fn start_udp_listener(mut chs: local_network::LocalChannels) -> tokio::io::Result<()> {
-    let mut my_wv = utils::get_wv(chs.clone());
+    chs.subscribe_broadcast();
     let broadcast_listen_addr = format!("{}:{}", config::BC_LISTEN_ADDR, config::DUMMY_PORT);
     let socket_addr: SocketAddr = broadcast_listen_addr.parse().expect("Ugyldig adresse");
     let socket_temp = Socket::new(Domain::IPV4, Type::DGRAM, None)?;
@@ -86,22 +93,39 @@ pub async fn start_udp_listener(mut chs: local_network::LocalChannels) -> tokio:
             .filter_map(|s| s.parse::<u8>().ok()) // Konverter til u8, ignorer feil
             .collect(); // Samle i Vec<u8>
 
-            // chs.resubscribe_broadcast();
-            utils::update_worldview(chs.clone(), &mut my_wv);
+            chs.resubscribe_broadcast();
+            let wv = async {
+                let mut latest_msg = None;
+                while let Ok(message) = chs.broadcasts.rxs.wv.try_recv() {
+                    latest_msg = Some(message); // Overskriv tidligere meldinger
+                }
+                latest_msg
+            }.await; 
             
-            if read_wv[config::MASTER_IDX] != my_wv[config::MASTER_IDX] {
-                println!("UDP sin ID: {}, egen wv ID: {}", read_wv[config::MASTER_IDX], my_wv[config::MASTER_IDX]);
-            } else {
-                get_udp_timeout().store(false, Ordering::SeqCst);
+            if let None = wv {
+                //println!("msg var ingenting");
+                //TODO: legg til atomic bool kanskje (ref tokio_ny) (ikke helt nødvendig)
+                //utils::print_warn("Ingen wv på rxs.wv_rx".to_string());
             }
-            if my_wv[config::MASTER_IDX] >= read_wv[config::MASTER_IDX] && !(utils::SELF_ID.load(Ordering::SeqCst) == read_wv[config::MASTER_IDX]) {
-                //Oppdater egen WV
-                my_wv = read_wv;
-                //TODO: Send denne wv tilbake til thread som behandler worldview
-                let _ = chs.mpscs.txs.udp_wv.send(my_wv.clone()).await;
-            }
-            else {
-                //println!("UDP-en har høyere ID, jeg ignorerer den");
+            if let Some(mut my_wv) = wv {
+                //Bare broadcast hvis du er master
+                if read_wv[config::MASTER_IDX] != my_wv[config::MASTER_IDX] {
+                    println!("UDP sin ID: {}, egen wv ID: {}", read_wv[config::MASTER_IDX], my_wv[config::MASTER_IDX]);
+                } else {
+                    get_udp_timeout().store(false, Ordering::SeqCst);
+                }
+
+                //utils::print_info(format!("read_wv: {:?}", read_wv));
+                //utils::print_info(format!("full message: {:?}", message));
+                if my_wv[config::MASTER_IDX] >= read_wv[config::MASTER_IDX] && !(utils::SELF_ID.load(Ordering::SeqCst) == read_wv[config::MASTER_IDX]) {
+                    //Oppdater egen WV
+                    my_wv = read_wv;
+                    //TODO: Send denne wv tilbake til thread som behandler worldview
+                    let _ = chs.mpscs.txs.udp_wv.send(my_wv).await;
+                }
+                else {
+                    //println!("UDP-en har høyere ID, jeg ignorerer den");
+                }
             }
                 
         }
