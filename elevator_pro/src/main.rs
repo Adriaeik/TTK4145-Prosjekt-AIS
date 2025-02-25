@@ -85,8 +85,8 @@ async fn main() {
     });
 
     
+    let mut  wv_changed_I = true;
     loop {
-        let mut  wv_changed_I = false;
         //Ops. mister internett -> du må bli master (single elevator mode)
         match main_local_chs.mpscs.rxs.udp_wv.try_recv() {
             Ok(master_wv) => {
@@ -136,6 +136,7 @@ async fn main() {
         // worldview_serialised = world_view::serialize_worldview(&ww_des);
         if wv_changed_I {
             let _ = main_local_chs.broadcasts.txs.wv.send(worldview_serialised.clone());
+            wv_changed_I = false;
         }        
     }
 
