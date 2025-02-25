@@ -203,7 +203,7 @@ pub async fn update_wv(mut chs: local_network::LocalChannels, wv: &mut Vec<u8>) 
 
 pub fn is_master(mut chs: local_network::LocalChannels) -> bool {
     let mut wv_option = None;
-    chs.resubscribe_broadcast();
+    // chs.resubscribe_broadcast();
     let mut wv: Vec<u8> = Vec::new();
 
     while wv_option.is_none() {
