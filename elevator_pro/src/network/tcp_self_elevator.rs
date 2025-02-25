@@ -126,7 +126,7 @@ fn init_to_closest_under_floor(rxs: LocalElevRxs, elevator: e::Elevator) -> u8 {
 }
 
 
-pub async fn run_local_elevator() -> std::io::Result<()> {
+pub async fn run_local_elevator(chs: local_network::LocalChannels) -> std::io::Result<()> {
     start_elevator_server().await;
     let local_elev_channels: LocalElevChannels = LocalElevChannels::new();
     println!("Lagd chs");
@@ -180,6 +180,52 @@ pub async fn run_local_elevator() -> std::io::Result<()> {
 //     }
 // }
 
+// tokio::select! {
+//     Some(call_button) = rxs.call_button.recv() => {
+//         println!("Fikk callbtn");
+//         let msg = local_network::ElevMessage {
+//             msg_type: local_network::ElevMsgType::CBTN,
+//             call_button: Some(call_button),
+//             floor_sensor: None,
+//             stop_button: None,
+//             obstruction: None,
+//         };
+//         let _ = chs.mpscs.txs.local_elev.send(msg).await;
+//     },
+//     Some(floor) = rxs.floor_sensor.recv() => {
+//         println!("Fikk Floor");
+//         let msg = local_network::ElevMessage {
+//             msg_type: local_network::ElevMsgType::FSENS, // Bruker riktig message type
+//             call_button: None,
+//             floor_sensor: Some(floor),
+//             stop_button: None,
+//             obstruction: None,
+//         };
+//         let _ = chs.mpscs.txs.local_elev.send(msg).await;
+//     },
+//     Some(stop) = rxs.stop_button.recv() => {
+//         println!("Fikk Stop");
+//         let msg = local_network::ElevMessage {
+//             msg_type: local_network::ElevMsgType::SBTN,
+//             call_button: None,
+//             floor_sensor: None,
+//             stop_button: Some(stop),
+//             obstruction: None,
+//         };
+//         let _ = chs.mpscs.txs.local_elev.send(msg).await;
+//     },
+//     Some(obstr) = rxs.obstruction.recv() => {
+//         println!("Fikk Obstruction");
+//         let msg = local_network::ElevMessage {
+//             msg_type: local_network::ElevMsgType::OBSTRX,
+//             call_button: None,
+//             floor_sensor: None,
+//             stop_button: None,
+//             obstruction: Some(obstr),
+//         };
+//         let _ = chs.mpscs.txs.local_elev.send(msg).await;
+//     }
+// }
 
 
 

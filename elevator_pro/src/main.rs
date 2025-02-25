@@ -1,6 +1,6 @@
 use std::{fmt::format, sync::atomic::Ordering, time::Duration};
 
-use elevator_pro::{network::{local_network, tcp_network, tcp_self_elevator, udp_broadcast}, utils::{self, print_err, print_ok}, world_view::{world_view, world_view_update}};
+use elevator_pro::{network::{local_network, tcp_network, tcp_self_elevator, udp_broadcast}, utils::{self, print_err, print_info, print_ok}, world_view::{world_view, world_view_update}};
 use elevator_pro::init;
 
 use tokio::{sync::broadcast, time::sleep};
@@ -39,13 +39,14 @@ async fn main() {
     let chs_udp_wd = main_local_chs.clone();
     let chs_print = main_local_chs.clone();
     let chs_listener = main_local_chs.clone();
+    let chs_local_elev = main_local_chs.clone();
     let (socket_tx, socket_rx) = mpsc::channel::<(TcpStream, SocketAddr)>(8);
 /* SLUTT ----------- Kloning av lokale channels til Tokio Tasks ---------------------- */                                                     
 
     //TODO: Få den til å signalisere at vi er i known state. Den kommer ikke til å returnere etterhvert
-    let _local_elev_task = tokio::spawn(async move {
-        let _ = tcp_self_elevator::run_local_elevator().await;
-    }).await;
+    let _local_elev_task = tokio::spawn(async {
+        let _ = tcp_self_elevator::run_local_elevator(chs_local_elev).await;
+    });
 
 
 /* START ----------- Starte Eksterne Nettverkstasks ---------------------- */
@@ -79,14 +80,14 @@ async fn main() {
 
 
 
-    let print_task = tokio::spawn(async move {
-        loop {
-            let chs_clone = chs_print.clone();
-            let wv = utils::get_wv(chs_clone);
-            world_view::print_wv(wv.clone());
-            tokio::time::sleep(Duration::from_millis(500)).await;
-        }
-    });
+    // let _print_task = tokio::spawn(async move {
+    //     loop {
+    //         let chs_clone = chs_print.clone();
+    //         let wv = utils::get_wv(chs_clone);
+    //         world_view::print_wv(wv.clone());
+    //         tokio::time::sleep(Duration::from_millis(500)).await;
+    //     }
+    // });
 
     
     let mut wv_edited_I = true;
@@ -132,6 +133,25 @@ async fn main() {
                 deserialized_wv.remove_elev(id);
                 worldview_serialised = world_view::serialize_worldview(&deserialized_wv);
                 wv_edited_I = true; 
+            },
+            Err(_) => {},
+        }
+        match main_local_chs.mpscs.rxs.local_elev.try_recv() {
+            Ok(msg) => {
+                match msg.msg_type {
+                    local_network::ElevMsgType::CBTN => {
+                        print_info(format!("Callbutton: {:?}", msg.call_button));
+                    }
+                    local_network::ElevMsgType::FSENS => {
+                        print_info(format!("Floor sensor: {:?}", msg.floor_sensor));
+                    }
+                    local_network::ElevMsgType::SBTN => {
+                        print_info(format!("Stop button: {:?}", msg.stop_button));
+                    }
+                    local_network::ElevMsgType::OBSTRX => {
+                        print_info(format!("Obstruction: {:?}", msg.obstruction));
+                    }
+                }
             },
             Err(_) => {},
         }

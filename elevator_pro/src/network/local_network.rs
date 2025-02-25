@@ -1,5 +1,24 @@
+use crate::elevio::poll::CallButton;
 use tokio::sync::{mpsc, broadcast, watch};
 use crate::world_view::world_view::ElevatorContainer;
+
+
+#[derive(Debug)]
+pub enum ElevMsgType {
+    CBTN,
+    FSENS,
+    SBTN,
+    OBSTRX,
+}
+
+#[derive(Debug)]
+pub struct ElevMessage {
+    pub msg_type: ElevMsgType,
+    pub call_button: Option<CallButton>,
+    pub floor_sensor: Option<u8>,
+    pub stop_button: Option<bool>,
+    pub obstruction: Option<bool>,
+}
 
 // --- MPSC-KANALAR ---
 
@@ -9,7 +28,7 @@ pub struct MpscTxs {
     pub tcp_to_master_failed: mpsc::Sender<bool>,
     pub container: mpsc::Sender<Vec<u8>>,
     pub remove_container: mpsc::Sender<u8>,
-    pub mpsc_buffer_ch4: mpsc::Sender<bool>,
+    pub local_elev: mpsc::Sender<ElevMessage>,
     pub mpsc_buffer_ch5: mpsc::Sender<bool>,
 }
 
@@ -18,7 +37,7 @@ pub struct MpscRxs {
     pub tcp_to_master_failed: mpsc::Receiver<bool>,
     pub container: mpsc::Receiver<Vec<u8>>,
     pub remove_container: mpsc::Receiver<u8>,
-    pub mpsc_buffer_ch4: mpsc::Receiver<bool>,
+    pub local_elev: mpsc::Receiver<ElevMessage>,
     pub mpsc_buffer_ch5: mpsc::Receiver<bool>,
 }
 
@@ -29,7 +48,7 @@ impl Clone for MpscTxs {
             tcp_to_master_failed: self.tcp_to_master_failed.clone(),
             container: self.container.clone(),
             remove_container: self.remove_container.clone(),
-            mpsc_buffer_ch4: self.mpsc_buffer_ch4.clone(),
+            local_elev: self.local_elev.clone(),
             mpsc_buffer_ch5: self.mpsc_buffer_ch5.clone(),
         }
     }
@@ -45,7 +64,7 @@ impl Clone for MpscTxs {
 /// | **tcp_to_master_failed**  | Signaliserer at TCP-til master har feila til `world_view_handler` |
 /// | **container**  | Sender slave-heis sin container fra `handle_slave` til `world_view_handler` |
 /// | **remove_container**  | Sender ID til 'død' slave til `world_view_handler` |
-/// | **mpsc_buffer_ch4**  | Buffer til fremtidig bruk |
+/// | **local_elev**  | Buffer til fremtidig bruk |
 /// | **mpsc_buffer_ch5**  | Buffer til fremtidig bruk |
 pub struct Mpscs {
     pub txs: MpscTxs,
@@ -67,7 +86,7 @@ impl Mpscs {
                 tcp_to_master_failed: tx1,
                 container: tx2,
                 remove_container: tx3,
-                mpsc_buffer_ch4: tx4,
+                local_elev: tx4,
                 mpsc_buffer_ch5: tx5,
             }, 
             rxs: MpscRxs { 
@@ -75,7 +94,7 @@ impl Mpscs {
                 tcp_to_master_failed: rx1,
                 container: rx2,
                 remove_container: rx3,
-                mpsc_buffer_ch4: rx4,
+                local_elev: rx4,
                 mpsc_buffer_ch5: rx5,
             }
         }
@@ -98,7 +117,7 @@ impl Clone for Mpscs {
                 tcp_to_master_failed: rx1,
                 container: rx2,
                 remove_container: rx3,
-                mpsc_buffer_ch4: rx4,
+                local_elev: rx4,
                 mpsc_buffer_ch5: rx5,
             }
         }
@@ -174,7 +193,7 @@ impl BroadcastRxs {
 /// | **mpsc_buffer_ch1**  | Buffer til fremtidig bruk |
 /// | **mpsc_buffer_ch2**  | Buffer til fremtidig bruk |
 /// | **mpsc_buffer_ch3**  | Buffer til fremtidig bruk |
-/// | **mpsc_buffer_ch4**  | Buffer til fremtidig bruk |
+/// | **local_elev**  | Buffer til fremtidig bruk |
 /// | **mpsc_buffer_ch5**  | Buffer til fremtidig bruk |
 pub struct Broadcasts {
     pub txs: BroadcastTxs,
@@ -279,7 +298,7 @@ impl Clone for WatchRxs {
 /// | **mpsc_buffer_ch1**  | Buffer til fremtidig bruk |
 /// | **mpsc_buffer_ch2**  | Buffer til fremtidig bruk |
 /// | **mpsc_buffer_ch3**  | Buffer til fremtidig bruk |
-/// | **mpsc_buffer_ch4**  | Buffer til fremtidig bruk |
+/// | **local_elev**  | Buffer til fremtidig bruk |
 /// | **mpsc_buffer_ch5**  | Buffer til fremtidig bruk |
 pub struct Watches {
     pub txs: WatchTxs,
