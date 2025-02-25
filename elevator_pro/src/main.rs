@@ -80,7 +80,7 @@ async fn main() {
             let ch_clone = chs_print.clone();
             utils::update_wv(ch_clone, &mut wv).await;
             world_view::print_wv(wv.clone());
-            tokio::time::sleep(Duration::from_millis(1000)).await;
+            tokio::time::sleep(Duration::from_millis(100)).await;
         }
     });
 
