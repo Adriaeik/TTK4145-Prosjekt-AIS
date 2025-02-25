@@ -7,14 +7,14 @@ use prettytable::{Table, Row, Cell, format, Attr, color};
 use crate::elevio::poll::CallButton;
 
 
+
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
 pub struct Task {
+    pub id: u16,
     pub to_do: u8, // Default: 0
-    pub status: u8, // 1: done, 0: to_do, 255: be master deligere denne på nytt
+    // pub status: u8, // 1: done, 0: to_do, 255: be master deligere denne på nytt
+    // pub is_inside: bool,
 }
-
-
-
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ElevatorContainer {
@@ -161,6 +161,16 @@ pub fn deserialize_elev_container(data: &[u8]) -> ElevatorContainer {
     }
 }
 
+pub fn get_index_to_container(id: u8, wv: Vec<u8>) -> Option<usize> {
+    let wv_deser = deserialize_worldview(&wv);
+    for i in 0..wv_deser.get_num_elev() {
+        if wv_deser.elevator_containers[i as usize].elevator_id == id {
+            return Some(i as usize);
+        }
+    }
+    return None;
+}
+
 
 
 pub fn print_wv(worldview: Vec<u8>) {
@@ -238,8 +248,8 @@ pub fn print_wv(worldview: Vec<u8>) {
                     _ => Red,
                 };
                 format!("{}:{}",
-                    color.paint(t.to_do.to_string()),
-                    color.paint(t.status.to_string())
+                color.paint(t.id.to_string()),
+                    color.paint(t.to_do.to_string())
                 )
             })
             .collect::<Vec<String>>()

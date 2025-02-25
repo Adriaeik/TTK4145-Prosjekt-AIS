@@ -1,6 +1,6 @@
 use crate::elevio::poll::CallButton;
 use tokio::sync::{mpsc, broadcast, watch};
-use crate::world_view::world_view::ElevatorContainer;
+use crate::world_view::world_view::Task;
 
 
 #[derive(Debug)]
@@ -246,44 +246,44 @@ impl Clone for Broadcasts {
 // --- WATCH-KANALER ---
 pub struct WatchTxs {
     pub wv: watch::Sender<Vec<u8>>,
-    pub broadcast_buffer_ch1: watch::Sender<bool>,
-    pub broadcast_buffer_ch2: watch::Sender<bool>,
-    pub broadcast_buffer_ch3: watch::Sender<bool>,
-    pub broadcast_buffer_ch4: watch::Sender<bool>,
-    pub broadcast_buffer_ch5: watch::Sender<bool>,
+    pub elev_task: watch::Sender<Vec<Task>>,
+    pub watch_buffer_ch2: watch::Sender<bool>,
+    pub watch_buffer_ch3: watch::Sender<bool>,
+    pub watch_buffer_ch4: watch::Sender<bool>,
+    pub watch_buffer_ch5: watch::Sender<bool>,
 }
 
 impl Clone for WatchTxs {
     fn clone(&self) -> WatchTxs {
         WatchTxs {
             wv: self.wv.clone(),
-            broadcast_buffer_ch1: self.broadcast_buffer_ch1.clone(),
-            broadcast_buffer_ch2: self.broadcast_buffer_ch2.clone(),
-            broadcast_buffer_ch3: self.broadcast_buffer_ch3.clone(),
-            broadcast_buffer_ch4: self.broadcast_buffer_ch4.clone(),
-            broadcast_buffer_ch5: self.broadcast_buffer_ch5.clone(),
+            elev_task: self.elev_task.clone(),
+            watch_buffer_ch2: self.watch_buffer_ch2.clone(),
+            watch_buffer_ch3: self.watch_buffer_ch3.clone(),
+            watch_buffer_ch4: self.watch_buffer_ch4.clone(),
+            watch_buffer_ch5: self.watch_buffer_ch5.clone(),
         }
     }
 }
 
 pub struct WatchRxs {
     pub wv: watch::Receiver<Vec<u8>>,
-    pub broadcast_buffer_ch1: watch::Receiver<bool>,
-    pub broadcast_buffer_ch2: watch::Receiver<bool>,
-    pub broadcast_buffer_ch3: watch::Receiver<bool>,
-    pub broadcast_buffer_ch4: watch::Receiver<bool>,
-    pub broadcast_buffer_ch5: watch::Receiver<bool>,
+    pub elev_task: watch::Receiver<Vec<Task>>,
+    pub watch_buffer_ch2: watch::Receiver<bool>,
+    pub watch_buffer_ch3: watch::Receiver<bool>,
+    pub watch_buffer_ch4: watch::Receiver<bool>,
+    pub watch_buffer_ch5: watch::Receiver<bool>,
 }
 
 impl Clone for WatchRxs {
     fn clone(&self) -> WatchRxs {
         WatchRxs {
             wv: self.wv.clone(),
-            broadcast_buffer_ch1: self.broadcast_buffer_ch1.clone(),
-            broadcast_buffer_ch2: self.broadcast_buffer_ch2.clone(),
-            broadcast_buffer_ch3: self.broadcast_buffer_ch3.clone(),
-            broadcast_buffer_ch4: self.broadcast_buffer_ch4.clone(),
-            broadcast_buffer_ch5: self.broadcast_buffer_ch5.clone(),
+            elev_task: self.elev_task.clone(),
+            watch_buffer_ch2: self.watch_buffer_ch2.clone(),
+            watch_buffer_ch3: self.watch_buffer_ch3.clone(),
+            watch_buffer_ch4: self.watch_buffer_ch4.clone(),
+            watch_buffer_ch5: self.watch_buffer_ch5.clone(),
         }
     }
 }
@@ -317,7 +317,7 @@ impl Clone for Watches {
 impl Watches {
     pub fn new() -> Self {
         let (wv_tx, wv_rx) = watch::channel(Vec::<u8>::new());
-        let (tx1, rx1) = watch::channel(false);
+        let (tx1, rx1) = watch::channel(Vec::new());
         let (tx2, rx2) = watch::channel(false);
         let (tx3, rx3) = watch::channel(false);
         let (tx4, rx4) = watch::channel(false);
@@ -326,19 +326,19 @@ impl Watches {
         Watches {
             txs: WatchTxs {
                 wv: wv_tx,
-                broadcast_buffer_ch1: tx1,
-                broadcast_buffer_ch2: tx2,
-                broadcast_buffer_ch3: tx3,
-                broadcast_buffer_ch4: tx4,
-                broadcast_buffer_ch5: tx5,
+                elev_task: tx1,
+                watch_buffer_ch2: tx2,
+                watch_buffer_ch3: tx3,
+                watch_buffer_ch4: tx4,
+                watch_buffer_ch5: tx5,
             },
             rxs: WatchRxs {
                 wv: wv_rx,
-                broadcast_buffer_ch1: rx1,
-                broadcast_buffer_ch2: rx2,
-                broadcast_buffer_ch3: rx3,
-                broadcast_buffer_ch4: rx4,
-                broadcast_buffer_ch5: rx5,
+                elev_task: rx1,
+                watch_buffer_ch2: rx2,
+                watch_buffer_ch3: rx3,
+                watch_buffer_ch4: rx4,
+                watch_buffer_ch5: rx5,
             },
         }
     }

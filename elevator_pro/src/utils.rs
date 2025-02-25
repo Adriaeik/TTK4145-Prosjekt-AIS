@@ -4,7 +4,7 @@ use std::u8;
 use tokio::net::TcpStream;
 use tokio::io::AsyncWriteExt;
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
-use crate::{config, world_view::world_view, network::local_network};
+use crate::{config, network::local_network, world_view::world_view::{self, Task}};
 
 use local_ip_address::local_ip;
 
@@ -169,6 +169,10 @@ pub fn get_wv(chs: local_network::LocalChannels) -> Vec<u8> {
 pub fn is_master(chs: local_network::LocalChannels) -> bool {
     let wv: Vec<u8> = get_wv(chs.clone());
     return SELF_ID.load(Ordering::SeqCst) == wv[config::MASTER_IDX];
+}
+
+pub fn get_elev_tasks(chs: local_network::LocalChannels) -> Vec<Task> {
+    chs.watches.rxs.elev_task.borrow().clone()
 }
 
 /// Henter klone av elevator_container med `id` fra nyeste worldview

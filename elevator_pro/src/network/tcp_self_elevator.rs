@@ -1,3 +1,4 @@
+use driver_rust::elevio::elev;
 use tokio::io::AsyncWriteExt;
 use tokio::sync::mpsc;
 use tokio::{io::AsyncReadExt, net::TcpListener};
@@ -9,10 +10,9 @@ use crossbeam_channel as cbc;
 use tokio::process::Command;
 use std::sync::atomic::Ordering;
 
-use crate::world_view::world_view;
+use crate::elevator_logic::task_handler;
 use crate::{config, utils, world_view::world_view_update, elevio, elevio::poll::CallButton, elevio::elev as e};
 use utils::{print_info, print_ok, print_err, get_wv};
-use std::env;
 
 use super::local_network;
 
@@ -118,114 +118,119 @@ async fn init_local_elevator_connection(txs: LocalElevTxs, elevator: e::Elevator
 
 }
 
-fn init_to_closest_under_floor(rxs: LocalElevRxs, elevator: e::Elevator) -> u8 {
-    elevator.motor_direction(e::DIRN_DOWN);
-    let a = rxs.floor_sensor.recv(); 
-    elevator.motor_direction(e::DIRN_STOP);
-    a.unwrap()   
-}
-
-
 pub async fn run_local_elevator(chs: local_network::LocalChannels) -> std::io::Result<()> {
     start_elevator_server().await;
     let local_elev_channels: LocalElevChannels = LocalElevChannels::new();
-    println!("Lagd chs");
     sleep(Duration::from_millis(100)).await;
     let elevator: e::Elevator = e::Elevator::init(config::LOCAL_ELEV_IP, config::DEFAULT_NUM_FLOORS).expect("Feil!");
-    println!("Lagd elevator");
-    let _ = init_local_elevator_connection(local_elev_channels.txs, elevator.clone()).await;
-    println!("Kobla på elev server");
-    let floor = init_to_closest_under_floor(local_elev_channels.rxs, elevator.clone());
-    print_ok(format!("Vi er på floor: {}", floor));
+    
+    
+    {
+        let elevator = elevator.clone();
+        tokio::spawn(async move {
+            elevio::poll::call_buttons(elevator, local_elev_channels.txs.call_button, config::ELEV_POLL)
+        });
+    }
+    {
+        let elevator = elevator.clone();
+        tokio::spawn(async move {
+            elevio::poll::floor_sensor(elevator, local_elev_channels.txs.floor_sensor, config::ELEV_POLL)
+        });
+    }
+    {
+        let elevator = elevator.clone();
+        tokio::spawn(async move {
+            elevio::poll::stop_button(elevator, local_elev_channels.txs.obstruction, config::ELEV_POLL)
+        });
+    }
+    {
+        let elevator = elevator.clone();
+        tokio::spawn(async move {
+            elevio::poll::obstruction(elevator, local_elev_channels.txs.stop_button, config::ELEV_POLL)
+        });
+    }
+ 
+ 
+    {
+        let chs_clone = chs.clone();
+        let _listen_task = tokio::spawn(async move {
+            let _ = read_from_local_elevator(local_elev_channels.rxs, chs_clone).await;
+        });
+    }
 
-    Ok(())
+    {
+        let chs_clone = chs.clone();
+        let _handle_task = tokio::spawn(async move {
+            let _ = task_handler::execute_tasks(chs_clone, elevator).await;
+        });
+        tokio::task::yield_now().await;
+    }
+
+
+
+    loop {
+
+    }
 }
 
-// pub async fn read_from_local_elevator() -> std::io::Result<()> {
-//     loop {
-//         cbc::select! {
-//             recv(call_button_rx) -> a => {
-//                 let call_button = a.unwrap();
-//                 println!("{:#?}", call_button);
-//                 elevator.call_button_light(call_button.floor, call_button.call, true);
-//             },
-//             recv(floor_sensor_rx) -> a => {
-//                 let floor = a.unwrap();
-//                 println!("Floor: {:#?}", floor);
-//                 dirn =
-//                     if floor == 0 {
-//                         e::DIRN_UP
-//                     } else if floor == elev_num_floors-1 {
-//                         e::DIRN_DOWN
-//                     } else {
-//                         dirn
-//                     };
-//                 elevator.motor_direction(dirn);
-//             },
-//             recv(stop_button_rx) -> a => {
-//                 let stop = a.unwrap();
-//                 println!("Stop button: {:#?}", stop);
-//                 for f in 0..elev_num_floors {
-//                     for c in 0..3 {
-//                         elevator.call_button_light(f, c, false);
-//                     }
-//                 }
-//             },
-//             recv(obstruction_rx) -> a => {
-//                 let obstr = a.unwrap();
-//                 println!("Obstruction: {:#?}", obstr);
-//                 elevator.motor_direction(if obstr { e::DIRN_STOP } else { dirn });
-//             },
-//         }
-//     }
-// }
+async fn read_from_local_elevator(rxs: LocalElevRxs, chs: local_network::LocalChannels) -> std::io::Result<()> {
+    loop {
+        // Sjekker hver kanal med `try_recv()`
+        if let Ok(call_button) = rxs.call_button.try_recv() {
+            println!("CB: {:#?}", call_button);
+            let msg = local_network::ElevMessage {
+                msg_type: local_network::ElevMsgType::CBTN,
+                call_button: Some(call_button),
+                floor_sensor: None,
+                stop_button: None,
+                obstruction: None,
+            };
+            let _ = chs.mpscs.txs.local_elev.send(msg).await;
+        }
 
-// tokio::select! {
-//     Some(call_button) = rxs.call_button.recv() => {
-//         println!("Fikk callbtn");
-//         let msg = local_network::ElevMessage {
-//             msg_type: local_network::ElevMsgType::CBTN,
-//             call_button: Some(call_button),
-//             floor_sensor: None,
-//             stop_button: None,
-//             obstruction: None,
-//         };
-//         let _ = chs.mpscs.txs.local_elev.send(msg).await;
-//     },
-//     Some(floor) = rxs.floor_sensor.recv() => {
-//         println!("Fikk Floor");
-//         let msg = local_network::ElevMessage {
-//             msg_type: local_network::ElevMsgType::FSENS, // Bruker riktig message type
-//             call_button: None,
-//             floor_sensor: Some(floor),
-//             stop_button: None,
-//             obstruction: None,
-//         };
-//         let _ = chs.mpscs.txs.local_elev.send(msg).await;
-//     },
-//     Some(stop) = rxs.stop_button.recv() => {
-//         println!("Fikk Stop");
-//         let msg = local_network::ElevMessage {
-//             msg_type: local_network::ElevMsgType::SBTN,
-//             call_button: None,
-//             floor_sensor: None,
-//             stop_button: Some(stop),
-//             obstruction: None,
-//         };
-//         let _ = chs.mpscs.txs.local_elev.send(msg).await;
-//     },
-//     Some(obstr) = rxs.obstruction.recv() => {
-//         println!("Fikk Obstruction");
-//         let msg = local_network::ElevMessage {
-//             msg_type: local_network::ElevMsgType::OBSTRX,
-//             call_button: None,
-//             floor_sensor: None,
-//             stop_button: None,
-//             obstruction: Some(obstr),
-//         };
-//         let _ = chs.mpscs.txs.local_elev.send(msg).await;
-//     }
-// }
+        if let Ok(floor) = rxs.floor_sensor.try_recv() {
+            println!("Floor: {:#?}", floor);
+            let msg = local_network::ElevMessage {
+                msg_type: local_network::ElevMsgType::FSENS,
+                call_button: None,
+                floor_sensor: Some(floor),
+                stop_button: None,
+                obstruction: None,
+            };
+            let _ = chs.mpscs.txs.local_elev.send(msg).await;
+        }
+
+        if let Ok(stop) = rxs.stop_button.try_recv() {
+            println!("Stop button: {:#?}", stop);
+            let msg = local_network::ElevMessage {
+                msg_type: local_network::ElevMsgType::SBTN,
+                call_button: None,
+                floor_sensor: None,
+                stop_button: Some(stop),
+                obstruction: None,
+            };
+            let _ = chs.mpscs.txs.local_elev.send(msg).await;
+        }
+
+        if let Ok(obstr) = rxs.obstruction.try_recv() {
+            println!("Obstruction: {:#?}", obstr);
+            let msg = local_network::ElevMessage {
+                msg_type: local_network::ElevMsgType::OBSTRX,
+                call_button: None,
+                floor_sensor: None,
+                stop_button: None,
+                obstruction: Some(obstr),
+            };
+            let _ = chs.mpscs.txs.local_elev.send(msg).await;
+        }
+
+        // Kort pause for å unngå å spinne CPU unødvendig
+        sleep(Duration::from_millis(10)).await;
+    }
+}
+
+
+
 
 
 
