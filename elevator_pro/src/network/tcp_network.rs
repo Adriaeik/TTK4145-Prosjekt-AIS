@@ -81,7 +81,7 @@ pub async fn tcp_handler(mut chs: local_network::LocalChannels, mut socket_rx: m
             else {
                 tokio::time::sleep(Duration::from_millis(100)).await; 
             }
-            //Det slaven skal gjøre på TCP
+            //Det slaven skal gjøre på TCP 
         } 
         //ble master -> koble fra master  
       
