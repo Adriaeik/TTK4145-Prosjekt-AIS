@@ -1,4 +1,4 @@
-use std::{f32::consts::FRAC_1_PI, future::Future, sync::atomic::{AtomicBool, Ordering}};
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use tokio::io::AsyncWriteExt;
 use tokio::sync::mpsc;

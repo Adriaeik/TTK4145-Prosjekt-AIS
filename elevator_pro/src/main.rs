@@ -1,6 +1,6 @@
 use std::{fmt::format, sync::atomic::Ordering, time::Duration};
 
-use elevator_pro::{network::{local_network, tcp_network, udp_broadcast}, utils, world_view::{world_view, world_view_update}};
+use elevator_pro::{network::{local_network, tcp_network, tcp_self_elevator, udp_broadcast}, utils::{self, print_err, print_ok}, world_view::{world_view, world_view_update}};
 use elevator_pro::init;
 
 use tokio::{sync::broadcast, time::sleep};
@@ -42,6 +42,12 @@ async fn main() {
     let (socket_tx, socket_rx) = mpsc::channel::<(TcpStream, SocketAddr)>(8);
 /* SLUTT ----------- Kloning av lokale channels til Tokio Tasks ---------------------- */                                                     
 
+    //TODO: Få den til å signalisere at vi er i known state. Den kommer ikke til å returnere etterhvert
+    let _local_elev_task = tokio::spawn(async move {
+        let _ = tcp_self_elevator::run_local_elevator().await;
+    }).await;
+
+    tokio::time::sleep(Duration::from_secs(10)).await;
 
 
 /* START ----------- Starte Eksterne Nettverkstasks ---------------------- */
@@ -69,19 +75,20 @@ async fn main() {
         utils::print_info("Starter tcp listener".to_string());
         let _ = tcp_network::listener_task(chs_listener, socket_tx).await;
     });
+    // Lag prat med egen heis thread her 
 /* SLUTT ----------- Starte Eksterne Nettverkstasks ---------------------- */
 
 
 
 
-    let print_task = tokio::spawn(async move {
-        loop {
-            let chs_clone = chs_print.clone();
-            let wv = utils::get_wv(chs_clone);
-            world_view::print_wv(wv.clone());
-            tokio::time::sleep(Duration::from_millis(500)).await;
-        }
-    });
+    // let print_task = tokio::spawn(async move {
+    //     loop {
+    //         let chs_clone = chs_print.clone();
+    //         let wv = utils::get_wv(chs_clone);
+    //         world_view::print_wv(wv.clone());
+    //         tokio::time::sleep(Duration::from_millis(500)).await;
+    //     }
+    // });
 
     
     let mut wv_edited_I = true;

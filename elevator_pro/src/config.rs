@@ -1,5 +1,6 @@
 //! Globale verdier osv
 use std::net::Ipv4Addr;
+use std::time::Duration;
 
 pub static NETWORK_PREFIX: &str = "10.100.23"; //Hardkoda subnet må vel vere greit. DEt er jo ekstra sikkerheit
 
@@ -10,6 +11,10 @@ pub static DUMMY_PORT: u16 = 42069; // Port fro sending / mottak av UDP broadcas
 pub static BC_LISTEN_ADDR: &str = "0.0.0.0";
 pub static BC_ADDR: &str = "255.255.255.255";
 pub static OFFLINE_IP: Ipv4Addr = Ipv4Addr::new(69, 69, 69, 69);
+
+pub static LOCAL_ELEV_IP: &str = "localhost:15657";
+pub const DEFAULT_NUM_FLOORS: u8 = 4;
+pub const ELEV_POLL: Duration = Duration::from_millis(25);
 
 pub const ERROR_ID: u8 = 255;
 

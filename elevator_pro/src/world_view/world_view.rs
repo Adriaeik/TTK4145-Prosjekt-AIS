@@ -4,13 +4,9 @@ use crate::utils;
 use ansi_term::Colour::{Blue, Green, Red, Yellow, Purple};
 use ansi_term::Style;
 use prettytable::{Table, Row, Cell, format, Attr, color};
+use crate::elevio::poll::CallButton;
 
 
-#[derive(Serialize, Deserialize, Debug, Default, Clone)]
-pub struct CallButton {
-    pub floor: u8, // Default: 0
-    pub call: u8,  // Default: 0
-}
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
 pub struct Task {
     pub to_do: u8, // Default: 0
