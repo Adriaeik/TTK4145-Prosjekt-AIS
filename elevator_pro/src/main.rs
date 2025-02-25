@@ -136,7 +136,7 @@ async fn main() {
         // worldview_serialised = world_view::serialize_worldview(&ww_des);
         let _ = main_local_chs.watches.txs.wv.send(worldview_serialised.clone());
         if wv_edited_I {
-            println!("WV er endra");
+            // println!("WV er endra");
             wv_edited_I = false;
         }
 
