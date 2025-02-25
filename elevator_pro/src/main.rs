@@ -49,9 +49,9 @@ async fn main() {
         let _ = world_view_ch::update_wv(main_local_chs, worldview_serialised).await;
     });
     //TODO: Få den til å signalisere at vi er i known state. Den kommer ikke til å returnere etterhvert
-    let _local_elev_task = tokio::spawn(async {
-        let _ = tcp_self_elevator::run_local_elevator(chs_local_elev).await;
-    });
+    // let _local_elev_task = tokio::spawn(async {
+    //     let _ = tcp_self_elevator::run_local_elevator(chs_local_elev).await;
+    // });
 
 
 /* START ----------- Starte Eksterne Nettverkstasks ---------------------- */
