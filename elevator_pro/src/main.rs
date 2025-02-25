@@ -49,9 +49,9 @@ async fn main() {
     //     let _ = world_view_ch::update_wv(main_local_chs, worldview_serialised).await;
     // });
     //TODO: Få den til å signalisere at vi er i known state. Den kommer ikke til å returnere etterhvert
-    // let _local_elev_task = tokio::spawn(async {
-    //     let _ = tcp_self_elevator::run_local_elevator(chs_local_elev).await;
-    // });
+    let _local_elev_task = tokio::spawn(async {
+        let _ = tcp_self_elevator::run_local_elevator(chs_local_elev).await;
+    });
 
 
 /* START ----------- Starte Eksterne Nettverkstasks ---------------------- */
@@ -83,9 +83,10 @@ async fn main() {
 /* SLUTT ----------- Starte Eksterne Nettverkstasks ---------------------- */
 
     let _print_task = tokio::spawn(async move {
+        let mut wv = utils::get_wv(chs_print.clone());
         loop {
             let chs_clone = chs_print.clone();
-            let wv = utils::get_wv(chs_clone);
+            utils::update_wv(chs_clone, &mut wv).await;
             world_view::print_wv(wv.clone());
             tokio::time::sleep(Duration::from_millis(500)).await;
         }

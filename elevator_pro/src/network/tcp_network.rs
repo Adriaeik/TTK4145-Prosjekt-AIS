@@ -10,7 +10,7 @@ use tokio::time::{sleep, Duration, Instant};
 
 use crate::world_view::world_view;
 use crate::{config, utils, world_view::world_view_update};
-use utils::{print_info, print_ok, print_err, get_wv};
+use utils::{print_info, print_ok, print_err, get_wv, update_wv};
 
 use super::local_network;
 
@@ -65,11 +65,11 @@ impl TcpWatchdog {
 
 
 pub async fn tcp_handler(chs: local_network::LocalChannels, mut socket_rx: mpsc::Receiver<(TcpStream, SocketAddr)>) {
-    let mut wv = utils::get_wv(chs.clone());
+    let mut wv = get_wv(chs.clone());
     loop {
         IS_MASTER.store(true, Ordering::SeqCst);
         /* Mens du er master: Motta sockets til slaver, start handle_slave i ny task*/
-        while utils::is_master(chs.clone()) {
+        while utils::is_master(wv.clone()) {
             if world_view_update::get_network_status().load(Ordering::SeqCst) {
                 while let Ok((socket, addr)) = socket_rx.try_recv() {
                     let chs_clone = chs.clone();
@@ -89,6 +89,7 @@ pub async fn tcp_handler(chs: local_network::LocalChannels, mut socket_rx: mpsc:
             else {
                 tokio::time::sleep(Duration::from_millis(100)).await; 
             }
+            update_wv(chs.clone(), &mut wv).await;
         }
         //mista master -> indiker for avslutning av tcp-con og tasks
         IS_MASTER.store(false, Ordering::SeqCst);
@@ -103,10 +104,9 @@ pub async fn tcp_handler(chs: local_network::LocalChannels, mut socket_rx: mpsc:
         }
 
         /* Mens du er slave: Sjekk om det har kommet ny master / connection til master har dødd */
-        let mut i = 0;
-        while !utils::is_master(chs.clone()) && master_accepted_tcp {
+        while !utils::is_master(wv.clone()) && master_accepted_tcp {
             let prev_master = wv[config::MASTER_IDX];
-            wv = utils::get_wv(chs.clone());
+            update_wv(chs.clone(), &mut wv).await;
             let new_master = prev_master != wv[config::MASTER_IDX];
                 
             if world_view_update::get_network_status().load(Ordering::SeqCst) {
@@ -118,7 +118,7 @@ pub async fn tcp_handler(chs: local_network::LocalChannels, mut socket_rx: mpsc:
                         tokio::time::sleep(Duration::from_millis(10)).await; //TODO: test om denne trengs
                         master_accepted_tcp = false;
                     }
-                    send_tcp_message(chs.clone(), s).await;
+                    send_tcp_message(chs.clone(), s, wv.clone()).await;
                     //TODO: lag bedre delay
                     tokio::time::sleep(Duration::from_millis(100)).await; 
                 }
@@ -127,6 +127,7 @@ pub async fn tcp_handler(chs: local_network::LocalChannels, mut socket_rx: mpsc:
                 tokio::time::sleep(Duration::from_millis(100)).await; 
             }
             //Det slaven skal gjøre på TCP 
+            update_wv(chs.clone(), &mut wv).await;
         } 
         //ble master -> koble fra master  
       
@@ -267,8 +268,8 @@ async fn read_from_stream(stream: &mut TcpStream, chs: local_network::LocalChann
 
 /// ### Sender egen elevator_container til master gjennom stream
 /// Sender på format : `(lengde av container) as u16`, `container`
-pub async fn send_tcp_message(chs: local_network::LocalChannels, stream: &mut TcpStream) {
-    let self_elev_container = utils::extract_self_elevator_container(chs.clone());
+pub async fn send_tcp_message(chs: local_network::LocalChannels, stream: &mut TcpStream, wv: Vec<u8>) {
+    let self_elev_container = utils::extract_self_elevator_container(wv);
 
     let self_elev_serialized = world_view::serialize_elev_container(&self_elev_container);
     let len = (self_elev_serialized.len() as u16).to_be_bytes(); // Konverter lengde til big-endian bytes

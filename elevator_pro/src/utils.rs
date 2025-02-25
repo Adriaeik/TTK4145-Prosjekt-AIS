@@ -165,9 +165,15 @@ pub fn get_wv(chs: local_network::LocalChannels) -> Vec<u8> {
     chs.watches.rxs.wv.borrow().clone()
 }
 
+pub async fn update_wv(mut chs: local_network::LocalChannels, wv: &mut Vec<u8>) {
+    if chs.watches.rxs.wv.changed().await.is_ok() {
+        *wv = chs.watches.rxs.wv.borrow().clone();
+    }
+}
+
 /// Sjekker om du er master, basert på nyeste worldview
-pub fn is_master(chs: local_network::LocalChannels) -> bool {
-    let wv: Vec<u8> = get_wv(chs.clone());
+pub fn is_master(/*chs: local_network::LocalChannels */wv: Vec<u8>) -> bool {
+    // let wv: Vec<u8> = get_wv(chs.clone());
     return SELF_ID.load(Ordering::SeqCst) == wv[config::MASTER_IDX];
 }
 
@@ -176,8 +182,7 @@ pub fn get_elev_tasks(chs: local_network::LocalChannels) -> Vec<Task> {
 }
 
 /// Henter klone av elevator_container med `id` fra nyeste worldview
-pub fn extract_elevator_container(chs: local_network::LocalChannels, id: u8) -> world_view::ElevatorContainer {
-    let wv = get_wv(chs.clone());
+pub fn extract_elevator_container(wv: Vec<u8>, id: u8) -> world_view::ElevatorContainer {
     let mut deser_wv = world_view::deserialize_worldview(&wv);
 
     deser_wv.elevator_containers.retain(|elevator| elevator.elevator_id == id);
@@ -185,8 +190,8 @@ pub fn extract_elevator_container(chs: local_network::LocalChannels, id: u8) -> 
 }
 
 /// Henter klone av elevator_container med `SELF_ID` fra nyeste worldview
-pub fn extract_self_elevator_container(chs: local_network::LocalChannels) -> world_view::ElevatorContainer {
-    extract_elevator_container(chs, SELF_ID.load(Ordering::SeqCst))
+pub fn extract_self_elevator_container(wv: Vec<u8>) -> world_view::ElevatorContainer {
+    extract_elevator_container(wv, SELF_ID.load(Ordering::SeqCst))
 }
 
 
