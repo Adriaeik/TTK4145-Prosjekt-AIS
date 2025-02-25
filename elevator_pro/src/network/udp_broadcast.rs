@@ -31,28 +31,41 @@ pub async fn start_udp_broadcaster(mut chs: local_network::LocalChannels) -> tok
     socket.bind(&socket_addr.into())?;
     let udp_socket = UdpSocket::from_std(socket.into())?;
 
-    loop{
-        chs.resubscribe_broadcast();
-        //Hent ut nyeste melding på wv_rx
-        let msg = async {
-            let mut latest_msg = None;
-            while let Ok(message) = chs.broadcasts.rxs.wv.try_recv() {
-                latest_msg = Some(message); // Overskriv tidligere meldinger
-            }
-            latest_msg
-        }.await; 
+    let mut wv = utils::get_wv(chs.clone());
+
+
     
-        if let None = msg {
-            //utils::print_err("Ingen wv på rxs.wv_rx".to_string());
+    
+    loop{
+        let chs_clone = chs.clone();
+        utils::update_wv(chs_clone, &mut wv).await;
+        if utils::SELF_ID.load(Ordering::SeqCst) == wv[config::MASTER_IDX] {
+            let mesage = format!("{:?}{:?}", config::KEY_STR, wv).to_string();
+            udp_socket.send_to(mesage.as_bytes(), &broadcast_addr).await?;
+            //utils::print_ok(format!("Sender UDP-broadcast: {}", mesage));
         }
-        if let Some(message) = msg {
-            //Bare broadcast hvis du er master
-            if utils::SELF_ID.load(Ordering::SeqCst) == message[config::MASTER_IDX] {
-                let mesage = format!("{:?}{:?}", config::KEY_STR, message).to_string();
-                udp_socket.send_to(mesage.as_bytes(), &broadcast_addr).await?;
-                //utils::print_ok(format!("Sender UDP-broadcast: {}", mesage));
-            }
-        }
+        
+        // chs.resubscribe_broadcast();
+        // //Hent ut nyeste melding på wv_rx
+        // let msg = async {
+        //     let mut latest_msg = None;
+        //     while let Ok(message) = chs.broadcasts.rxs.wv.try_recv() {
+        //         latest_msg = Some(message); // Overskriv tidligere meldinger
+        //     }
+        //     latest_msg
+        // }.await; 
+    
+        // if let None = msg {
+        //     //utils::print_err("Ingen wv på rxs.wv_rx".to_string());
+        // }
+        // if let Some(message) = msg {
+        //     //Bare broadcast hvis du er master
+        //     if utils::SELF_ID.load(Ordering::SeqCst) == message[config::MASTER_IDX] {
+        //         let mesage = format!("{:?}{:?}", config::KEY_STR, message).to_string();
+        //         udp_socket.send_to(mesage.as_bytes(), &broadcast_addr).await?;
+        //         //utils::print_ok(format!("Sender UDP-broadcast: {}", mesage));
+        //     }
+        // }
     }
 }
 
