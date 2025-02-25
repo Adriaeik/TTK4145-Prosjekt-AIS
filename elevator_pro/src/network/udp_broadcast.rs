@@ -36,7 +36,7 @@ pub async fn start_udp_broadcaster(mut chs: local_network::LocalChannels) -> tok
         let chs_clone = chs.clone();
         wv = utils::get_wv(chs_clone);
         if utils::SELF_ID.load(Ordering::SeqCst) == wv[config::MASTER_IDX] {
-            println!("Jeg er master, sender UDP, master ID: {}");
+            println!("Jeg er master, sender UDP, master ID: {}", wv[config::MASTER_IDX]);
             let mesage = format!("{:?}{:?}", config::KEY_STR, wv).to_string();
             udp_socket.send_to(mesage.as_bytes(), &broadcast_addr).await?;
         }
