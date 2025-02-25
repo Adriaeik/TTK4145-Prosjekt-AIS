@@ -7,6 +7,7 @@ use std::net::SocketAddr;
 use tokio::time::{sleep, Duration, Instant};
 use crossbeam_channel as cbc;
 use tokio::process::Command;
+use std::sync::atomic::Ordering;
 
 use crate::world_view::world_view;
 use crate::{config, utils, world_view::world_view_update, elevio, elevio::poll::CallButton, elevio::elev as e};
@@ -52,20 +53,39 @@ impl LocalElevChannels {
 
 
 
-fn start_elevator_server() {
+fn get_ip_address() -> String {
+    let self_id = utils::SELF_ID.load(Ordering::SeqCst);
+    format!("{}.{}", config::NETWORK_PREFIX, self_id)
+}
+
+async fn start_elevator_server() {
+    let ip_address = get_ip_address();
+    let ssh_password = "Sanntid15"; // Hardkodet passord, vurder sikkerhetsrisiko
+
     if cfg!(target_os = "windows") {
+        println!("Starter elevatorserver på Windows...");
         Command::new("cmd")
             .args(&["/C", "start", "elevatorserver"])
             .spawn()
             .expect("Failed to start elevator server");
     } else {
-        Command::new("gnome-terminal")
-            .args(&["--", "bash", "-c", "elevatorserver; exec bash"])
-            .spawn()
-            .expect("Failed to start elevator server");
+        println!("Starter elevatorserver på Linux...");
+        
+        let elevator_server_command = format!(
+            "sshpass -p '{}' ssh -X student@{} 'export DISPLAY=:0 && gnome-terminal -- bash -c \"elevatorserver; exec bash\"'",
+            ssh_password, ip_address
+        );
+
+        println!("\nStarter elevatorserver i ny terminal:\n\t{}", elevator_server_command);
+
+        let _ = Command::new("sh")
+            .arg("-c")
+            .arg(&elevator_server_command)
+            .output().await
+            .expect("Feil ved start av elevatorserver");
     }
 
-    print_info(format!("starta server"));
+    println!("Elevator server startet.");
 }
 
 async fn init_local_elevator_connection(txs: LocalElevTxs, elevator: e::Elevator) -> std::io::Result<()> {
@@ -107,7 +127,7 @@ fn init_to_closest_under_floor(rxs: LocalElevRxs, elevator: e::Elevator) -> u8 {
 
 
 pub async fn run_local_elevator() -> std::io::Result<()> {
-    start_elevator_server();
+    start_elevator_server().await;
     let local_elev_channels: LocalElevChannels = LocalElevChannels::new();
     println!("Lagd chs");
     sleep(Duration::from_millis(100)).await;
