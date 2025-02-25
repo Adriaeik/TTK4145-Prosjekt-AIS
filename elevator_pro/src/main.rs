@@ -74,15 +74,15 @@ async fn main() {
 
 
 
-    // let print_task = tokio::spawn(async move {
-    //     let mut wv = utils::get_wv(chs_print.clone());
-    //     loop {
-    //         let chs_clone = chs_print.clone();
-    //         utils::update_worldview(chs_clone, &mut wv);
-    //         world_view::print_wv(wv.clone());
-    //         tokio::time::sleep(Duration::from_millis(1000)).await;
-    //     }
-    // });
+    let print_task = tokio::spawn(async move {
+        let mut wv = utils::get_wv(chs_print.clone());
+        loop {
+            let chs_clone = chs_print.clone();
+            utils::update_worldview(chs_clone, &mut wv);
+            world_view::print_wv(wv.clone());
+            tokio::time::sleep(Duration::from_millis(1000)).await;
+        }
+    });
 
     
     let mut  wv_changed_I = true;
@@ -134,9 +134,8 @@ async fn main() {
         // let mut ww_des = world_view::deserialize_worldview(&worldview_serialised);
         // ww_des.elevator_containers[0].last_floor_sensor = (ww_des.elevator_containers[0].last_floor_sensor %255) + 1;
         // worldview_serialised = world_view::serialize_worldview(&ww_des);
+        let _ = main_local_chs.broadcasts.txs.wv.send(worldview_serialised.clone());
         if wv_changed_I {
-            let _ = main_local_chs.broadcasts.txs.wv.send(worldview_serialised.clone());
-            world_view::print_wv(worldview_serialised.clone());
             wv_changed_I = false;
         }        
     }
