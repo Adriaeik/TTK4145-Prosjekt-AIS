@@ -62,6 +62,7 @@ pub async fn start_udp_listener(mut chs: local_network::LocalChannels) -> tokio:
         match socket.recv_from(&mut buf).await {
             Ok((len, _)) => {
                 message = String::from_utf8_lossy(&buf[..len]);
+                println!("Fikk UDP");
             }
             Err(e) => {
                 utils::print_err(format!("udp_broadcast.rs, udp_listener(): {}", e));
@@ -82,7 +83,7 @@ pub async fn start_udp_listener(mut chs: local_network::LocalChannels) -> tokio:
                 //println!("UDP sin ID: {}, egen wv ID: {}", read_wv[config::MASTER_IDX], my_wv[config::MASTER_IDX]);
             } else {
                 get_udp_timeout().store(false, Ordering::SeqCst);
-                println!("Resetter UDP-watchdog");
+                // println!("Resetter UDP-watchdog");
             }
 
             //utils::print_info(format!("read_wv: {:?}", read_wv));
