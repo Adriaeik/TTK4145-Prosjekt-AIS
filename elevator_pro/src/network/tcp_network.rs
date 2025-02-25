@@ -52,10 +52,10 @@ pub async fn tcp_handler(mut chs: local_network::LocalChannels, mut socket_rx: m
             master_accepted_tcp = true;
             stream = Some(s);
         }
-        wv = utils::get_wv(chs.clone());
+        utils::update_wv(chs.clone(), &mut wv).await;
         while !utils::is_master(chs.clone()) && master_accepted_tcp {
             let prev_master = wv[config::MASTER_IDX];
-            wv = utils::get_wv(chs.clone());
+            utils::update_wv(chs.clone(), &mut wv).await;
             let new_master = prev_master != wv[config::MASTER_IDX];
                 
             if world_view_update::get_network_status().load(Ordering::SeqCst) {
@@ -161,7 +161,6 @@ async fn handle_slave(mut stream: TcpStream, chs: local_network::LocalChannels) 
     print_info("Handle slave har starta!".to_string());
 
     loop {
-
         match read_from_stream(&mut stream, chs.clone()).await {
             Some(msg) => {
                 let received_data = msg;
