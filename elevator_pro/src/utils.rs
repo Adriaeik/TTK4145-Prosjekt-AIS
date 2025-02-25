@@ -159,66 +159,14 @@ pub fn print_slave(msg: String) {
 }
 
 
-pub fn get_wv(mut chs: local_network::LocalChannels) -> Vec<u8> {
-    let mut wv_option = None;
-    chs.resubscribe_broadcast();
-    let mut wv: Vec<u8> = Vec::new();
-
-    while wv_option.is_none() {
-        wv_option = {
-            let mut latest_msg = None;
-            while let Ok(message) = chs.broadcasts.rxs.wv.try_recv() {
-                latest_msg = Some(message); // Overskriv tidligere meldinger
-            }
-            latest_msg
-        };
-
-        if let Some(ref msg) = wv_option {
-            wv = msg.clone();
-        } 
-    }
-
-    wv
+pub fn get_wv(chs: local_network::LocalChannels) -> Vec<u8> {
+    chs.watches.rxs.wv.borrow().clone()
 }
 
-pub async fn update_wv(mut chs: local_network::LocalChannels, wv: &mut Vec<u8>) {
-    //chs.resubscribe_broadcast();
-    let msg = async {
-        let mut latest_msg = None;
-        while let Ok(message) = chs.broadcasts.rxs.wv.try_recv() {
-            latest_msg = Some(message); // Overskriv tidligere meldinger
-        }
-        latest_msg
-    }.await;
-    if let Some(message) = msg {
-        *wv = message;
-    }
-
-    // chs.resubscribe_broadcast();
-    // while let Ok(new_wv) = chs.broadcasts.rxs.wv.try_recv() {
-    //     *wv = new_wv; // Overstyr wv med den nyaste meldinga
-    // }
-}
 
 
 pub fn is_master(mut chs: local_network::LocalChannels) -> bool {
-    let mut wv_option = None;
-    // chs.resubscribe_broadcast();
-    let mut wv: Vec<u8> = Vec::new();
-
-    while wv_option.is_none() {
-        wv_option = {
-            let mut latest_msg = None;
-            while let Ok(message) = chs.broadcasts.rxs.wv.try_recv() {
-                latest_msg = Some(message); // Overskriv tidligere meldinger
-            }
-            latest_msg
-        };
-
-        if let Some(ref msg) = wv_option {
-            wv = msg.clone();
-        } 
-    }
+    let wv: Vec<u8> = get_wv(chs.clone());
 
     return SELF_ID.load(Ordering::SeqCst) == wv[config::MASTER_IDX];
 }

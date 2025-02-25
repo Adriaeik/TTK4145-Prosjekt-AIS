@@ -27,6 +27,7 @@ async fn main() {
 /* START ----------- Init av lokale channels ---------------------- */
     //Kun bruk mpsc-rxene fra main_local_chs
     let mut main_local_chs = local_network::LocalChannels::new();
+    let _ = main_local_chs.watches.txs.wv.send(worldview_serialised.clone());
 /* SLUTT ----------- Init av lokale channels ---------------------- */
 
 
@@ -75,12 +76,11 @@ async fn main() {
 
 
     let print_task = tokio::spawn(async move {
-        let mut wv = utils::get_wv(chs_print.clone());
         loop {
-            let ch_clone = chs_print.clone();
-            utils::update_wv(ch_clone, &mut wv).await;
+            let chs_clone = chs_print.clone();
+            let wv = utils::get_wv(chs_clone);
             world_view::print_wv(wv.clone());
-            tokio::time::sleep(Duration::from_millis(100)).await;
+            tokio::time::sleep(Duration::from_millis(500)).await;
         }
     });
 
@@ -134,8 +134,9 @@ async fn main() {
         // let mut ww_des = world_view::deserialize_worldview(&worldview_serialised);
         // ww_des.elevator_containers[0].last_floor_sensor = (ww_des.elevator_containers[0].last_floor_sensor %255) + 1;
         // worldview_serialised = world_view::serialize_worldview(&ww_des);
-        let _ = main_local_chs.broadcasts.txs.wv.send(worldview_serialised.clone());
+        let _ = main_local_chs.watches.txs.wv.send(worldview_serialised.clone());
         if wv_edited_I {
+            println!("WV er endra");
             wv_edited_I = false;
         }
 

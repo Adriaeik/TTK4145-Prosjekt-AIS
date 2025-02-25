@@ -52,10 +52,10 @@ pub async fn tcp_handler(mut chs: local_network::LocalChannels, mut socket_rx: m
             master_accepted_tcp = true;
             stream = Some(s);
         }
-        utils::update_wv(chs.clone(), &mut wv).await;
+        wv = utils::get_wv(chs.clone());
         while !utils::is_master(chs.clone()) && master_accepted_tcp {
             let prev_master = wv[config::MASTER_IDX];
-            utils::update_wv(chs.clone(), &mut wv).await;
+            wv = utils::get_wv(chs.clone());
             let new_master = prev_master != wv[config::MASTER_IDX];
                 
             if world_view_update::get_network_status().load(Ordering::SeqCst) {

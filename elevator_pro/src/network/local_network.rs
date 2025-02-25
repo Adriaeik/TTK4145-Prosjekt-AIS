@@ -1,6 +1,4 @@
-use tokio::sync::{mpsc, broadcast};
-use tokio::net::TcpStream;
-use std::net::SocketAddr;
+use tokio::sync::{mpsc, broadcast, watch};
 use crate::world_view::world_view::ElevatorContainer;
 
 // --- MPSC-KANALAR ---
@@ -204,16 +202,109 @@ impl Clone for Broadcasts {
     fn clone(&self) -> Broadcasts {
         Broadcasts {
             txs: self.txs.clone(),
-            rxs: self.subscribe(),
+            rxs: self.rxs.resubscribe(),
         }
     }
 }
+
+// --- WATCH-KANALER ---
+pub struct WatchTxs {
+    pub wv: watch::Sender<Vec<u8>>,
+    pub broadcast_buffer_ch1: watch::Sender<bool>,
+    pub broadcast_buffer_ch2: watch::Sender<bool>,
+    pub broadcast_buffer_ch3: watch::Sender<bool>,
+    pub broadcast_buffer_ch4: watch::Sender<bool>,
+    pub broadcast_buffer_ch5: watch::Sender<bool>,
+}
+
+impl Clone for WatchTxs {
+    fn clone(&self) -> WatchTxs {
+        WatchTxs {
+            wv: self.wv.clone(),
+            broadcast_buffer_ch2: self.broadcast_buffer_ch1.clone(),
+            broadcast_buffer_ch1: self.broadcast_buffer_ch2.clone(),
+            broadcast_buffer_ch3: self.broadcast_buffer_ch3.clone(),
+            broadcast_buffer_ch4: self.broadcast_buffer_ch4.clone(),
+            broadcast_buffer_ch5: self.broadcast_buffer_ch5.clone(),
+        }
+    }
+}
+
+pub struct WatchRxs {
+    pub wv: watch::Receiver<Vec<u8>>,
+    pub broadcast_buffer_ch1: watch::Receiver<bool>,
+    pub broadcast_buffer_ch2: watch::Receiver<bool>,
+    pub broadcast_buffer_ch3: watch::Receiver<bool>,
+    pub broadcast_buffer_ch4: watch::Receiver<bool>,
+    pub broadcast_buffer_ch5: watch::Receiver<bool>,
+}
+
+impl Clone for WatchRxs {
+    fn clone(&self) -> WatchRxs {
+        WatchRxs {
+            wv: self.wv.clone(),
+            broadcast_buffer_ch2: self.broadcast_buffer_ch1.clone(),
+            broadcast_buffer_ch1: self.broadcast_buffer_ch2.clone(),
+            broadcast_buffer_ch3: self.broadcast_buffer_ch3.clone(),
+            broadcast_buffer_ch4: self.broadcast_buffer_ch4.clone(),
+            broadcast_buffer_ch5: self.broadcast_buffer_ch5.clone(),
+        }
+    }
+}
+
+
+pub struct Watches {
+    pub txs: WatchTxs,
+    pub rxs: WatchRxs,
+}
+
+impl Clone for Watches {
+    fn clone(&self) -> Watches {
+        Watches {
+            txs: self.txs.clone(),
+            rxs: self.rxs.clone(),
+        }
+    }
+}
+
+impl Watches {
+    pub fn new() -> Self {
+        let (wv_tx, wv_rx) = watch::channel(Vec::<u8>::new());
+        let (tx1, rx1) = watch::channel(false);
+        let (tx2, rx2) = watch::channel(false);
+        let (tx3, rx3) = watch::channel(false);
+        let (tx4, rx4) = watch::channel(false);
+        let (tx5, rx5) = watch::channel(false);
+
+        Watches {
+            txs: WatchTxs {
+                wv: wv_tx,
+                broadcast_buffer_ch1: tx1,
+                broadcast_buffer_ch2: tx2,
+                broadcast_buffer_ch3: tx3,
+                broadcast_buffer_ch4: tx4,
+                broadcast_buffer_ch5: tx5,
+            },
+            rxs: WatchRxs {
+                wv: wv_rx,
+                broadcast_buffer_ch1: rx1,
+                broadcast_buffer_ch2: rx2,
+                broadcast_buffer_ch3: rx3,
+                broadcast_buffer_ch4: rx4,
+                broadcast_buffer_ch5: rx5,
+            },
+        }
+    }
+}
+
+
 
 // --- OVERKLASSE FOR ALLE KANALAR ---
 
 pub struct LocalChannels {
     pub mpscs: Mpscs,
     pub broadcasts: Broadcasts,
+    pub watches: Watches,
 }
 
 impl LocalChannels {
@@ -221,6 +312,7 @@ impl LocalChannels {
         LocalChannels {
             mpscs: Mpscs::new(),
             broadcasts: Broadcasts::new(),
+            watches: Watches::new(),
         }
     }
 
@@ -238,6 +330,7 @@ impl Clone for LocalChannels {
         LocalChannels {
             mpscs: self.mpscs.clone(),
             broadcasts: self.broadcasts.clone(),
+            watches: self.watches.clone(),
         }
     }
 }

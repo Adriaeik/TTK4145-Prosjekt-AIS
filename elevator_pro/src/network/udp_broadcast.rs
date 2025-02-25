@@ -34,7 +34,7 @@ pub async fn start_udp_broadcaster(mut chs: local_network::LocalChannels) -> tok
     let mut wv = utils::get_wv(chs.clone());
     loop{
         let chs_clone = chs.clone();
-        utils::update_wv(chs_clone, &mut wv).await;
+        wv = utils::get_wv(chs_clone);
         if utils::SELF_ID.load(Ordering::SeqCst) == wv[config::MASTER_IDX] {
             let mesage = format!("{:?}{:?}", config::KEY_STR, wv).to_string();
             udp_socket.send_to(mesage.as_bytes(), &broadcast_addr).await?;
@@ -83,7 +83,7 @@ pub async fn start_udp_listener(mut chs: local_network::LocalChannels) -> tokio:
 
 
             
-            utils::update_wv(chs.clone(), &mut my_wv).await;
+            my_wv = utils::get_wv(chs.clone());
             //Bare broadcast hvis du er master
             if read_wv[config::MASTER_IDX] != my_wv[config::MASTER_IDX] {
                 println!("UDP sin ID: {}, egen wv ID: {}", read_wv[config::MASTER_IDX], my_wv[config::MASTER_IDX]);
