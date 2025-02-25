@@ -71,37 +71,37 @@ pub async fn update_wv(mut main_local_chs: local_network::LocalChannels, mut wor
             },
             Err(_) => {},
         }
-        match main_local_chs.mpscs.rxs.local_elev.try_recv() {
-            Ok(msg) => {
-                let mut deserialized_wv = world_view::deserialize_worldview(&worldview_serialised);
-                let self_idx = world_view::get_index_to_container(utils::SELF_ID.load(Ordering::SeqCst) , worldview_serialised);
-                match msg.msg_type {
-                    local_network::ElevMsgType::CBTN => {
-                        print_info(format!("Callbutton: {:?}", msg.call_button));
+        // match main_local_chs.mpscs.rxs.local_elev.try_recv() {
+        //     Ok(msg) => {
+        //         let mut deserialized_wv = world_view::deserialize_worldview(&worldview_serialised);
+        //         let self_idx = world_view::get_index_to_container(utils::SELF_ID.load(Ordering::SeqCst) , worldview_serialised);
+        //         match msg.msg_type {
+        //             local_network::ElevMsgType::CBTN => {
+        //                 print_info(format!("Callbutton: {:?}", msg.call_button));
 
-                    }
-                    local_network::ElevMsgType::FSENS => {
-                        if let (Some(i), Some(floor)) = (self_idx, msg.floor_sensor) {
-                            deserialized_wv.elevator_containers[i].last_floor_sensor = floor;
-                        }
+        //             }
+        //             local_network::ElevMsgType::FSENS => {
+        //                 if let (Some(i), Some(floor)) = (self_idx, msg.floor_sensor) {
+        //                     deserialized_wv.elevator_containers[i].last_floor_sensor = floor;
+        //                 }
                         
-                    }
-                    local_network::ElevMsgType::SBTN => {
-                        print_info(format!("Stop button: {:?}", msg.stop_button));
+        //             }
+        //             local_network::ElevMsgType::SBTN => {
+        //                 print_info(format!("Stop button: {:?}", msg.stop_button));
                         
-                    }
-                    local_network::ElevMsgType::OBSTRX => {
-                        print_info(format!("Obstruction: {:?}", msg.obstruction));
-                        if let (Some(i), Some(obs)) = (self_idx, msg.obstruction) {
-                            deserialized_wv.elevator_containers[i].obstruction = obs;
-                        }
-                    }
-                }
-                worldview_serialised = world_view::serialize_worldview(&deserialized_wv);
-                wv_edited_I = true;
-            },
-            Err(_) => {},
-        }
+        //             }
+        //             local_network::ElevMsgType::OBSTRX => {
+        //                 print_info(format!("Obstruction: {:?}", msg.obstruction));
+        //                 if let (Some(i), Some(obs)) = (self_idx, msg.obstruction) {
+        //                     deserialized_wv.elevator_containers[i].obstruction = obs;
+        //                 }
+        //             }
+        //         }
+        //         worldview_serialised = world_view::serialize_worldview(&deserialized_wv);
+        //         wv_edited_I = true;
+        //     },
+        //     Err(_) => {},
+        // }
         // let mut ww_des = world_view::deserialize_worldview(&worldview_serialised);
         // ww_des.elevator_containers[0].last_floor_sensor = (ww_des.elevator_containers[0].last_floor_sensor %255) + 1;
         // worldview_serialised = world_view::serialize_worldview(&ww_des);
