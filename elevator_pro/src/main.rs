@@ -47,8 +47,6 @@ async fn main() {
         let _ = tcp_self_elevator::run_local_elevator().await;
     }).await;
 
-    tokio::time::sleep(Duration::from_secs(10)).await;
-
 
 /* START ----------- Starte Eksterne Nettverkstasks ---------------------- */
     let _listen_task = tokio::spawn(async move {
@@ -81,14 +79,14 @@ async fn main() {
 
 
 
-    // let print_task = tokio::spawn(async move {
-    //     loop {
-    //         let chs_clone = chs_print.clone();
-    //         let wv = utils::get_wv(chs_clone);
-    //         world_view::print_wv(wv.clone());
-    //         tokio::time::sleep(Duration::from_millis(500)).await;
-    //     }
-    // });
+    let print_task = tokio::spawn(async move {
+        loop {
+            let chs_clone = chs_print.clone();
+            let wv = utils::get_wv(chs_clone);
+            world_view::print_wv(wv.clone());
+            tokio::time::sleep(Duration::from_millis(500)).await;
+        }
+    });
 
     
     let mut wv_edited_I = true;
