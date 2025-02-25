@@ -32,10 +32,6 @@ pub async fn start_udp_broadcaster(mut chs: local_network::LocalChannels) -> tok
     let udp_socket = UdpSocket::from_std(socket.into())?;
 
     let mut wv = utils::get_wv(chs.clone());
-
-
-    
-    
     loop{
         let chs_clone = chs.clone();
         utils::update_wv(chs_clone, &mut wv).await;
@@ -62,7 +58,7 @@ pub async fn start_udp_listener(mut chs: local_network::LocalChannels) -> tokio:
     let mut read_wv: Vec<u8> = Vec::new();
     
     let mut message: Cow<'_, str> = std::borrow::Cow::Borrowed("a");
-
+    let mut my_wv = utils::get_wv(chs.clone());
     loop {
         match socket.recv_from(&mut buf).await {
             Ok((len, _)) => {
@@ -84,40 +80,61 @@ pub async fn start_udp_listener(mut chs: local_network::LocalChannels) -> tokio:
             .filter_map(|s| s.parse::<u8>().ok()) // Konverter til u8, ignorer feil
             .collect(); // Samle i Vec<u8>
 
-            chs.resubscribe_broadcast();
-            let wv = async {
-                let mut latest_msg = None;
-                while let Ok(message) = chs.broadcasts.rxs.wv.try_recv() {
-                    latest_msg = Some(message); // Overskriv tidligere meldinger
-                }
-                latest_msg
-            }.await; 
-            
-            if let None = wv {
-                //println!("msg var ingenting");
-                //TODO: legg til atomic bool kanskje (ref tokio_ny) (ikke helt nødvendig)
-                //utils::print_warn("Ingen wv på rxs.wv_rx".to_string());
-            }
-            if let Some(mut my_wv) = wv {
-                //Bare broadcast hvis du er master
-                if read_wv[config::MASTER_IDX] != my_wv[config::MASTER_IDX] {
-                    println!("UDP sin ID: {}, egen wv ID: {}", read_wv[config::MASTER_IDX], my_wv[config::MASTER_IDX]);
-                } else {
-                    get_udp_timeout().store(false, Ordering::SeqCst);
-                }
 
-                //utils::print_info(format!("read_wv: {:?}", read_wv));
-                //utils::print_info(format!("full message: {:?}", message));
-                if my_wv[config::MASTER_IDX] >= read_wv[config::MASTER_IDX] && !(utils::SELF_ID.load(Ordering::SeqCst) == read_wv[config::MASTER_IDX]) {
-                    //Oppdater egen WV
-                    my_wv = read_wv;
-                    //TODO: Send denne wv tilbake til thread som behandler worldview
-                    let _ = chs.mpscs.txs.udp_wv.send(my_wv).await;
-                }
-                else {
-                    //println!("UDP-en har høyere ID, jeg ignorerer den");
-                }
+
+            
+            utils::update_wv(chs.clone(), &mut my_wv).await;
+            //Bare broadcast hvis du er master
+            if read_wv[config::MASTER_IDX] != my_wv[config::MASTER_IDX] {
+                println!("UDP sin ID: {}, egen wv ID: {}", read_wv[config::MASTER_IDX], my_wv[config::MASTER_IDX]);
+            } else {
+                get_udp_timeout().store(false, Ordering::SeqCst);
             }
+
+            //utils::print_info(format!("read_wv: {:?}", read_wv));
+            //utils::print_info(format!("full message: {:?}", message));
+            if my_wv[config::MASTER_IDX] >= read_wv[config::MASTER_IDX] && !(utils::SELF_ID.load(Ordering::SeqCst) == read_wv[config::MASTER_IDX]) {
+                //Oppdater egen WV
+                my_wv = read_wv;
+                //TODO: Send denne wv tilbake til thread som behandler worldview
+                let _ = chs.mpscs.txs.udp_wv.send(my_wv.clone()).await;
+            }
+
+
+            // chs.resubscribe_broadcast();
+            // let wv = async {
+            //     let mut latest_msg = None;
+            //     while let Ok(message) = chs.broadcasts.rxs.wv.try_recv() {
+            //         latest_msg = Some(message); // Overskriv tidligere meldinger
+            //     }
+            //     latest_msg
+            // }.await; 
+            
+            // if let None = wv {
+            //     //println!("msg var ingenting");
+            //     //TODO: legg til atomic bool kanskje (ref tokio_ny) (ikke helt nødvendig)
+            //     //utils::print_warn("Ingen wv på rxs.wv_rx".to_string());
+            // }
+            // if let Some(mut my_wv) = wv {
+            //     //Bare broadcast hvis du er master
+            //     if read_wv[config::MASTER_IDX] != my_wv[config::MASTER_IDX] {
+            //         println!("UDP sin ID: {}, egen wv ID: {}", read_wv[config::MASTER_IDX], my_wv[config::MASTER_IDX]);
+            //     } else {
+            //         get_udp_timeout().store(false, Ordering::SeqCst);
+            //     }
+
+            //     //utils::print_info(format!("read_wv: {:?}", read_wv));
+            //     //utils::print_info(format!("full message: {:?}", message));
+            //     if my_wv[config::MASTER_IDX] >= read_wv[config::MASTER_IDX] && !(utils::SELF_ID.load(Ordering::SeqCst) == read_wv[config::MASTER_IDX]) {
+            //         //Oppdater egen WV
+            //         my_wv = read_wv;
+            //         //TODO: Send denne wv tilbake til thread som behandler worldview
+            //         let _ = chs.mpscs.txs.udp_wv.send(my_wv).await;
+            //     }
+            //     else {
+            //         //println!("UDP-en har høyere ID, jeg ignorerer den");
+            //     }
+            // }
                 
         }
 
