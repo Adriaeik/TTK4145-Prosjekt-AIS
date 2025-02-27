@@ -19,30 +19,18 @@ pub fn join_wv(mut my_wv: Vec<u8>, master_wv: Vec<u8>) -> Vec<u8> {
     let my_wv_deserialised = world_view::deserialize_worldview(&my_wv);
     let mut master_wv_deserialised = world_view::deserialize_worldview(&master_wv);
 
+    let my_self_index = world_view::get_index_to_container(utils::SELF_ID.load(Ordering::SeqCst) , my_wv);
+    let master_self_index = world_view::get_index_to_container(utils::SELF_ID.load(Ordering::SeqCst) , master_wv);
 
-    let mut my_elev_exists = false;
-
-
-    for mut elevator in master_wv_deserialised.clone().elevator_containers {
-        if elevator.elevator_id == utils::SELF_ID.load(Ordering::SeqCst) {
-            my_elev_exists = true;
-
-            // Vi har bedre styr på interne var. enn master. Hent egt bare ut tasks'
-            for my_elevator in my_wv_deserialised.clone().elevator_containers {
-                if my_elevator.elevator_id == utils::SELF_ID.load(Ordering::SeqCst) {
-                    elevator.door_open = my_elevator.door_open;
-                    elevator.obstruction = my_elevator.obstruction;
-                    elevator.last_floor_sensor = my_elevator.last_floor_sensor;
-                    elevator.motor_dir = my_elevator.motor_dir;
-                }
-            }
-        }
+    if let (Some(my_i), Some(master_i)) = (my_self_index, master_self_index) {
+        master_wv_deserialised.elevator_containers[master_i].door_open = my_wv_deserialised.elevator_containers[my_i].door_open;
+        master_wv_deserialised.elevator_containers[master_i].obstruction = my_wv_deserialised.elevator_containers[my_i].obstruction;
+        master_wv_deserialised.elevator_containers[master_i].last_floor_sensor = my_wv_deserialised.elevator_containers[my_i].last_floor_sensor;
+        master_wv_deserialised.elevator_containers[master_i].motor_dir = my_wv_deserialised.elevator_containers[my_i].motor_dir;
+    } else if let Some(my_i) = my_self_index {
+        master_wv_deserialised.add_elev(my_wv_deserialised.elevator_containers[my_i].clone());
     }
-    if !my_elev_exists {
-        if let Some(index) = my_wv_deserialised.clone().elevator_containers.iter().position(|x| x.elevator_id == utils::SELF_ID.load(Ordering::SeqCst)) {
-            master_wv_deserialised.add_elev(my_wv_deserialised.elevator_containers[index].clone());   
-        } 
-    }
+
     my_wv = world_view::serialize_worldview(&master_wv_deserialised);
     //utils::print_info(format!("Oppdatert wv fra UDP: {:?}", my_wv));
     my_wv
