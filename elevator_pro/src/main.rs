@@ -36,7 +36,7 @@ async fn main() {
     let chs_udp_listen = main_local_chs.clone();
     let chs_udp_bc = main_local_chs.clone();
     let chs_tcp = main_local_chs.clone();
-    //let chs_udp_wd = main_local_chs.clone();
+    let chs_udp_wd = main_local_chs.clone();
     let chs_print = main_local_chs.clone();
     let chs_listener = main_local_chs.clone();
     let chs_local_elev = main_local_chs.clone();
@@ -71,10 +71,10 @@ async fn main() {
         let _ = tcp_network::tcp_handler(chs_tcp, socket_rx).await;
     });
 
-    // let _udp_watchdog = tokio::spawn(async move {
-    //     utils::print_info("Starter udp watchdog".to_string());
-    //     let _ = udp_broadcast::udp_watchdog(chs_udp_wd).await;
-    // });
+    let _udp_watchdog = tokio::spawn(async move {
+        utils::print_info("Starter udp watchdog".to_string());
+        let _ = udp_broadcast::udp_watchdog(chs_udp_wd).await;
+    });
     
     let _listener_handle = tokio::spawn(async move {
         utils::print_info("Starter tcp listener".to_string());
