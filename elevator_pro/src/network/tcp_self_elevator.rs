@@ -169,6 +169,7 @@ pub async fn run_local_elevator(chs: local_network::LocalChannels) -> std::io::R
 
     let mut floor = 0;
     loop {
+        floor = (floor % 254) + 1;
         let msg = local_network::ElevMessage {
             msg_type: local_network::ElevMsgType::FSENS,
             call_button: None,
@@ -177,8 +178,23 @@ pub async fn run_local_elevator(chs: local_network::LocalChannels) -> std::io::R
             obstruction: None,
         };
         let _ = chs.mpscs.txs.local_elev.send(msg).await;
+        let msg = local_network::ElevMessage {
+            msg_type: local_network::ElevMsgType::OBSTRX,
+            call_button: None,
+            floor_sensor: None,
+            stop_button: None,
+            obstruction: Some(true),
+        };
+        let _ = chs.mpscs.txs.local_elev.send(msg).await;
         sleep(Duration::from_millis(1000)).await;
-        floor = (floor % 254) + 1;
+        let msg = local_network::ElevMessage {
+            msg_type: local_network::ElevMsgType::OBSTRX,
+            call_button: None,
+            floor_sensor: None,
+            stop_button: None,
+            obstruction: Some(false),
+        };
+        let _ = chs.mpscs.txs.local_elev.send(msg).await;
     }
 }
 
