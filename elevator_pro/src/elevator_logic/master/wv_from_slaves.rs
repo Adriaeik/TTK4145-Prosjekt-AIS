@@ -23,7 +23,6 @@ pub async fn update_call_buttons(deser_wv: &mut world_view::WorldView, container
     // Utvid outside_button med elementer som ikke er i HashSet
     for &call in &container.calls {
         if !seen.contains(&call) {
-            println!("{:?} var ikke sett", call);
             deser_wv.outside_button.push(call);
             seen.insert(call.clone());
         }

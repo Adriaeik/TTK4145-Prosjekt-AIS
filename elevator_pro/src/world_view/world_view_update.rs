@@ -31,10 +31,9 @@ pub fn join_wv(mut my_wv: Vec<u8>, master_wv: Vec<u8>) -> Vec<u8> {
         master_wv_deserialised.elevator_containers[master_i].motor_dir = my_wv_deserialised.elevator_containers[my_i].motor_dir;
 
         //Oppdater callbuttons, når master har fått de med seg fjern dine egne
-        // let to_remove_set: HashSet<_> = master_wv_deserialised.outside_button.clone().into_iter().collect();
-        // master_wv_deserialised.elevator_containers[master_i].calls.retain(|call| !to_remove_set.contains(call));
-
-        println!("My callbuttons: {:?}", master_wv_deserialised.elevator_containers[master_i].calls);
+        let to_remove_set: HashSet<_> = master_wv_deserialised.outside_button.clone().into_iter().collect();
+        master_wv_deserialised.elevator_containers[master_i].calls.retain(|call| !to_remove_set.contains(call));
+        
     } else if let Some(my_i) = my_self_index {
         master_wv_deserialised.add_elev(my_wv_deserialised.elevator_containers[my_i].clone());
     }
