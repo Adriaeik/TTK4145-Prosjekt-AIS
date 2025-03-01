@@ -1,6 +1,7 @@
 use std::sync::atomic::Ordering;
 use std::u16;
 use crate::world_view::world_view;
+use crate::world_view::world_view::TaskStatus;
 use crate::world_view::world_view_update;
 use crate::network::local_network;
 use crate::utils::{self, print_err, print_info, print_ok};
@@ -15,6 +16,8 @@ pub async fn update_wv(mut main_local_chs: local_network::LocalChannels, mut wor
     let init_task = Task{
         id: u16::MAX,
         to_do: 0,
+        status: TaskStatus::PENDING,
+        is_inside: true,
     };
     if let Some(i) = world_view::get_index_to_container(utils::SELF_ID.load(Ordering::SeqCst), worldview_serialised) {
         wv_des.elevator_containers[i].tasks.push(init_task); //Antar at vi er eneste heisen i systemet mikromillisekundet vi starter
