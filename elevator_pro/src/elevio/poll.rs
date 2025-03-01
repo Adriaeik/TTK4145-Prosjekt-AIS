@@ -6,6 +6,8 @@ use serde::{Serialize, Deserialize};
 use super::elev;
 use super::elev::DIRN_STOP;
 
+
+
 #[derive(Serialize, Deserialize, Debug, Clone)] // Added support for (De)serialization and cloning
 pub struct CallButton {
     pub floor: u8,

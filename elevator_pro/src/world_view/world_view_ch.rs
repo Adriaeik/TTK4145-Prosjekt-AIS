@@ -81,6 +81,7 @@ pub async fn update_wv(mut main_local_chs: local_network::LocalChannels, mut wor
 
                     }
                     local_network::ElevMsgType::FSENS => {
+                        print_info(format!("Floor: {:?}", msg.floor_sensor));
                         if let (Some(i), Some(floor)) = (self_idx, msg.floor_sensor) {
                             deserialized_wv.elevator_containers[i].last_floor_sensor = floor;
                         }
@@ -91,7 +92,7 @@ pub async fn update_wv(mut main_local_chs: local_network::LocalChannels, mut wor
                         
                     }
                     local_network::ElevMsgType::OBSTRX => {
-                        //print_info(format!("Obstruction: {:?}", msg.obstruction));
+                        print_info(format!("Obstruction: {:?}", msg.obstruction));
                         if let (Some(i), Some(obs)) = (self_idx, msg.obstruction) {
                             deserialized_wv.elevator_containers[i].obstruction = obs;
                         }

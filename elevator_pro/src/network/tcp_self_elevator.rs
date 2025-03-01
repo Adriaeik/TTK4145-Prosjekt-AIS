@@ -215,7 +215,7 @@ async fn read_from_local_elevator(rxs: LocalElevRxs, chs: local_network::LocalCh
     loop {
         // Sjekker hver kanal med `try_recv()`
         if let Ok(call_button) = rxs.call_button.try_recv() {
-            println!("CB: {:#?}", call_button);
+            //println!("CB: {:#?}", call_button);
             let msg = local_network::ElevMessage {
                 msg_type: local_network::ElevMsgType::CBTN,
                 call_button: Some(call_button),
@@ -227,7 +227,7 @@ async fn read_from_local_elevator(rxs: LocalElevRxs, chs: local_network::LocalCh
         }
 
         if let Ok(floor) = rxs.floor_sensor.try_recv() {
-            println!("Floor: {:#?}", floor);
+            //println!("Floor: {:#?}", floor);
             let msg = local_network::ElevMessage {
                 msg_type: local_network::ElevMsgType::FSENS,
                 call_button: None,
@@ -239,7 +239,7 @@ async fn read_from_local_elevator(rxs: LocalElevRxs, chs: local_network::LocalCh
         }
 
         if let Ok(stop) = rxs.stop_button.try_recv() {
-            println!("Stop button: {:#?}", stop);
+            //println!("Stop button: {:#?}", stop);
             let msg = local_network::ElevMessage {
                 msg_type: local_network::ElevMsgType::SBTN,
                 call_button: None,
@@ -251,7 +251,7 @@ async fn read_from_local_elevator(rxs: LocalElevRxs, chs: local_network::LocalCh
         }
 
         if let Ok(obstr) = rxs.obstruction.try_recv() {
-            println!("Obstruction: {:#?}", obstr);
+            //println!("Obstruction: {:#?}", obstr);
             let msg = local_network::ElevMessage {
                 msg_type: local_network::ElevMsgType::OBSTRX,
                 call_button: None,

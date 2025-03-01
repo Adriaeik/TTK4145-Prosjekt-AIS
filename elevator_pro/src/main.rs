@@ -1,6 +1,6 @@
 use std::{fmt::format, sync::atomic::Ordering, time::Duration};
 
-use elevator_pro::{network::{local_network, tcp_network, tcp_self_elevator, udp_broadcast}, utils::{self, print_err, print_info, print_ok}, world_view::{world_view, world_view_ch, world_view_update}};
+use elevator_pro::{config, network::{local_network, tcp_network, tcp_self_elevator, udp_broadcast}, utils::{self, print_err, print_info, print_ok}, world_view::{world_view, world_view_ch, world_view_update}};
 use elevator_pro::init;
 
 use tokio::{sync::broadcast, time::sleep};
@@ -86,10 +86,12 @@ async fn main() {
     let _print_task = tokio::spawn(async move {
         let mut wv = utils::get_wv(chs_print.clone());
         loop {
-            let chs_clone = chs_print.clone();
-            utils::update_wv(chs_clone, &mut wv).await;
-            world_view::print_wv(wv.clone());
-            tokio::time::sleep(Duration::from_millis(500)).await;
+            if config::PRINT_WV_ON {
+                let chs_clone = chs_print.clone();
+                utils::update_wv(chs_clone, &mut wv).await;
+                world_view::print_wv(wv.clone());
+                tokio::time::sleep(Duration::from_millis(500)).await;
+            }
         }
     });
 

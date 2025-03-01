@@ -138,7 +138,7 @@ pub fn print_ok(msg: String) {
 
 pub fn print_info(msg: String) {
     let mut stdout = StandardStream::stdout(ColorChoice::Always);
-    stdout.set_color(ColorSpec::new().set_fg(Some(Color::Blue))).unwrap();
+    stdout.set_color(ColorSpec::new().set_fg(Some(Color::Rgb(102, 178, 255/*lyseblå*/)))).unwrap();
     writeln!(&mut stdout, "[INFO]:    {}", msg).unwrap();
     stdout.set_color(&ColorSpec::new()).unwrap();
     println!("\r\n");
