@@ -3,6 +3,7 @@ use std::sync::atomic::Ordering;
 use std::thread;
 use std::time;
 use serde::{Serialize, Deserialize};
+use std::hash::{Hash, Hasher};
 
 use crate::utils;
 
@@ -29,7 +30,7 @@ impl From<u8> for CallType {
         }
     }
 }
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, Hash, Eq)] // Added support for (De)serialization and cloning
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, Eq)] // Added support for (De)serialization and cloning
 pub struct CallButton {
     pub floor: u8,
     pub call: CallType,
@@ -44,6 +45,16 @@ impl PartialEq for CallButton {
         } else {
             // For andre CallType er det tilstrekkelig å sammenligne floor og call
             self.floor == other.floor && self.call == other.call
+        }
+    }
+}
+impl Hash for CallButton {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        // Sørger for at hash er konsistent med eq
+        self.floor.hash(state);
+        self.call.hash(state);
+        if self.call == CallType::INSIDE {
+            self.elev_id.hash(state);
         }
     }
 }
