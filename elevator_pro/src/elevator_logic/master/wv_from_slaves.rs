@@ -7,6 +7,7 @@ pub async fn update_statuses(deser_wv: &mut world_view::WorldView, container: &E
     deser_wv.elevator_containers[i].last_floor_sensor = container.last_floor_sensor;
     deser_wv.elevator_containers[i].obstruction = container.obstruction;
     deser_wv.elevator_containers[i].motor_dir = container.motor_dir;
+    deser_wv.elevator_containers[i].calls = container.calls.clone(); 
 }
 
 
