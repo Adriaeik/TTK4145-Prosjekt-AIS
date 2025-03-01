@@ -91,10 +91,12 @@ pub async fn update_wv(mut main_local_chs: local_network::LocalChannels, mut wor
                     local_network::ElevMsgType::CBTN => {
                         print_info(format!("Callbutton: {:?}", msg.call_button));
                         if let (Some(i), Some(call_btn)) = (self_idx, msg.call_button) {
+                            deserialized_wv.elevator_containers[i].calls.push(call_btn); 
+
                             if is_master {
-                                deserialized_wv.outside_button.push(call_btn);
-                            } else {
-                                deserialized_wv.elevator_containers[i].calls.push(call_btn); 
+                                let container = deserialized_wv.elevator_containers[i].clone();
+                                master::wv_from_slaves::update_call_buttons(&mut deserialized_wv, &container, i).await;
+                                deserialized_wv.elevator_containers[i].calls.clear();
                             }
                         }
                     }

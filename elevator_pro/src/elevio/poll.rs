@@ -9,7 +9,7 @@ use crate::utils;
 use super::elev::{self, DIRN_STOP, DIRN_DOWN, DIRN_UP};
 
 //Lager enum for call
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum CallType {
     UP = 0,
     DOWN,
@@ -29,11 +29,23 @@ impl From<u8> for CallType {
         }
     }
 }
-#[derive(Serialize, Deserialize, Debug, Clone)] // Added support for (De)serialization and cloning
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, Hash, Eq)] // Added support for (De)serialization and cloning
 pub struct CallButton {
     pub floor: u8,
     pub call: CallType,
     pub elev_id: u8,
+}
+
+impl PartialEq for CallButton {
+    fn eq(&self, other: &Self) -> bool {
+        // Hvis call er INSIDE, sammenligner vi også elev_id
+        if self.call == CallType::INSIDE {
+            self.floor == other.floor && self.call == other.call && self.elev_id == other.elev_id
+        } else {
+            // For andre CallType er det tilstrekkelig å sammenligne floor og call
+            self.floor == other.floor && self.call == other.call
+        }
+    }
 }
 
 pub fn call_buttons(elev: elev::Elevator, ch: cbc::Sender<CallButton>, period: time::Duration) {
