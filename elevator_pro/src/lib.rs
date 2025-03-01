@@ -22,10 +22,4 @@ pub mod elevio {
 
 pub mod elevator_logic {
     pub mod task_handler;
-    pub mod master {
-        pub mod update_from_slave;
-    }
-    pub mod slave {
-        pub mod update_from_master;
-    }
 }

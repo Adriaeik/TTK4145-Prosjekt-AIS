@@ -12,29 +12,15 @@ use crate::elevio::poll::CallButton;
 pub struct Task {
     pub id: u16,
     pub to_do: u8, // Default: 0
-    pub status: TaskStatus, // 1: done, 0: to_do, 255: be master deligere denne på nytt
-    pub is_inside: bool,
+    // pub status: u8, // 1: done, 0: to_do, 255: be master deligere denne på nytt
+    // pub is_inside: bool,
 }
-
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-pub enum TaskStatus {
-    PENDING,
-    DONE,
-    UNABLE = u8::MAX as isize,    
-}
-impl Default for TaskStatus {
-    fn default() -> Self {
-        TaskStatus::PENDING
-    }
-}
-
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ElevatorContainer {
     pub elevator_id: u8,            // Default: 0
-    pub calls: Vec<CallButton>,     // Default: vektor med Tasks
-    pub tasks: Vec<Task>,           // Default: vektor med Tasks
-    pub tasks_status: Vec<Task>,    // Default: vektor med Tasks Slave skriver, Master leser
+    pub calls: Vec<CallButton>,   // Default: vektor med Tasks
+    pub tasks: Vec<Task>,         // Default: vektor med Tasks
     pub door_open: bool,            // Default: false
     pub obstruction: bool,          // Default: false
     pub motor_dir: u8,              // Default: 0
@@ -46,7 +32,6 @@ impl Default for ElevatorContainer {
             elevator_id: 0,
             calls: Vec::new(),
             tasks: Vec::new(),
-            tasks_status: Vec::new(),
             door_open: false,
             obstruction: false,
             motor_dir: 0,
@@ -210,7 +195,7 @@ pub fn print_wv(worldview: Vec<u8>) {
     let n_text = format!("{}", wv_deser.get_num_elev()); // Fjern ANSI og bruk prettytable farge
     let m_id_text = format!("{}", wv_deser.master_id);
     let button_list = wv_deser.outside_button.iter()
-        .map(|c| format!("{}:{:?}", c.floor, c.call))
+        .map(|c| format!("{}:{}", c.floor, c.call))
         .collect::<Vec<String>>()
         .join(", ");
 
@@ -272,7 +257,7 @@ pub fn print_wv(worldview: Vec<u8>) {
 
         // Vanleg utskrift av calls
         let call_list = elev.calls.iter()
-            .map(|c| format!("{}:{:?}", c.floor, c.call))
+            .map(|c| format!("{}:{}", c.floor, c.call))
             .collect::<Vec<String>>()
             .join(", ");
 

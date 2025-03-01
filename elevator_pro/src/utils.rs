@@ -120,37 +120,6 @@ pub fn print_err(msg: String) {
     println!("\r\n");
 }
 
-pub fn print_cosmic_err() {
-    let mut stdout = StandardStream::stdout(ColorChoice::Always);
-
-    // Skriv ut "[ERROR]:" i rød
-    stdout.set_color(ColorSpec::new().set_fg(Some(Color::Red))).unwrap();
-    write!(&mut stdout, "[ERROR]: ").unwrap();
-
-    // Definer regnbuefargene
-    let colors = [
-        Color::Red,
-        Color::Yellow,
-        Color::Green,
-        Color::Cyan,
-        Color::Blue,
-        Color::Magenta,
-    ];
-
-    // Resten av meldingen i regnbuefarger
-    let message = "Cosmic rays flipped a bit! 👽 ⚛️ 🔄 1️⃣ 0️⃣";
-    for (i, c) in message.chars().enumerate() {
-        let color = colors[i % colors.len()];
-        stdout.set_color(ColorSpec::new().set_fg(Some(color))).unwrap();
-        write!(&mut stdout, "{}", c).unwrap();
-    }
-
-    // Tilbakestill fargen
-    stdout.set_color(&ColorSpec::new()).unwrap();
-    println!();
-}
-
-
 pub fn print_warn(msg: String) {
     let mut stdout = StandardStream::stdout(ColorChoice::Always);
     stdout.set_color(ColorSpec::new().set_fg(Some(Color::Yellow))).unwrap();

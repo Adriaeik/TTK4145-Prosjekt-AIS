@@ -1,39 +1,15 @@
-#![allow(non_camel_case_types)]
-
 use crossbeam_channel as cbc;
 use std::thread;
 use std::time;
 use serde::{Serialize, Deserialize};
 
-use crate::utils;
+use super::elev;
+use super::elev::DIRN_STOP;
 
-use super::elev::{self, DIRN_STOP, DIRN_DOWN, DIRN_UP};
-
-//Lager enum for call
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-pub enum CallType {
-    UP = 0,
-    DOWN,
-    INSIDE,
-    COSMIC_ERROR,
-}
-impl From<u8> for CallType {
-    fn from(value: u8) -> Self {
-        match value {
-            0 => CallType::UP,
-            1 => CallType::DOWN,
-            2 => CallType::INSIDE,
-            _ => {
-                utils::print_cosmic_err();
-                CallType::COSMIC_ERROR
-            },
-        }
-    }
-}
 #[derive(Serialize, Deserialize, Debug, Clone)] // Added support for (De)serialization and cloning
 pub struct CallButton {
     pub floor: u8,
-    pub call: CallType,
+    pub call: u8,
 }
 
 pub fn call_buttons(elev: elev::Elevator, ch: cbc::Sender<CallButton>, period: time::Duration) {
@@ -43,7 +19,7 @@ pub fn call_buttons(elev: elev::Elevator, ch: cbc::Sender<CallButton>, period: t
             for c in 0..3 {
                 let v = elev.call_button(f, c);
                 if v && prev[f as usize][c as usize] != v {
-                    ch.send(CallButton { floor: f, call: CallType::from(c) }).unwrap();
+                    ch.send(CallButton { floor: f, call: c }).unwrap();
                 }
                 prev[f as usize][c as usize] = v;
             }
