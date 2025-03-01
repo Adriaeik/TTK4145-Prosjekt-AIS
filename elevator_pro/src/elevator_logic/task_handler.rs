@@ -17,9 +17,12 @@ pub async fn execute_tasks(chs: local_network::LocalChannels, elevator: elev::El
     //     world_view::print_wv(wv);
 
     // }
+    let mut container: ElevatorContainer;
+    update_wv(chs.clone(), &mut wv).await;
+    container = utils::extract_self_elevator_container(wv.clone());update_wv(chs.clone(), &mut wv).await;
+    container = utils::extract_self_elevator_container(wv.clone());
     elevator.motor_direction(elev::DIRN_DOWN);
     
-    let mut container: ElevatorContainer;
     loop {
         // let tasks_from_udp = utils::get_elev_tasks(chs.clone());
         update_wv(chs.clone(), &mut wv).await;

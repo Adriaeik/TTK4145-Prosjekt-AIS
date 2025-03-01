@@ -72,9 +72,14 @@ async fn start_elevator_server() {
         println!("Starter elevatorserver på Linux...");
         
         let elevator_server_command = format!(
-            "sshpass -p '{}' ssh -X student@{} 'export DISPLAY=:0 && gnome-terminal -- bash -c \"elevatorserver; exec bash\"'",
+            "sshpass -p '{}' ssh student@{} 'nohup elevatorserver > /dev/null 2>&1 &'",
             ssh_password, ip_address
         );
+        // Det starter serveren uten terminal. Om du vil avslutte serveren: pkill -f elevatorserver
+        
+        // Alternativt:                                                     pgrep -f elevatorserver  # Finner PID (Process ID)
+        //                                                                  kill <PID>               # Avslutter prosessen
+
 
         println!("\nStarter elevatorserver i ny terminal:\n\t{}", elevator_server_command);
 
@@ -119,87 +124,91 @@ async fn init_local_elevator_connection(txs: LocalElevTxs, elevator: e::Elevator
 }
 
 pub async fn run_local_elevator(chs: local_network::LocalChannels) -> std::io::Result<()> {
-    // start_elevator_server().await;
-    // let local_elev_channels: LocalElevChannels = LocalElevChannels::new();
-    // sleep(Duration::from_millis(100)).await;
-    // let elevator: e::Elevator = e::Elevator::init(config::LOCAL_ELEV_IP, config::DEFAULT_NUM_FLOORS).expect("Feil!");
+    start_elevator_server().await;
+    let local_elev_channels: LocalElevChannels = LocalElevChannels::new();
+    sleep(Duration::from_millis(100)).await;
+    let elevator: e::Elevator = e::Elevator::init(config::LOCAL_ELEV_IP, config::DEFAULT_NUM_FLOORS).expect("Feil!");
     
     
-    // {
-    //     let elevator = elevator.clone();
-    //     tokio::spawn(async move {
-    //         elevio::poll::call_buttons(elevator, local_elev_channels.txs.call_button, config::ELEV_POLL)
-    //     });
-    // }
-    // {
-    //     let elevator = elevator.clone();
-    //     tokio::spawn(async move {
-    //         elevio::poll::floor_sensor(elevator, local_elev_channels.txs.floor_sensor, config::ELEV_POLL)
-    //     });
-    // }
-    // {
-    //     let elevator = elevator.clone();
-    //     tokio::spawn(async move {
-    //         elevio::poll::stop_button(elevator, local_elev_channels.txs.obstruction, config::ELEV_POLL)
-    //     });
-    // }
-    // {
-    //     let elevator = elevator.clone();
-    //     tokio::spawn(async move {
-    //         elevio::poll::obstruction(elevator, local_elev_channels.txs.stop_button, config::ELEV_POLL)
-    //     });
-    // }
- 
- 
-    // {
-    //     let chs_clone = chs.clone();
-    //     let _listen_task = tokio::spawn(async move {
-    //         let _ = read_from_local_elevator(local_elev_channels.rxs, chs_clone).await;
-    //     });
-    // }
-
-    // {
-    //     let chs_clone = chs.clone();
-    //     let _handle_task = tokio::spawn(async move {
-    //         let _ = task_handler::execute_tasks(chs_clone, elevator).await;
-    //     });
-    //     tokio::task::yield_now().await;
-    // }
-
-
-    let mut floor = 0;
-    loop {
-        floor = (floor % 254) + 1;
-        sleep(config::ELEV_POLL).await;
-        let msg = local_network::ElevMessage {
-            msg_type: local_network::ElevMsgType::FSENS,
-            call_button: None,
-            floor_sensor: Some(floor),
-            stop_button: None,
-            obstruction: None,
-        };
-        let _ = chs.mpscs.txs.local_elev.send(msg).await;
-        sleep(config::ELEV_POLL).await;
-        let msg2 = local_network::ElevMessage {
-            msg_type: local_network::ElevMsgType::OBSTRX,
-            call_button: None,
-            floor_sensor: None,
-            stop_button: None,
-            obstruction: Some(true),
-        };
-        let _ = chs.mpscs.txs.local_elev.send(msg2).await;
-        sleep(Duration::from_millis(1000)).await;
-        sleep(config::ELEV_POLL).await;
-        let msg3 = local_network::ElevMessage {
-            msg_type: local_network::ElevMsgType::OBSTRX,
-            call_button: None,
-            floor_sensor: None,
-            stop_button: None,
-            obstruction: Some(false),
-        };
-        let _ = chs.mpscs.txs.local_elev.send(msg3).await;
-        sleep(Duration::from_millis(1000)).await;
+    {
+        let elevator = elevator.clone();
+        tokio::spawn(async move {
+            elevio::poll::call_buttons(elevator, local_elev_channels.txs.call_button, config::ELEV_POLL)
+        });
     }
+    {
+        let elevator = elevator.clone();
+        tokio::spawn(async move {
+            elevio::poll::floor_sensor(elevator, local_elev_channels.txs.floor_sensor, config::ELEV_POLL)
+        });
+    }
+    {
+        let elevator = elevator.clone();
+        tokio::spawn(async move {
+            elevio::poll::stop_button(elevator, local_elev_channels.txs.obstruction, config::ELEV_POLL)
+        });
+    }
+    {
+        let elevator = elevator.clone();
+        tokio::spawn(async move {
+            elevio::poll::obstruction(elevator, local_elev_channels.txs.stop_button, config::ELEV_POLL)
+        });
+    }
+ 
+ 
+    {
+        let chs_clone = chs.clone();
+        let _listen_task = tokio::spawn(async move {
+            let _ = read_from_local_elevator(local_elev_channels.rxs, chs_clone).await;
+        });
+    }
+
+    {
+        let chs_clone = chs.clone();
+        let _handle_task = tokio::spawn(async move {
+            let _ = task_handler::execute_tasks(chs_clone, elevator).await;
+        });
+        tokio::task::yield_now().await;
+    }
+
+    loop {
+        sleep(Duration::from_millis(100));
+    }
+
+
+    // let mut floor = 0;
+    // loop {
+    //     floor = (floor % 254) + 1;
+    //     sleep(config::ELEV_POLL).await;
+    //     let msg = local_network::ElevMessage {
+    //         msg_type: local_network::ElevMsgType::FSENS,
+    //         call_button: None,
+    //         floor_sensor: Some(floor),
+    //         stop_button: None,
+    //         obstruction: None,
+    //     };
+    //     let _ = chs.mpscs.txs.local_elev.send(msg).await;
+    //     sleep(config::ELEV_POLL).await;
+    //     let msg2 = local_network::ElevMessage {
+    //         msg_type: local_network::ElevMsgType::OBSTRX,
+    //         call_button: None,
+    //         floor_sensor: None,
+    //         stop_button: None,
+    //         obstruction: Some(true),
+    //     };
+    //     let _ = chs.mpscs.txs.local_elev.send(msg2).await;
+    //     sleep(Duration::from_millis(1000)).await;
+    //     sleep(config::ELEV_POLL).await;
+    //     let msg3 = local_network::ElevMessage {
+    //         msg_type: local_network::ElevMsgType::OBSTRX,
+    //         call_button: None,
+    //         floor_sensor: None,
+    //         stop_button: None,
+    //         obstruction: Some(false),
+    //     };
+    //     let _ = chs.mpscs.txs.local_elev.send(msg3).await;
+    //     sleep(Duration::from_millis(1000)).await;
+    // }
 }
 
 async fn read_from_local_elevator(rxs: LocalElevRxs, chs: local_network::LocalChannels) -> std::io::Result<()> {
