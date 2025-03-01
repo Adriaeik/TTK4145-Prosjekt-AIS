@@ -22,7 +22,7 @@ async fn main() {
 
 
 /*Skaper oss eit verdensbildet ved fødselen, vi tar vår første pust */
-    let worldview_serialised = init::initialize_worldview();
+    let worldview_serialised = init::initialize_worldview().await;
     
 /* START ----------- Init av lokale channels ---------------------- */
     //Kun bruk mpsc-rxene fra main_local_chs

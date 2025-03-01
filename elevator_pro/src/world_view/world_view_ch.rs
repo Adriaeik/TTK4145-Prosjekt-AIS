@@ -13,19 +13,7 @@ use super::world_view::Task;
 pub async fn update_wv(mut main_local_chs: local_network::LocalChannels, mut worldview_serialised: Vec<u8>) {
     println!("Starter update_wv");
     let _ = main_local_chs.watches.txs.wv.send(worldview_serialised.clone());
-    let mut wv_des = world_view::deserialize_worldview(&worldview_serialised);
-    let init_task = Task{
-        id: u16::MAX,
-        to_do: 0,
-        status: TaskStatus::PENDING,
-        is_inside: true,
-    };
-    if let Some(i) = world_view::get_index_to_container(utils::SELF_ID.load(Ordering::SeqCst), worldview_serialised) {
-        wv_des.elevator_containers[i].tasks.push(init_task); //Antar at vi er eneste heisen i systemet mikromillisekundet vi starter
-    }
     
-    worldview_serialised = world_view::serialize_worldview(&wv_des);
-    let _ = main_local_chs.watches.txs.wv.send(worldview_serialised.clone());
 
     
 
