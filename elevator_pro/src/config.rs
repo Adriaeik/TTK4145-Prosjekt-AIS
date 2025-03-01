@@ -23,4 +23,4 @@ pub const KEY_STR: &str = "Gruppe 25";
 
 pub const TCP_TIMEOUT: u64 = 5000; // i millisekunder
 
-pub const PRINT_WV_ON: bool = true;
+pub const PRINT_WV_ON: bool = false;
