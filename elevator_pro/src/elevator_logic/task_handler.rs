@@ -15,15 +15,18 @@ pub async fn execute_tasks(chs: local_network::LocalChannels, elevator: elev::El
     //     let wv = utils::get_wv(chs.clone());
     //     let wv_deser = world_view::deserialize_worldview(&wv);
     //     world_view::print_wv(wv);
-
     // }
-    let mut container: ElevatorContainer;
-    update_wv(chs.clone(), &mut wv).await;
-    container = utils::extract_self_elevator_container(wv.clone());update_wv(chs.clone(), &mut wv).await;
-    container = utils::extract_self_elevator_container(wv.clone());
+    
     elevator.motor_direction(elev::DIRN_DOWN);
     
+    let mut container: ElevatorContainer;
+    let mut task_done = false;
     loop {
+        if task_done {
+            let _ = chs.mpscs.txs.first_task_done.send(()).await;
+            task_done = false;
+        }
+
         // let tasks_from_udp = utils::get_elev_tasks(chs.clone());
         update_wv(chs.clone(), &mut wv).await;
         container = utils::extract_self_elevator_container(wv.clone());
@@ -39,6 +42,7 @@ pub async fn execute_tasks(chs: local_network::LocalChannels, elevator: elev::El
             }
             else {
                 elevator.motor_direction(elev::DIRN_STOP);
+                task_done = true;
             }
         }
     }

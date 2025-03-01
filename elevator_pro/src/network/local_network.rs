@@ -29,7 +29,8 @@ pub struct MpscTxs {
     pub container: mpsc::Sender<Vec<u8>>,
     pub remove_container: mpsc::Sender<u8>,
     pub local_elev: mpsc::Sender<ElevMessage>,
-    pub mpsc_buffer_ch5: mpsc::Sender<bool>,
+    pub first_task_done: mpsc::Sender<()>,
+    pub mpsc_buffer_ch6: mpsc::Sender<bool>,
 }
 
 pub struct MpscRxs {
@@ -38,7 +39,8 @@ pub struct MpscRxs {
     pub container: mpsc::Receiver<Vec<u8>>,
     pub remove_container: mpsc::Receiver<u8>,
     pub local_elev: mpsc::Receiver<ElevMessage>,
-    pub mpsc_buffer_ch5: mpsc::Receiver<bool>,
+    pub first_task_done: mpsc::Receiver<()>,
+    pub mpsc_buffer_ch6: mpsc::Receiver<bool>,
 }
 
 impl Clone for MpscTxs {
@@ -49,7 +51,8 @@ impl Clone for MpscTxs {
             container: self.container.clone(),
             remove_container: self.remove_container.clone(),
             local_elev: self.local_elev.clone(),
-            mpsc_buffer_ch5: self.mpsc_buffer_ch5.clone(),
+            first_task_done: self.first_task_done.clone(),
+            mpsc_buffer_ch6: self.mpsc_buffer_ch6.clone(),
         }
     }
 }
@@ -79,6 +82,7 @@ impl Mpscs {
         let (tx3, rx3) = mpsc::channel(1);
         let (tx4, rx4) = mpsc::channel(1);
         let (tx5, rx5) = mpsc::channel(1);
+        let (tx6, rx6) = mpsc::channel(1);
 
         Mpscs { 
             txs: MpscTxs { 
@@ -87,7 +91,8 @@ impl Mpscs {
                 container: tx2,
                 remove_container: tx3,
                 local_elev: tx4,
-                mpsc_buffer_ch5: tx5,
+                first_task_done: tx5,
+                mpsc_buffer_ch6: tx6,
             }, 
             rxs: MpscRxs { 
                 udp_wv: rx_udp,
@@ -95,7 +100,8 @@ impl Mpscs {
                 container: rx2,
                 remove_container: rx3,
                 local_elev: rx4,
-                mpsc_buffer_ch5: rx5,
+                first_task_done: rx5,
+                mpsc_buffer_ch6: rx6,
             }
         }
     }
@@ -109,6 +115,7 @@ impl Clone for Mpscs {
         let (_, rx3) = mpsc::channel(1);
         let (_, rx4) = mpsc::channel(1);
         let (_, rx5) = mpsc::channel(1);
+        let (_, rx6) = mpsc::channel(1);
 
         Mpscs {
             txs: self.txs.clone(),
@@ -118,7 +125,8 @@ impl Clone for Mpscs {
                 container: rx2,
                 remove_container: rx3,
                 local_elev: rx4,
-                mpsc_buffer_ch5: rx5,
+                first_task_done: rx5,
+                mpsc_buffer_ch6: rx6,
             }
         }
     }
@@ -190,7 +198,7 @@ impl BroadcastRxs {
 /// | Variabel  | Beskrivelse  |
 /// |-----------|-------------|
 /// | **shutdown**  | Signaliserer til alle tråder at de skal avslutte |
-/// | **mpsc_buffer_ch1**  | Buffer til fremtidig bruk |
+/// | **first_task_done**  | Buffer til fremtidig bruk |
 /// | **mpsc_buffer_ch2**  | Buffer til fremtidig bruk |
 /// | **mpsc_buffer_ch3**  | Buffer til fremtidig bruk |
 /// | **local_elev**  | Buffer til fremtidig bruk |
@@ -295,7 +303,7 @@ impl Clone for WatchRxs {
 /// | Variabel  | Beskrivelse  |
 /// |-----------|-------------|
 /// | **wv**  | wv oppdateres av ´world_view_handler´ og leses av i ´get_wv´ |
-/// | **mpsc_buffer_ch1**  | Buffer til fremtidig bruk |
+/// | **first_task_done**  | Buffer til fremtidig bruk |
 /// | **mpsc_buffer_ch2**  | Buffer til fremtidig bruk |
 /// | **mpsc_buffer_ch3**  | Buffer til fremtidig bruk |
 /// | **local_elev**  | Buffer til fremtidig bruk |

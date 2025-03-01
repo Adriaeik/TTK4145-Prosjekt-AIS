@@ -1,6 +1,6 @@
 use std::{fmt::format, sync::atomic::Ordering, time::Duration};
 
-use elevator_pro::{network::{local_network, tcp_network, tcp_self_elevator, udp_broadcast}, utils::{self, print_err, print_info, print_ok}, world_view::{world_view, world_view_ch, world_view_update}};
+use elevator_pro::{network::{local_network, tcp_network, tcp_self_elevator, udp_broadcast}, utils::{self, print_cosmic_err, print_err, print_info, print_ok}, world_view::{world_view, world_view_ch, world_view_update}};
 use elevator_pro::init;
 
 use tokio::{sync::broadcast, time::sleep};
@@ -11,6 +11,9 @@ use std::net::SocketAddr;
 
 #[tokio::main]
 async fn main() {
+    // utils::print_cosmic_err();
+    // sleep(Duration::from_secs(1)).await;
+    
 /* START ----------- Task for å overvake Nettverksstatus ---------------------- */
     /* oppdaterer ein atomicbool der true er online, false er då offline */
     let _network_status_watcher_task = tokio::spawn(async move {
