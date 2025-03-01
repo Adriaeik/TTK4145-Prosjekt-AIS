@@ -7,6 +7,7 @@ Ein god gitter pusher alltid
 Prøv at master acker, slave sender ikke før den har fått ack
 Prøv å sende tregere?
 Hvis ikke, kanskje en annen tråd henger som gjør at tcp-en ikke klarer å oppdatere wv? 
+Semafor i update_ch som sier ok når man har håndtert melding på container ch, tcp task acker og leser ny mld fra tcp når semaforen er åpen
 
 
 - Delegere tasks (veldig enkelt. ingen prioritering ogsånt)
