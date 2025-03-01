@@ -2,6 +2,7 @@ use crate::network::local_network;
 use crate::world_view::world_view;
 use crate::{config, utils};
 
+use std::collections::HashSet;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::OnceLock;
 
@@ -28,9 +29,16 @@ pub fn join_wv(mut my_wv: Vec<u8>, master_wv: Vec<u8>) -> Vec<u8> {
         master_wv_deserialised.elevator_containers[master_i].obstruction = my_wv_deserialised.elevator_containers[my_i].obstruction;
         master_wv_deserialised.elevator_containers[master_i].last_floor_sensor = my_wv_deserialised.elevator_containers[my_i].last_floor_sensor;
         master_wv_deserialised.elevator_containers[master_i].motor_dir = my_wv_deserialised.elevator_containers[my_i].motor_dir;
+
+        //Oppdater callbuttons, når master har fått de med seg fjern dine egne
+        let to_remove_set: HashSet<_> = master_wv_deserialised.outside_button.clone().into_iter().collect();
+        master_wv_deserialised.elevator_containers[master_i].calls.retain(|call| !to_remove_set.contains(call));
+
     } else if let Some(my_i) = my_self_index {
         master_wv_deserialised.add_elev(my_wv_deserialised.elevator_containers[my_i].clone());
     }
+
+
 
     my_wv = world_view::serialize_worldview(&master_wv_deserialised);
     //utils::print_info(format!("Oppdatert wv fra UDP: {:?}", my_wv));
