@@ -5,6 +5,7 @@ use crate::world_view::world_view::TaskStatus;
 use crate::world_view::world_view_update;
 use crate::network::local_network;
 use crate::utils::{self, print_err, print_info, print_ok};
+use crate::elevator_logic::master;
 
 use super::world_view::Task;
 
@@ -54,12 +55,19 @@ pub async fn update_wv(mut main_local_chs: local_network::LocalChannels, mut wor
             Ok(container) => {
                 let deser_container = world_view::deserialize_elev_container(&container);
                 let mut deserialized_wv = world_view::deserialize_worldview(&worldview_serialised);
-                if let Some(index) = deserialized_wv.elevator_containers.iter().position(|x| x.elevator_id == deser_container.elevator_id) {
-                    //TODO: sjekk at den er riktig / som forventa?
-                    deserialized_wv.elevator_containers[index] = deser_container;
+                if None == deserialized_wv.elevator_containers.iter().position(|x| x.elevator_id == deser_container.elevator_id) {
+                    deserialized_wv.add_elev(deser_container.clone());
+                }
+
+                let self_idx = world_view::get_index_to_container(deser_container.elevator_id, world_view::serialize_worldview(&deserialized_wv));
+                
+                if let Some(i) = self_idx {
+                    master::wv_from_slaves::update_statuses(&mut deserialized_wv, &deser_container, i).await;
+                    master::wv_from_slaves::update_call_buttons(&mut deserialized_wv, &deser_container, i).await;
                 } else {
-                    deserialized_wv.add_elev(deser_container);
-                } 
+                    utils::print_cosmic_err();
+                }
+
                 worldview_serialised = world_view::serialize_worldview(&deserialized_wv);
                 wv_edited_I = true;
             },
@@ -76,13 +84,18 @@ pub async fn update_wv(mut main_local_chs: local_network::LocalChannels, mut wor
         }
         match main_local_chs.mpscs.rxs.local_elev.try_recv() {
             Ok(msg) => {
+                let is_master = utils::is_master(worldview_serialised.clone());
                 let mut deserialized_wv = world_view::deserialize_worldview(&worldview_serialised);
                 let self_idx = world_view::get_index_to_container(utils::SELF_ID.load(Ordering::SeqCst) , worldview_serialised);
                 match msg.msg_type {
                     local_network::ElevMsgType::CBTN => {
                         print_info(format!("Callbutton: {:?}", msg.call_button));
                         if let (Some(i), Some(call_btn)) = (self_idx, msg.call_button) {
-                            deserialized_wv.elevator_containers[i].calls.push(call_btn); 
+                            if is_master {
+                                deserialized_wv.outside_button.push(call_btn);
+                            } else {
+                                deserialized_wv.elevator_containers[i].calls.push(call_btn); 
+                            }
                         }
                     }
                     local_network::ElevMsgType::FSENS => {

@@ -1,4 +1,5 @@
 use crossbeam_channel as cbc;
+use std::sync::atomic::Ordering;
 use std::thread;
 use std::time;
 use serde::{Serialize, Deserialize};
@@ -32,6 +33,7 @@ impl From<u8> for CallType {
 pub struct CallButton {
     pub floor: u8,
     pub call: CallType,
+    pub elev_id: u8,
 }
 
 pub fn call_buttons(elev: elev::Elevator, ch: cbc::Sender<CallButton>, period: time::Duration) {
@@ -41,7 +43,7 @@ pub fn call_buttons(elev: elev::Elevator, ch: cbc::Sender<CallButton>, period: t
             for c in 0..3 {
                 let v = elev.call_button(f, c);
                 if v && prev[f as usize][c as usize] != v {
-                    ch.send(CallButton { floor: f, call: CallType::from(c) }).unwrap();
+                    ch.send(CallButton { floor: f, call: CallType::from(c), elev_id: utils::SELF_ID.load(Ordering::SeqCst)}).unwrap();
                 }
                 prev[f as usize][c as usize] = v;
             }
