@@ -41,11 +41,11 @@ impl PartialEq for CallButton {
     fn eq(&self, other: &Self) -> bool {
         // Hvis call er INSIDE, sammenligner vi også elev_id
         if self.call == CallType::INSIDE {
-            //utils::print_warn(format!("{:?} og {:?} er like? {}", self, other, self.floor == other.floor && self.call == other.call && self.elev_id == other.elev_id));
+            utils::print_warn(format!("{:?} og {:?} er like? {}", self, other, self.floor == other.floor && self.call == other.call && self.elev_id == other.elev_id));
             self.floor == other.floor && self.call == other.call && self.elev_id == other.elev_id
         } else {
             // For andre CallType er det tilstrekkelig å sammenligne floor og call
-            //utils::print_warn(format!("{:?} og {:?} er like? {}", self, other, self.floor == other.floor && self.call == other.call));
+            utils::print_warn(format!("{:?} og {:?} er like? {}", self, other, self.floor == other.floor && self.call == other.call));
             self.floor == other.floor && self.call == other.call
         }
     }
