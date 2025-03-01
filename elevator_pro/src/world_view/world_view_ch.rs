@@ -81,7 +81,9 @@ pub async fn update_wv(mut main_local_chs: local_network::LocalChannels, mut wor
                 match msg.msg_type {
                     local_network::ElevMsgType::CBTN => {
                         print_info(format!("Callbutton: {:?}", msg.call_button));
-
+                        if let (Some(i), Some(call_btn)) = (self_idx, msg.call_button) {
+                            deserialized_wv.elevator_containers[i].calls.push(call_btn); 
+                        }
                     }
                     local_network::ElevMsgType::FSENS => {
                         print_info(format!("Floor: {:?}", msg.floor_sensor));
