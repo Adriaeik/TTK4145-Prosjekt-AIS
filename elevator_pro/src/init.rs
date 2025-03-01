@@ -13,6 +13,7 @@ use std::net::SocketAddr;
 use std::sync::OnceLock;
 use tokio::time::Instant;
 use std::sync::atomic::AtomicBool;
+use tokio::time::timeout;
 use std::thread::sleep;
 use std::time::Duration;
 use tokio::net::UdpSocket;
@@ -48,6 +49,7 @@ pub async fn initialize_worldview() -> Vec<u8> {
     //Hør etter UDP i 1 sek?. Hvis den får en wordlview: oppdater
     let wv_from_udp = check_for_udp().await;
     if wv_from_udp.is_empty(){
+        utils::print_info("Ingen andre på Nett".to_string());
         return serialize_worldview(&worldview);
     }
 
@@ -77,27 +79,33 @@ pub async fn check_for_udp() -> Vec<u8> {
     let duration = Duration::from_secs(1);
 
     while Instant::now().duration_since(time_start) < duration {
-        match socket.recv_from(&mut buf).await {
-            Ok((len, _)) => {
+        let recv_result = timeout(duration, socket.recv_from(&mut buf)).await;
+
+        match recv_result {
+            Ok(Ok((len, _))) => {
                 message = String::from_utf8_lossy(&buf[..len]).into_owned().into();
             }
-            Err(e) => {
+            Ok(Err(e)) => {
                 utils::print_err(format!("udp_broadcast.rs, udp_listener(): {}", e));
+                continue;
+            }
+            Err(_) => {
+                // Timeout skjedde – stopp løkka
+                println!("Timeout – ingen data mottatt innen 1 sekund.");
+                break;
             }
         }
-        
-        if &message[1..config::KEY_STR.len()+1] == config::KEY_STR { //Plusser på en, siden serialiseringa av stringen tar med '"'-tegnet
-            let clean_message = &message[config::KEY_STR.len()+3..message.len()-1]; // Fjerner `"`
+
+        if &message[1..config::KEY_STR.len() + 1] == config::KEY_STR {
+            let clean_message = &message[config::KEY_STR.len() + 3..message.len() - 1]; // Fjerner `"`
             read_wv = clean_message
-            .split(", ") // Del opp på ", "
-            .filter_map(|s| s.parse::<u8>().ok()) // Konverter til u8, ignorer feil
-            .collect(); // Samle i Vec<u8>
+                .split(", ") // Del opp på ", "
+                .filter_map(|s| s.parse::<u8>().ok()) // Konverter til u8, ignorer feil
+                .collect(); // Samle i Vec<u8>
 
-            
             break;
-        } 
+        }
     }
-
     drop(socket);
     read_wv
 }
