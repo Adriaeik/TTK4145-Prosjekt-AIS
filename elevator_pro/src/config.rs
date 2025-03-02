@@ -26,4 +26,4 @@ pub const TCP_PER_U64: u64 = 10; // i millisekunder
 pub const UDP_PERIOD: Duration = Duration::from_millis(TCP_PER_U64);
 pub const TCP_PERIOD: Duration = Duration::from_millis(TCP_PER_U64);
 
-pub const PRINT_WV_ON: bool = false;
+pub const PRINT_WV_ON: bool = !false;
