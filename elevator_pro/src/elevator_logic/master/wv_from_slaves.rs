@@ -21,6 +21,7 @@ pub async fn update_call_buttons(deser_wv: &mut world_view::WorldView, container
     }
 
     // Utvid outside_button med elementer som ikke er i HashSet
+    println!("Callbtwns hos slave {}: {:?}", container.elevator_id, container.calls);
     for &call in &container.calls {
         if !seen.contains(&call) {
             deser_wv.outside_button.push(call);
