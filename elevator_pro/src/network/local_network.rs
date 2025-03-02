@@ -74,11 +74,11 @@ pub struct Mpscs {
 impl Mpscs {
     pub fn new() -> Self {
         let (tx_udp, rx_udp) = mpsc::channel(32);
-        let (tx1, rx1) = mpsc::channel(1);
-        let (tx2, rx2) = mpsc::channel(1);
-        let (tx3, rx3) = mpsc::channel(1);
-        let (tx4, rx4) = mpsc::channel(1);
-        let (tx5, rx5) = mpsc::channel(1);
+        let (tx1, rx1) = mpsc::channel(32);
+        let (tx2, rx2) = mpsc::channel(32);
+        let (tx3, rx3) = mpsc::channel(32);
+        let (tx4, rx4) = mpsc::channel(32);
+        let (tx5, rx5) = mpsc::channel(32);
 
         Mpscs { 
             txs: MpscTxs { 
@@ -104,11 +104,11 @@ impl Mpscs {
 impl Clone for Mpscs {
     fn clone(&self) -> Mpscs {
         let (_, rx_udp) = mpsc::channel(32);
-        let (_, rx1) = mpsc::channel(1);
-        let (_, rx2) = mpsc::channel(1);
-        let (_, rx3) = mpsc::channel(1);
-        let (_, rx4) = mpsc::channel(1);
-        let (_, rx5) = mpsc::channel(1);
+        let (_, rx1) = mpsc::channel(32);
+        let (_, rx2) = mpsc::channel(32);
+        let (_, rx3) = mpsc::channel(32);
+        let (_, rx4) = mpsc::channel(32);
+        let (_, rx5) = mpsc::channel(32);
 
         Mpscs {
             txs: self.txs.clone(),

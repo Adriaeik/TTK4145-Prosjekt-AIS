@@ -20,13 +20,14 @@ pub async fn update_wv(mut main_local_chs: local_network::LocalChannels, mut wor
     let mut wv_edited_I = false;
     loop {
         //Ops. mister internett -> du må bli master (single elevator mode)
+        /*_____Oppdater WV fra UDP-melding_____ */
         match main_local_chs.mpscs.rxs.udp_wv.try_recv() {
             Ok(master_wv) => {
-                worldview_serialised = world_view_update::join_wv(worldview_serialised, master_wv);
-                wv_edited_I = true;
+                wv_edited_I = join_wv_from_udp(&mut worldview_serialised, master_wv);
             },
             Err(_) => {}, 
         }
+        /*_____Signal om at tilkobling til master har feila_____ */
         match main_local_chs.mpscs.rxs.tcp_to_master_failed.try_recv() {
             Ok(_) => {
                 //fikse wv
@@ -39,6 +40,7 @@ pub async fn update_wv(mut main_local_chs: local_network::LocalChannels, mut wor
             },
             Err(_) => {},
         }
+        /*_____Melding til master fra slaven (elevator-containeren til slaven)_____*/
         match main_local_chs.mpscs.rxs.container.try_recv() {
             Ok(container) => {
                 let deser_container = world_view::deserialize_elev_container(&container);
@@ -61,6 +63,7 @@ pub async fn update_wv(mut main_local_chs: local_network::LocalChannels, mut wor
             },
             Err(_) => {},
         }
+        /*_____ID til slave som er død (ikke kontakt med slave)_____ */
         match main_local_chs.mpscs.rxs.remove_container.try_recv() {
             Ok(id) => {
                 let mut deserialized_wv = world_view::deserialize_worldview(&worldview_serialised);
@@ -70,6 +73,7 @@ pub async fn update_wv(mut main_local_chs: local_network::LocalChannels, mut wor
             },
             Err(_) => {},
         }
+        /*_____Knapper trykket på lokal heis_____ */
         match main_local_chs.mpscs.rxs.local_elev.try_recv() {
             Ok(msg) => {
                 let is_master = utils::is_master(worldview_serialised.clone());
@@ -114,11 +118,15 @@ pub async fn update_wv(mut main_local_chs: local_network::LocalChannels, mut wor
         // let mut ww_des = world_view::deserialize_worldview(&worldview_serialised);
         // ww_des.elevator_containers[0].last_floor_sensor = (ww_des.elevator_containers[0].last_floor_sensor %255) + 1;
         // worldview_serialised = world_view::serialize_worldview(&ww_des);
+        /*_____Hvis worldview er endra, oppdater kanalen_____ */
         if wv_edited_I {
             let _ = main_local_chs.watches.txs.wv.send(worldview_serialised.clone());
-            // println!("WV er endra");
-            //println!("Worldview ble endra");
             wv_edited_I = false;
         }
     }
+}
+
+pub fn join_wv_from_udp(wv: &mut Vec<u8>, master_wv: Vec<u8>) -> bool {
+    *wv = world_view_update::join_wv(wv.clone(), master_wv);
+    true
 }
