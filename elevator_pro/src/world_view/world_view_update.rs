@@ -1,3 +1,5 @@
+
+
 use crate::network::local_network;
 use crate::world_view::world_view;
 use crate::network::tcp_network;
@@ -6,6 +8,8 @@ use crate::{config, utils};
 use std::collections::HashSet;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::OnceLock;
+use std::thread::sleep;
+use std::time::Duration;
 
 
 static ONLINE: OnceLock<AtomicBool> = OnceLock::new(); // worldview_channel_request
@@ -37,7 +41,7 @@ pub fn join_wv(mut my_wv: Vec<u8>, master_wv: Vec<u8>) -> Vec<u8> {
         // let to_remove_set: HashSet<_> = master_wv_deserialised.outside_button.clone().into_iter().collect();
         // my_wv_deserialised.elevator_containers[my_i].calls.retain(|call| !to_remove_set.contains(call));
         // master_wv_deserialised.elevator_containers[master_i].calls = my_wv_deserialised.elevator_containers[my_i].calls.clone();
-
+        sleep(Duration::from_millis(10));
         if tcp_network::TCP_SENT.load(Ordering::SeqCst) {
             tcp_network::TCP_SENT.store(false, Ordering::SeqCst);
             master_wv_deserialised.elevator_containers[master_i].calls.clear(); 
