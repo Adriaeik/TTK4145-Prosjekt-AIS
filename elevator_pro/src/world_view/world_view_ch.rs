@@ -26,7 +26,7 @@ pub async fn update_wv(mut main_local_chs: local_network::LocalChannels, mut wor
                 wv_edited_I = join_wv_from_udp(&mut worldview_serialised, master_wv);
             },
             Err(_) => {
-                utils::print_cosmic_err("Recieving from mpscs.rxs.udp_wv".to_string());
+                // utils::print_cosmic_err("Recieving from mpscs.rxs.udp_wv".to_string());
             }, 
         }
         /*_____Signal om at tilkobling til master har feila_____ */
@@ -35,7 +35,7 @@ pub async fn update_wv(mut main_local_chs: local_network::LocalChannels, mut wor
                 wv_edited_I = abort_network(&mut worldview_serialised);
             },
             Err(_) => {
-                utils::print_cosmic_err("Recieving from mmpscs.rxs.tcp_to_master_failed".to_string());
+                // utils::print_cosmic_err("Recieving from mmpscs.rxs.tcp_to_master_failed".to_string());
             },
         }
         /*_____Melding til master fra slaven (elevator-containeren til slaven)_____*/
