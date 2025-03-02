@@ -3,11 +3,8 @@
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 Ein god gitter pusher alltid
 
-- Master sliter å lese TCP meldinger etter å ha stått litt (etter et par min hvertfal, finn ut hvor lenge). Finn ut akkuratt hva som får det til å skje. Kanskje watchdogen?
-Prøv at master acker, slave sender ikke før den har fått ack
-Prøv å sende tregere?
-Hvis ikke, kanskje en annen tråd henger som gjør at tcp-en ikke klarer å oppdatere wv? 
-Semafor i update_ch som sier ok når man har håndtert melding på container ch, tcp task acker og leser ny mld fra tcp når semaforen er åpen
+- Legg til at master ACKer TCP meldinger, så slaven ikke sender ny før master har behandla den?
+- Sync hos slaven så den passer på å ikke fjerne buttoncalls som ikke er sendt på TCP enda
 
 
 - Delegere tasks (veldig enkelt. ingen prioritering ogsånt)

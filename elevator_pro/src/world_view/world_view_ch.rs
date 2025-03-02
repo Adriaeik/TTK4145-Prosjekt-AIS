@@ -19,24 +19,20 @@ pub async fn update_wv(mut main_local_chs: local_network::LocalChannels, mut wor
 
     let mut wv_edited_I = false;
     loop {
-        //Ops. mister internett -> du må bli master (single elevator mode)
+        //OBS: Error kommer når kanal er tom. ikke print der uten å eksplisitt eksludere channel_empty error type
         /*_____Oppdater WV fra UDP-melding_____ */
         match main_local_chs.mpscs.rxs.udp_wv.try_recv() {
             Ok(master_wv) => {
                 wv_edited_I = join_wv_from_udp(&mut worldview_serialised, master_wv);
             },
-            Err(_) => {
-                // utils::print_cosmic_err("Recieving from mpscs.rxs.udp_wv".to_string());
-            }, 
+            Err(_) => {}, 
         }
         /*_____Signal om at tilkobling til master har feila_____ */
         match main_local_chs.mpscs.rxs.tcp_to_master_failed.try_recv() {
             Ok(_) => {
                 wv_edited_I = abort_network(&mut worldview_serialised);
             },
-            Err(_) => {
-                // utils::print_cosmic_err("Recieving from mmpscs.rxs.tcp_to_master_failed".to_string());
-            },
+            Err(_) => {},
         }
         /*_____Melding til master fra slaven (elevator-containeren til slaven)_____*/
         match main_local_chs.mpscs.rxs.container.try_recv() {
@@ -59,9 +55,6 @@ pub async fn update_wv(mut main_local_chs: local_network::LocalChannels, mut wor
             },
             Err(_) => {},
         }
-        // let mut ww_des = world_view::deserialize_worldview(&worldview_serialised);
-        // ww_des.elevator_containers[0].last_floor_sensor = (ww_des.elevator_containers[0].last_floor_sensor %255) + 1;
-        // worldview_serialised = world_view::serialize_worldview(&ww_des);
         /*_____Hvis worldview er endra, oppdater kanalen_____ */
         if wv_edited_I {
             let _ = main_local_chs.watches.txs.wv.send(worldview_serialised.clone());
