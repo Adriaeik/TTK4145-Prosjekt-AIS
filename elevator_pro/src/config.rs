@@ -22,6 +22,8 @@ pub const MASTER_IDX: usize = 1;
 pub const KEY_STR: &str = "Gruppe 25";
 
 pub const TCP_TIMEOUT: u64 = 5000; // i millisekunder
-pub const UDP_PERIOD: Duration = Duration::from_millis(100);
+pub const TCP_PER_U64: u64 = 10; // i millisekunder
+pub const UDP_PERIOD: Duration = Duration::from_millis(TCP_PER_U64*5);
+pub const TCP_PERIOD: Duration = Duration::from_millis(TCP_PER_U64);
 
 pub const PRINT_WV_ON: bool = !false;
