@@ -41,23 +41,7 @@ pub async fn update_wv(mut main_local_chs: local_network::LocalChannels, mut wor
         /*_____Melding til master fra slaven (elevator-containeren til slaven)_____*/
         match main_local_chs.mpscs.rxs.container.try_recv() {
             Ok(container) => {
-                let deser_container = world_view::deserialize_elev_container(&container);
-                let mut deserialized_wv = world_view::deserialize_worldview(&worldview_serialised);
-                if None == deserialized_wv.elevator_containers.iter().position(|x| x.elevator_id == deser_container.elevator_id) {
-                    deserialized_wv.add_elev(deser_container.clone());
-                }
-
-                let self_idx = world_view::get_index_to_container(deser_container.elevator_id, world_view::serialize_worldview(&deserialized_wv));
-                
-                if let Some(i) = self_idx {
-                    master::wv_from_slaves::update_statuses(&mut deserialized_wv, &deser_container, i).await;
-                    master::wv_from_slaves::update_call_buttons(&mut deserialized_wv, &deser_container, i).await;
-                } else {
-                    utils::print_cosmic_err("The elevator does not exist mpscs.rxs.container".to_string());
-                }
-
-                worldview_serialised = world_view::serialize_worldview(&deserialized_wv);
-                wv_edited_I = true;
+                wv_edited_I = join_wv_from_tcp_container(&mut worldview_serialised, container).await;
             },
             Err(_) => {},
         }
@@ -137,3 +121,25 @@ pub fn abort_network(wv: &mut Vec<u8>) -> bool {
     *wv = world_view::serialize_worldview(&deserialized_wv);
     true
 }
+
+pub async fn join_wv_from_tcp_container(wv: &mut Vec<u8>, container: Vec<u8>) -> bool {
+    let deser_container = world_view::deserialize_elev_container(&container);
+    let mut deserialized_wv = world_view::deserialize_worldview(&wv);
+    if None == deserialized_wv.elevator_containers.iter().position(|x| x.elevator_id == deser_container.elevator_id) {
+        deserialized_wv.add_elev(deser_container.clone());
+    }
+
+    let self_idx = world_view::get_index_to_container(deser_container.elevator_id, world_view::serialize_worldview(&deserialized_wv));
+    
+    if let Some(i) = self_idx {
+        master::wv_from_slaves::update_statuses(&mut deserialized_wv, &deser_container, i).await;
+        master::wv_from_slaves::update_call_buttons(&mut deserialized_wv, &deser_container, i).await;
+        *wv = world_view::serialize_worldview(&deserialized_wv);
+        return true;
+    } else {
+        utils::print_cosmic_err("The elevator does not exist join_wv_from_tcp_conatiner()".to_string());
+        return false;
+    }
+}
+
+
