@@ -74,11 +74,11 @@ pub struct Mpscs {
 impl Mpscs {
     pub fn new() -> Self {
         let (tx_udp, rx_udp) = mpsc::channel(32);
-        let (tx1, rx1) = mpsc::channel(100);
-        let (tx2, rx2) = mpsc::channel(100);
-        let (tx3, rx3) = mpsc::channel(100);
+        let (tx1, rx1) = mpsc::channel(1);
+        let (tx2, rx2) = mpsc::channel(1);
+        let (tx3, rx3) = mpsc::channel(1);
         let (tx4, rx4) = mpsc::channel(1);
-        let (tx5, rx5) = mpsc::channel(100);
+        let (tx5, rx5) = mpsc::channel(1);
 
         Mpscs { 
             txs: MpscTxs { 

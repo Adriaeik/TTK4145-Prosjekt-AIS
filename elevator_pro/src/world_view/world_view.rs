@@ -1,6 +1,7 @@
 use serde::{Serialize, Deserialize};
 use crate::config;
 use crate::utils;
+use crate::elevio::poll::CallType;
 use ansi_term::Colour::{Blue, Green, Red, Yellow, Purple};
 use ansi_term::Style;
 use prettytable::{Table, Row, Cell, format, Attr, color};
@@ -198,7 +199,6 @@ pub fn print_wv(worldview: Vec<u8>) {
     // Overskrift i blå feittskrift
     println!("{}", Purple.bold().paint("WORLD VIEW STATUS"));
 
-     
     //Legg til generell worldview-info
     //Funka ikke når jeg brukte fargene på lik måte som under. gudene vet hvorfor
     gen_table.add_row(Row::new(vec![
@@ -210,9 +210,12 @@ pub fn print_wv(worldview: Vec<u8>) {
     let n_text = format!("{}", wv_deser.get_num_elev()); // Fjern ANSI og bruk prettytable farge
     let m_id_text = format!("{}", wv_deser.master_id);
     let button_list = wv_deser.outside_button.iter()
-        .map(|c| format!("{}:{:?}", c.floor, c.call))
-        .collect::<Vec<String>>()
-        .join(", ");
+    .map(|c| match c.call {
+        CallType::INSIDE => format!("{}:{:?}({})", c.floor, c.call, c.elev_id),
+        _ => format!("{}:{:?}:PUBLIC", c.floor, c.call),
+    })
+    .collect::<Vec<String>>()
+    .join(", ");
 
     gen_table.add_row(Row::new(vec![
         Cell::new(&n_text).with_style(Attr::ForegroundColor(color::BRIGHT_YELLOW)),
