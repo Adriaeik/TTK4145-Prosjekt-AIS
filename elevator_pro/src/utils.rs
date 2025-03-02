@@ -1,9 +1,11 @@
+use std::time::Duration;
 use std::{fmt::format, io::Write};
 use std::net::IpAddr;
 use std::u8;
 use tokio::net::TcpStream;
 use tokio::io::AsyncWriteExt;
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
+use tokio::time::sleep;
 use crate::{config, network::local_network, world_view::world_view::{self, Task}};
 
 use local_ip_address::local_ip;
@@ -199,6 +201,7 @@ pub async fn update_wv(mut chs: local_network::LocalChannels, wv: &mut Vec<u8>) 
     if chs.watches.rxs.wv.changed().await.is_ok() {
         *wv = chs.watches.rxs.wv.borrow().clone();
     }
+    sleep(Duration::from_millis(10)).await;
 }
 
 /// Sjekker om du er master, basert på nyeste worldview
