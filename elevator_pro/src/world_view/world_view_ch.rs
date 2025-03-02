@@ -48,10 +48,7 @@ pub async fn update_wv(mut main_local_chs: local_network::LocalChannels, mut wor
         /*_____ID til slave som er død (ikke kontakt med slave)_____ */
         match main_local_chs.mpscs.rxs.remove_container.try_recv() {
             Ok(id) => {
-                let mut deserialized_wv = world_view::deserialize_worldview(&worldview_serialised);
-                deserialized_wv.remove_elev(id);
-                worldview_serialised = world_view::serialize_worldview(&deserialized_wv);
-                wv_edited_I = true; 
+                wv_edited_I = remove_container(&mut worldview_serialised, id); 
             },
             Err(_) => {},
         }
@@ -140,6 +137,13 @@ pub async fn join_wv_from_tcp_container(wv: &mut Vec<u8>, container: Vec<u8>) ->
         utils::print_cosmic_err("The elevator does not exist join_wv_from_tcp_conatiner()".to_string());
         return false;
     }
+}
+
+pub fn remove_container(wv: &mut Vec<u8>, id: u8) -> bool {
+    let mut deserialized_wv = world_view::deserialize_worldview(&wv);
+    deserialized_wv.remove_elev(id);
+    *wv = world_view::serialize_worldview(&deserialized_wv);
+    true
 }
 
 
