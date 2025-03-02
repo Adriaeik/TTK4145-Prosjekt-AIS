@@ -4,7 +4,7 @@
 Ein god gitter pusher alltid
 
 - Legg til at master ACKer TCP meldinger, så slaven ikke sender ny før master har behandla den?
-- Sync hos slaven så den passer på å ikke fjerne buttoncalls som ikke er sendt på TCP enda
+- Sync hos slaven så den passer på å ikke fjerne buttoncalls som ikke er sendt på TCP enda✅
 
 
 - Delegere tasks (veldig enkelt. ingen prioritering ogsånt)

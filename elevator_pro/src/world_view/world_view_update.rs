@@ -18,7 +18,7 @@ pub fn get_network_status() -> &'static AtomicBool {
 
 pub fn join_wv(mut my_wv: Vec<u8>, master_wv: Vec<u8>) -> Vec<u8> {
     //TODO: Lag copy funkjon for worldview structen
-    let my_wv_deserialised = world_view::deserialize_worldview(&my_wv);
+    let mut my_wv_deserialised = world_view::deserialize_worldview(&my_wv);
     let mut master_wv_deserialised = world_view::deserialize_worldview(&master_wv);
 
     let my_self_index = world_view::get_index_to_container(utils::SELF_ID.load(Ordering::SeqCst) , my_wv);
@@ -33,7 +33,8 @@ pub fn join_wv(mut my_wv: Vec<u8>, master_wv: Vec<u8>) -> Vec<u8> {
 
         //Oppdater callbuttons, når master har fått de med seg fjern dine egne
         let to_remove_set: HashSet<_> = master_wv_deserialised.outside_button.clone().into_iter().collect();
-        master_wv_deserialised.elevator_containers[master_i].calls.retain(|call| !to_remove_set.contains(call));
+        my_wv_deserialised.elevator_containers[my_i].calls.retain(|call| !to_remove_set.contains(call));
+        master_wv_deserialised.elevator_containers[master_i].calls = my_wv_deserialised.elevator_containers[my_i].calls.clone();
 
     } else if let Some(my_i) = my_self_index {
         master_wv_deserialised.add_elev(my_wv_deserialised.elevator_containers[my_i].clone());
