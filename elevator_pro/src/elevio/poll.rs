@@ -24,7 +24,7 @@ impl From<u8> for CallType {
             1 => CallType::DOWN,
             2 => CallType::INSIDE,
             _ => {
-                utils::print_cosmic_err();
+                utils::print_cosmic_err("Call type does not exist".to_string());
                 CallType::COSMIC_ERROR
             },
         }

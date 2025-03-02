@@ -1,4 +1,4 @@
-use std::io::Write;
+use std::{fmt::format, io::Write};
 use std::net::IpAddr;
 use std::u8;
 use tokio::net::TcpStream;
@@ -160,7 +160,7 @@ pub fn print_slave(msg: String) {
     println!("\r\n");
 }
 
-pub fn print_cosmic_err() {
+pub fn print_cosmic_err(fun: String) {
     let mut stdout = StandardStream::stdout(ColorChoice::Always);
 
     // Skriv ut "[ERROR]:" i rød
@@ -178,7 +178,7 @@ pub fn print_cosmic_err() {
     ];
 
     // Resten av meldingen i regnbuefarger
-    let message = "Cosmic rays flipped a bit! 👽 ⚛️ 🔄 1️⃣ 0️⃣";
+    let message = format!("Cosmic rays flipped a bit! 👽 ⚛️ 🔄 1️⃣ 0️⃣ IN: {}", fun);
     for (i, c) in message.chars().enumerate() {
         let color = colors[i % colors.len()];
         stdout.set_color(ColorSpec::new().set_fg(Some(color))).unwrap();

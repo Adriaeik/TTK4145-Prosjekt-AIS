@@ -25,20 +25,18 @@ pub async fn update_wv(mut main_local_chs: local_network::LocalChannels, mut wor
             Ok(master_wv) => {
                 wv_edited_I = join_wv_from_udp(&mut worldview_serialised, master_wv);
             },
-            Err(_) => {}, 
+            Err(_) => {
+                utils::print_cosmic_err("Recieving from mpscs.rxs.udp_wv".to_string());
+            }, 
         }
         /*_____Signal om at tilkobling til master har feila_____ */
         match main_local_chs.mpscs.rxs.tcp_to_master_failed.try_recv() {
             Ok(_) => {
-                //fikse wv
-                let mut deserialized_wv = world_view::deserialize_worldview(&worldview_serialised);
-                deserialized_wv.elevator_containers.retain(|elevator| elevator.elevator_id == utils::SELF_ID.load(Ordering::SeqCst));
-                deserialized_wv.set_num_elev(deserialized_wv.elevator_containers.len() as u8);
-                deserialized_wv.master_id = utils::SELF_ID.load(Ordering::SeqCst);
-                worldview_serialised = world_view::serialize_worldview(&deserialized_wv);
-                wv_edited_I = true;
+                wv_edited_I = abort_network(&mut worldview_serialised);
             },
-            Err(_) => {},
+            Err(_) => {
+                utils::print_cosmic_err("Recieving from mmpscs.rxs.tcp_to_master_failed".to_string());
+            },
         }
         /*_____Melding til master fra slaven (elevator-containeren til slaven)_____*/
         match main_local_chs.mpscs.rxs.container.try_recv() {
@@ -55,7 +53,7 @@ pub async fn update_wv(mut main_local_chs: local_network::LocalChannels, mut wor
                     master::wv_from_slaves::update_statuses(&mut deserialized_wv, &deser_container, i).await;
                     master::wv_from_slaves::update_call_buttons(&mut deserialized_wv, &deser_container, i).await;
                 } else {
-                    utils::print_cosmic_err();
+                    utils::print_cosmic_err("The elevator does not exist mpscs.rxs.container".to_string());
                 }
 
                 worldview_serialised = world_view::serialize_worldview(&deserialized_wv);
@@ -128,5 +126,14 @@ pub async fn update_wv(mut main_local_chs: local_network::LocalChannels, mut wor
 
 pub fn join_wv_from_udp(wv: &mut Vec<u8>, master_wv: Vec<u8>) -> bool {
     *wv = world_view_update::join_wv(wv.clone(), master_wv);
+    true
+}
+
+pub fn abort_network(wv: &mut Vec<u8>) -> bool {
+    let mut deserialized_wv = world_view::deserialize_worldview(wv);
+    deserialized_wv.elevator_containers.retain(|elevator| elevator.elevator_id == utils::SELF_ID.load(Ordering::SeqCst));
+    deserialized_wv.set_num_elev(deserialized_wv.elevator_containers.len() as u8);
+    deserialized_wv.master_id = utils::SELF_ID.load(Ordering::SeqCst);
+    *wv = world_view::serialize_worldview(&deserialized_wv);
     true
 }
