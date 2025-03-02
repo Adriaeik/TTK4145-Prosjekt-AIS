@@ -16,6 +16,7 @@ use super::local_network;
 
 // Definer ein global `AtomicU8`
 pub static IS_MASTER: AtomicBool = AtomicBool::new(false); // Startverdi 0
+pub static TCP_SENT: AtomicBool = AtomicBool::new(false); // Startverdi 0
 struct TcpWatchdog {
     timeout: Duration,
 }
@@ -118,7 +119,12 @@ pub async fn tcp_handler(chs: local_network::LocalChannels, mut socket_rx: mpsc:
                         tokio::time::sleep(Duration::from_millis(10)).await; //TODO: test om denne trengs
                         master_accepted_tcp = false;
                     }
+                    update_wv(chs.clone(), &mut wv).await;
+                    //Sett atomic bool vi har sendt callbuttons = true
+                    TCP_SENT.store(true, Ordering::SeqCst);
                     send_tcp_message(chs.clone(), s, wv.clone()).await;
+                    
+
                     //TODO: lag bedre delay
                     tokio::time::sleep(config::TCP_PERIOD).await; 
                 }

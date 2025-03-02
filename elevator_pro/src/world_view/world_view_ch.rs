@@ -2,6 +2,7 @@ use std::sync::atomic::Ordering;
 use std::u16;
 use crate::world_view::world_view;
 use crate::world_view::world_view::TaskStatus;
+use crate::network::tcp_network;
 use crate::world_view::world_view_update;
 use crate::network::local_network::{self, ElevMessage};
 use crate::utils::{self, print_err, print_info, print_ok};
@@ -51,7 +52,9 @@ pub async fn update_wv(mut main_local_chs: local_network::LocalChannels, mut wor
         /*_____Knapper trykket på lokal heis_____ */
         match main_local_chs.mpscs.rxs.local_elev.try_recv() {
             Ok(msg) => {
+                tcp_network::TCP_SENT.store(false, Ordering::SeqCst);
                 wv_edited_I = recieve_local_elevator_msg(&mut worldview_serialised, msg).await;
+                // Atomic bool: har sendt alle knapper = false
             },
             Err(_) => {},
         }

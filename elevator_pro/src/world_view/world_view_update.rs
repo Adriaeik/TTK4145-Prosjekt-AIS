@@ -1,5 +1,6 @@
 use crate::network::local_network;
 use crate::world_view::world_view;
+use crate::network::tcp_network;
 use crate::{config, utils};
 
 use std::collections::HashSet;
@@ -32,9 +33,17 @@ pub fn join_wv(mut my_wv: Vec<u8>, master_wv: Vec<u8>) -> Vec<u8> {
         master_wv_deserialised.elevator_containers[master_i].motor_dir = my_wv_deserialised.elevator_containers[my_i].motor_dir;
 
         //Oppdater callbuttons, når master har fått de med seg fjern dine egne
-        let to_remove_set: HashSet<_> = master_wv_deserialised.outside_button.clone().into_iter().collect();
-        my_wv_deserialised.elevator_containers[my_i].calls.retain(|call| !to_remove_set.contains(call));
-        master_wv_deserialised.elevator_containers[master_i].calls = my_wv_deserialised.elevator_containers[my_i].calls.clone();
+        // Bytter til at vi antar at TCP får frem alle meldinger, og at vi fjerner calls etter vi har sendt på TCP
+        // let to_remove_set: HashSet<_> = master_wv_deserialised.outside_button.clone().into_iter().collect();
+        // my_wv_deserialised.elevator_containers[my_i].calls.retain(|call| !to_remove_set.contains(call));
+        // master_wv_deserialised.elevator_containers[master_i].calls = my_wv_deserialised.elevator_containers[my_i].calls.clone();
+
+        if tcp_network::TCP_SENT.load(Ordering::SeqCst) {
+            tcp_network::TCP_SENT.store(false, Ordering::SeqCst);
+            master_wv_deserialised.elevator_containers[master_i].calls.clear(); 
+        } else {
+            master_wv_deserialised.elevator_containers[master_i].calls = my_wv_deserialised.elevator_containers[my_i].calls.clone();
+        }
 
     } else if let Some(my_i) = my_self_index {
         master_wv_deserialised.add_elev(my_wv_deserialised.elevator_containers[my_i].clone());
