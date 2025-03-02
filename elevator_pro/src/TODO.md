@@ -6,6 +6,7 @@ Ein god gitter pusher alltid ✅
 - Legg til at master ACKer TCP meldinger, så slaven ikke sender ny før master har behandla den?
 - Sync hos slaven så den passer på å ikke fjerne buttoncalls som ikke er sendt på TCP enda✅
 
+- Når TCP melding blir for stor blir det feil i mottak. Hvis det fortsatt er problem når vi delegerer tasks, se på mulighet å  indikere i meldinga at den blir delt opp :)
 
 - Delegere tasks (veldig enkelt. ingen prioritering ogsånt)
 - Fjerne fullførte tasks

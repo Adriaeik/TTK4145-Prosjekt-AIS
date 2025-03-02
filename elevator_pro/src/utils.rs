@@ -201,7 +201,6 @@ pub async fn update_wv(mut chs: local_network::LocalChannels, wv: &mut Vec<u8>) 
     if chs.watches.rxs.wv.changed().await.is_ok() {
         *wv = chs.watches.rxs.wv.borrow().clone();
     }
-    sleep(Duration::from_millis(10)).await;
 }
 
 /// Sjekker om du er master, basert på nyeste worldview

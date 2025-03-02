@@ -41,7 +41,6 @@ pub fn join_wv(mut my_wv: Vec<u8>, master_wv: Vec<u8>) -> Vec<u8> {
         // let to_remove_set: HashSet<_> = master_wv_deserialised.outside_button.clone().into_iter().collect();
         // my_wv_deserialised.elevator_containers[my_i].calls.retain(|call| !to_remove_set.contains(call));
         // master_wv_deserialised.elevator_containers[master_i].calls = my_wv_deserialised.elevator_containers[my_i].calls.clone();
-        sleep(Duration::from_millis(10));
         if tcp_network::TCP_SENT.load(Ordering::SeqCst) {
             tcp_network::TCP_SENT.store(false, Ordering::SeqCst);
             master_wv_deserialised.elevator_containers[master_i].calls.clear(); 
