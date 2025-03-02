@@ -13,20 +13,20 @@ pub async fn update_statuses(deser_wv: &mut world_view::WorldView, container: &E
 
 pub async fn update_call_buttons(deser_wv: &mut world_view::WorldView, container: &ElevatorContainer, i: usize) {
     // Sett opp et HashSet for å sjekke for duplikater
-    // let mut seen = HashSet::new();
+    let mut seen = HashSet::new();
     
-    // // Legg til eksisterende elementer i HashSet
-    // for &elem in &deser_wv.outside_button.clone() {
-    //     seen.insert(elem);
-    // }
+    // Legg til eksisterende elementer i HashSet
+    for &elem in &deser_wv.outside_button.clone() {
+        seen.insert(elem);
+    }
 
-    // // Utvid outside_button med elementer som ikke er i HashSet
-    // for &call in &container.calls {
-    //     if !seen.contains(&call) {
-    //         deser_wv.outside_button.push(call);
-    //         seen.insert(call.clone());
-    //     }
-    // }
+    // Utvid outside_button med elementer som ikke er i HashSet
+    for &call in &container.calls {
+        if !seen.contains(&call) {
+            deser_wv.outside_button.push(call);
+            seen.insert(call.clone());
+        }
+    }
 }
 
 
