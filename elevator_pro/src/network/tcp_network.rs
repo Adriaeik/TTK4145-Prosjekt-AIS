@@ -114,7 +114,7 @@ pub async fn tcp_handler(chs: local_network::LocalChannels, mut socket_rx: mpsc:
 
         /* Mens du er slave: Sjekk om det har kommet ny master / connection til master har dødd */
         let mut prev_master = wv[config::MASTER_IDX];
-        let mut new_master = prev_master != wv[config::MASTER_IDX];
+        let mut new_master = false;
         while !utils::is_master(wv.clone()) && master_accepted_tcp {
             // update_wv(chs.clone(), &mut wv).await;
             
@@ -125,8 +125,6 @@ pub async fn tcp_handler(chs: local_network::LocalChannels, mut socket_rx: mpsc:
             if world_view_update::get_network_status().load(Ordering::SeqCst) {
                 // utils::print_slave("Jeg er slave".to_string());
                 if let Some(ref mut s) = stream {
-                    println!("Master: {}, prev master: {}", wv[config::MASTER_IDX], prev_master);
-                    println!("Fått ny master status {}", new_master);
                     if new_master {
                         println!("Fått ny master");
                         // utils::close_tcp_stream(s).await;
@@ -139,9 +137,8 @@ pub async fn tcp_handler(chs: local_network::LocalChannels, mut socket_rx: mpsc:
                     if prev_master != wv[config::MASTER_IDX] {
                         new_master = true;
                     }
-
-                    
-
+                    println!("Master: {}, prev master: {}", wv[config::MASTER_IDX], prev_master);
+                    println!("Fått ny master status {}", new_master);
                     //TODO: lag bedre delay
                     tokio::time::sleep(config::TCP_PERIOD).await; 
                 }
@@ -150,7 +147,7 @@ pub async fn tcp_handler(chs: local_network::LocalChannels, mut socket_rx: mpsc:
                 tokio::time::sleep(Duration::from_millis(100)).await; 
             }
             //Det slaven skal gjøre på TCP 
-            update_wv(chs.clone(), &mut wv).await;
+            //update_wv(chs.clone(), &mut wv).await;
         } 
         //ble master -> koble fra master  
       
