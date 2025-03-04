@@ -33,7 +33,7 @@ pub struct MpscTxs {
     pub sent_tcp_container: mpsc::Sender<Vec<u8>>,
 
     // 10 nye buffer-kanalar
-    pub new_task: mpsc::Sender<(Task, u8)>,
+    pub new_task: mpsc::Sender<(Task, u8, CallButton)>,
     pub mpsc_buffer_ch1: mpsc::Sender<Vec<u8>>,
     pub mpsc_buffer_ch2: mpsc::Sender<Vec<u8>>,
     pub mpsc_buffer_ch3: mpsc::Sender<Vec<u8>>,
@@ -54,7 +54,7 @@ pub struct MpscRxs {
     pub sent_tcp_container: mpsc::Receiver<Vec<u8>>,
 
     // 10 nye buffer-kanalar
-    pub new_task: mpsc::Receiver<(Task, u8)>,
+    pub new_task: mpsc::Receiver<(Task, u8, CallButton)>,
     pub mpsc_buffer_ch1: mpsc::Receiver<Vec<u8>>,
     pub mpsc_buffer_ch2: mpsc::Receiver<Vec<u8>>,
     pub mpsc_buffer_ch3: mpsc::Receiver<Vec<u8>>,

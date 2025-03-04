@@ -8,19 +8,25 @@ struct Orders {
 
 
 pub async fn distribute_task(chs: local_network::LocalChannels) {
+    let mut i: u16 = 0;
     let mut wv = utils::get_wv(chs.clone());
     let mut wv_deser = world_view::deserialize_worldview(&wv);
 
     loop {
-        utils::update_wv(chs.clone(), &mut wv).await;
+        while !utils::update_wv(chs.clone(), &mut wv).await {
+            utils::slave_sleep().await;
+        }
         if utils::is_master(wv.clone()) {
             wv_deser = world_view::deserialize_worldview(&wv);
     
-    
             let buttons = wv_deser.outside_button;
-    
+            
+            if !buttons.is_empty() {
+                println!("Buttons: {:?}", buttons);
+            }
             for button in buttons {
-                let task = create_task(button);
+                let task = create_task(button, i);
+                i = (i % (u16::MAX - 1000)) + 1;
                 let (mut lowest_cost, mut id) = (i32::MAX, 0);
     
                 for elev in wv_deser.elevator_containers.iter() {
@@ -30,7 +36,7 @@ pub async fn distribute_task(chs: local_network::LocalChannels) {
                         id = elev.elevator_id;
                     }
                 }
-                let _ = chs.mpscs.txs.new_task.send((task, id)).await;
+                let _ = chs.mpscs.txs.new_task.send((task, id, button)).await;
                 // si til worldview_update at knapp er delegert.
                 // si til worldview_update at container[id] har fått task
             }
@@ -43,8 +49,8 @@ pub async fn distribute_task(chs: local_network::LocalChannels) {
 }
 
 
-fn create_task(button: CallButton) -> Task {
-    Task { id: 69, to_do: button.floor, status: TaskStatus::PENDING, is_inside: false }
+fn create_task(button: CallButton, task_id: u16) -> Task {
+    Task { id: task_id, to_do: button.floor, status: TaskStatus::PENDING, is_inside: false }
 }
 
 fn calculate_cost(task: Task, elev: ElevatorContainer) -> i32 {

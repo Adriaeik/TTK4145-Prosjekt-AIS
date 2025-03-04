@@ -3,6 +3,7 @@ use std::u16;
 use tokio::time::sleep;
 
 use crate::config;
+use crate::elevio::poll::CallButton;
 use crate::world_view::world_view;
 use crate::world_view::world_view::TaskStatus;
 use crate::network::tcp_network;
@@ -66,8 +67,8 @@ pub async fn update_wv(mut main_local_chs: local_network::LocalChannels, mut wor
             Err(_) => {},
         }
         match main_local_chs.mpscs.rxs.new_task.try_recv() {
-            Ok((task ,id)) => {
-                wv_edited_I = push_task(&mut worldview_serialised, task, id);
+            Ok((task ,id, button)) => {
+                wv_edited_I = push_task(&mut worldview_serialised, task, id, button);
             },
             Err(_) => {},
         }
@@ -202,18 +203,28 @@ fn clear_sent_container_stuff(wv: &mut Vec<u8>, tcp_container: Vec<u8>) -> bool 
     }
 }
 
-fn push_task(wv: &mut Vec<u8>, task: Task, id: u8) -> bool {
+fn push_task(wv: &mut Vec<u8>, task: Task, id: u8, button: CallButton) -> bool {
     let mut deser_wv = world_view::deserialize_worldview(&wv);
+
+    // Fjern `button` frå `outside_button` om han finst
+    if let Some(index) = deser_wv.outside_button.iter().position(|b| *b == button) {
+        deser_wv.outside_button.swap_remove(index);
+    }
+    
     let self_idx = world_view::get_index_to_container(id, wv.clone());
 
     if let Some(i) = self_idx {
-        deser_wv.elevator_containers[i].tasks.push(task);
-        *wv = world_view::serialize_worldview(&deser_wv);
-        return true;
-    } else {
-        return false;
+        // **Hindrar duplikatar: sjekk om task.id allereie finst i `tasks`**
+        if !deser_wv.elevator_containers[i].tasks.iter().any(|t| t.id == task.id) {
+            deser_wv.elevator_containers[i].tasks.push(task);
+            *wv = world_view::serialize_worldview(&deser_wv);
+            return true;
+        }
     }
+    
+    false
 }
+
 
 
 
