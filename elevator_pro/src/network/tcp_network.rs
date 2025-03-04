@@ -104,8 +104,12 @@ pub async fn tcp_handler(chs: local_network::LocalChannels, mut socket_rx: mpsc:
             // delay som er random. master bruker litt tid på å behandle meldinger etter den har accepta når det er mange nye slaver i køen. Ved masterbytte på nettverk med mange heiser blir det derfor mye error-looper før det fikser segselv
             // Legge til et lite delay fra du er tilkoblet til du starter å sende meldinger så masteren ikke får mange tilkoblinger på en gang
             // sleep(Duration::from_millis(100*((SELF_ID.load(Ordering::SeqCst) - 10) as u64))).await;
+            println!("Master accepta tilkobling");
+            panic!();
             master_accepted_tcp = true;
             stream = Some(s);
+        } else {
+            println!("Master accepta IKKE tilkobling");
         }
 
         /* Mens du er slave: Sjekk om det har kommet ny master / connection til master har dødd */
