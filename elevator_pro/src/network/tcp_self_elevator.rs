@@ -10,10 +10,13 @@ use tokio::process::Command;
 use std::sync::atomic::Ordering;
 
 use crate::elevator_logic::task_handler;
+use crate::utils::SELF_ID;
+use crate::world_view::world_view;
 use crate::{config, utils, world_view::world_view_update, elevio, elevio::poll::CallButton, elevio::elev as e};
 use utils::{print_info, print_ok, print_err, get_wv};
 
 use super::local_network;
+use super::tcp_network::IS_MASTER;
 
 
 
@@ -170,8 +173,20 @@ pub async fn run_local_elevator(chs: local_network::LocalChannels) -> std::io::R
         tokio::task::yield_now().await;
     }
 
+    let mut wv = utils::get_wv(chs.clone());
     loop {
-        sleep(Duration::from_millis(100));
+        utils::update_wv(chs.clone(), &mut wv).await;
+
+        if utils::is_master(wv.clone()) {
+            let wv_deser = world_view::deserialize_worldview(&wv.clone());
+            let self_idx = world_view::get_index_to_container(SELF_ID.load(Ordering::SeqCst), world_view::serialize_worldview(&wv_deser));
+            if let Some(i) = self_idx {
+                let _ = chs.mpscs.txs.container.send(world_view::serialize_elev_container(&wv_deser.elevator_containers[i])).await;
+            }
+
+        }
+    
+        sleep(Duration::from_millis(100)).await;
     }
 
 
