@@ -118,10 +118,11 @@ pub async fn tcp_handler(chs: local_network::LocalChannels, mut socket_rx: mpsc:
                 // utils::print_slave("Jeg er slave".to_string());
                 if let Some(ref mut s) = stream {
                     if new_master {
+
                         println!("Fått ny master");
                         // utils::close_tcp_stream(s).await;
                         master_accepted_tcp = false;
-                        tokio::time::sleep(Duration::from_millis(10)).await; //TODO: test om denne trengs
+                        tokio::time::sleep(Duration::from_millis(100)).await; //TODO: test om denne trengs
                     }
                     update_wv(chs.clone(), &mut wv).await;
                     //Sett atomic bool vi har sendt callbuttons = true

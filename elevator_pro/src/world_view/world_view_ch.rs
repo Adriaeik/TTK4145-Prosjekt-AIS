@@ -1,5 +1,7 @@
 use std::sync::atomic::Ordering;
 use std::u16;
+use tokio::time::sleep;
+
 use crate::world_view::world_view;
 use crate::world_view::world_view::TaskStatus;
 use crate::network::tcp_network;
@@ -15,7 +17,7 @@ pub async fn update_wv(mut main_local_chs: local_network::LocalChannels, mut wor
     println!("Starter update_wv");
     let _ = main_local_chs.watches.txs.wv.send(worldview_serialised.clone());
     
-
+    let mut i = 0;
     
 
     let mut wv_edited_I = false;
@@ -60,8 +62,9 @@ pub async fn update_wv(mut main_local_chs: local_network::LocalChannels, mut wor
         }
         /*_____Hvis worldview er endra, oppdater kanalen_____ */
         if wv_edited_I {
+            i += 1;
             let _ = main_local_chs.watches.txs.wv.send(worldview_serialised.clone());
-            // println!("Sendte worldview lokalt");
+            println!("Sendte worldview lokalt {}", i);
             wv_edited_I = false;
         }
     }
@@ -74,6 +77,7 @@ pub fn join_wv_from_udp(wv: &mut Vec<u8>, master_wv: Vec<u8>) -> bool {
 
 pub fn abort_network(wv: &mut Vec<u8>) -> bool {
     //Delay her?
+    // sleep(duration)
     let mut deserialized_wv = world_view::deserialize_worldview(wv);
     deserialized_wv.elevator_containers.retain(|elevator| elevator.elevator_id == utils::SELF_ID.load(Ordering::SeqCst));
     deserialized_wv.set_num_elev(deserialized_wv.elevator_containers.len() as u8);
