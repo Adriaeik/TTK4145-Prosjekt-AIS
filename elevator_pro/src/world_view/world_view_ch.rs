@@ -23,13 +23,6 @@ pub async fn update_wv(mut main_local_chs: local_network::LocalChannels, mut wor
     let mut wv_edited_I = false;
     loop {
         //OBS: Error kommer når kanal er tom. ikke print der uten å eksplisitt eksludere channel_empty error type
-        /*_____Oppdater WV fra UDP-melding_____ */
-        match main_local_chs.mpscs.rxs.udp_wv.try_recv() {
-            Ok(master_wv) => {
-                wv_edited_I = join_wv_from_udp(&mut worldview_serialised, master_wv);
-            },
-            Err(_) => {}, 
-        }
         /*_____Signal om at tilkobling til master har feila_____ */
         match main_local_chs.mpscs.rxs.tcp_to_master_failed.try_recv() {
             Ok(_) => {
@@ -50,6 +43,13 @@ pub async fn update_wv(mut main_local_chs: local_network::LocalChannels, mut wor
                 wv_edited_I = remove_container(&mut worldview_serialised, id); 
             },
             Err(_) => {},
+        }
+        /*_____Oppdater WV fra UDP-melding_____ */
+        match main_local_chs.mpscs.rxs.udp_wv.try_recv() {
+            Ok(master_wv) => {
+                wv_edited_I = join_wv_from_udp(&mut worldview_serialised, master_wv);
+            },
+            Err(_) => {}, 
         }
         /*_____Knapper trykket på lokal heis_____ */
         match main_local_chs.mpscs.rxs.local_elev.try_recv() {
