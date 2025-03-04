@@ -125,6 +125,7 @@ pub async fn tcp_handler(chs: local_network::LocalChannels, mut socket_rx: mpsc:
             if world_view_update::get_network_status().load(Ordering::SeqCst) {
                 // utils::print_slave("Jeg er slave".to_string());
                 if let Some(ref mut s) = stream {
+                    println!("Fått ny master status {}", new_master);
                     if new_master {
                         println!("Fått ny master");
                         // utils::close_tcp_stream(s).await;
