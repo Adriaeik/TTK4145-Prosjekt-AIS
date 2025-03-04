@@ -86,6 +86,7 @@ pub async fn update_wv(mut main_local_chs: local_network::LocalChannels, mut wor
         }
         match main_local_chs.mpscs.rxs.update_task_status.try_recv() {
             Ok((id, status)) => {
+                println!("Skal sette status {:?} på task id: {}", status, id);
                 wv_edited_I = update_task_status(&mut worldview_serialised, id, status);
             },
             Err(_) => {},
@@ -243,9 +244,13 @@ fn update_task_status(wv: &mut Vec<u8>, task_id: u16, new_status: TaskStatus) ->
             .iter_mut()
             .find(|t| t.id == task_id) 
             {
-                task.status = new_status;
+                task.status = new_status.clone();
             }
     }
+
+    println!("Satt {:?} på id: {}", new_status, task_id);
+
+    *wv = world_view::serialize_worldview(&wv_deser);
     true
 }
 

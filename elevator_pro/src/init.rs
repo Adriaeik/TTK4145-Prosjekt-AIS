@@ -5,6 +5,7 @@ use std::sync::atomic::Ordering;
 use crate::world_view::world_view::{self, serialize_worldview, ElevatorContainer, WorldView};
 use crate::utils::{self, ip2id, print_err};
 use crate::world_view::world_view::Task;
+use env_logger::init;
 use local_ip_address::local_ip;
 use crate::world_view::world_view::TaskStatus;
 use crate::config;
@@ -27,11 +28,12 @@ pub async fn initialize_worldview() -> Vec<u8> {
     let mut elev_container = ElevatorContainer::default();
     let init_task = Task{
         id: 69,
-        to_do: 1,
+        to_do: 0,
         status: TaskStatus::PENDING,
         is_inside: true,
     };
-    elev_container.tasks.push(init_task);
+    elev_container.tasks.push(init_task.clone());
+    elev_container.tasks_status.push(init_task.clone());
 
     // Hent lokal IP-adresse
     let ip = match local_ip() {
