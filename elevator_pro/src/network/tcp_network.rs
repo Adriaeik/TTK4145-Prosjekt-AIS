@@ -8,6 +8,7 @@ use tokio::net::TcpStream;
 use std::net::SocketAddr;
 use tokio::time::{sleep, Duration, Instant};
 
+use crate::utils::SELF_ID;
 use crate::world_view::world_view;
 use crate::{config, utils, world_view::world_view_update};
 use utils::{print_info, print_ok, print_err, get_wv, update_wv};
@@ -100,6 +101,10 @@ pub async fn tcp_handler(chs: local_network::LocalChannels, mut socket_rx: mpsc:
         let mut master_accepted_tcp = false;
         let mut stream:Option<TcpStream> = None;
         if let Some(s) = connect_to_master(chs.clone()).await {
+            // delay som er random. master bruker litt tid på å behandle meldinger etter den har accepta når det er mange nye slaver i køen. Ved masterbytte på nettverk med mange heiser blir det derfor mye error-looper før det fikser segselv
+            // Legge til et lite delay fra du er tilkoblet til du starter å sende meldinger så masteren ikke får mange tilkoblinger på en gang
+            
+            sleep(Duration::from_millis(20*(SELF_ID.load(Ordering::SeqCst) as u64))).await;
             master_accepted_tcp = true;
             stream = Some(s);
         }
@@ -286,13 +291,11 @@ pub async fn send_tcp_message(chs: local_network::LocalChannels, stream: &mut Tc
         utils::print_err(format!("Feil ved sending av data til master: {}", e));
         let _ = chs.mpscs.txs.tcp_to_master_failed.send(true).await; // Anta at tilkoblingen feila
         send_succes_I = false;
-    }
-    if let Err(e) = stream.write_all(&self_elev_serialized).await {
+    } else if let Err(e) = stream.write_all(&self_elev_serialized).await {
         utils::print_err(format!("Feil ved sending av data til master: {}", e));
         let _ = chs.mpscs.txs.tcp_to_master_failed.send(true).await; // Anta at tilkoblingen feila
         send_succes_I = false;
-    }
-    if let Err(e) = stream.flush().await {
+    } else if let Err(e) = stream.flush().await {
         utils::print_err(format!("Feil ved flushing av stream: {}", e));
         let _ = chs.mpscs.txs.tcp_to_master_failed.send(true).await; // Anta at tilkoblingen feila
         send_succes_I = false;
