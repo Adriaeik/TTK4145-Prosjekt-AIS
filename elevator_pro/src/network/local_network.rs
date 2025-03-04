@@ -21,8 +21,8 @@ pub struct ElevMessage {
     pub obstruction: Option<bool>,
 }
 
-// --- MPSC-KANALAR ---
 
+// --- MPSC-KANALAR ---
 
 pub struct MpscTxs {
     pub udp_wv: mpsc::Sender<Vec<u8>>,
@@ -31,6 +31,18 @@ pub struct MpscTxs {
     pub remove_container: mpsc::Sender<u8>,
     pub local_elev: mpsc::Sender<ElevMessage>,
     pub sent_tcp_container: mpsc::Sender<Vec<u8>>,
+
+    // 10 nye buffer-kanalar
+    pub new_task: mpsc::Sender<(Task, u8)>,
+    pub mpsc_buffer_ch1: mpsc::Sender<Vec<u8>>,
+    pub mpsc_buffer_ch2: mpsc::Sender<Vec<u8>>,
+    pub mpsc_buffer_ch3: mpsc::Sender<Vec<u8>>,
+    pub mpsc_buffer_ch4: mpsc::Sender<Vec<u8>>,
+    pub mpsc_buffer_ch5: mpsc::Sender<Vec<u8>>,
+    pub mpsc_buffer_ch6: mpsc::Sender<Vec<u8>>,
+    pub mpsc_buffer_ch7: mpsc::Sender<Vec<u8>>,
+    pub mpsc_buffer_ch8: mpsc::Sender<Vec<u8>>,
+    pub mpsc_buffer_ch9: mpsc::Sender<Vec<u8>>,
 }
 
 pub struct MpscRxs {
@@ -40,6 +52,18 @@ pub struct MpscRxs {
     pub remove_container: mpsc::Receiver<u8>,
     pub local_elev: mpsc::Receiver<ElevMessage>,
     pub sent_tcp_container: mpsc::Receiver<Vec<u8>>,
+
+    // 10 nye buffer-kanalar
+    pub new_task: mpsc::Receiver<(Task, u8)>,
+    pub mpsc_buffer_ch1: mpsc::Receiver<Vec<u8>>,
+    pub mpsc_buffer_ch2: mpsc::Receiver<Vec<u8>>,
+    pub mpsc_buffer_ch3: mpsc::Receiver<Vec<u8>>,
+    pub mpsc_buffer_ch4: mpsc::Receiver<Vec<u8>>,
+    pub mpsc_buffer_ch5: mpsc::Receiver<Vec<u8>>,
+    pub mpsc_buffer_ch6: mpsc::Receiver<Vec<u8>>,
+    pub mpsc_buffer_ch7: mpsc::Receiver<Vec<u8>>,
+    pub mpsc_buffer_ch8: mpsc::Receiver<Vec<u8>>,
+    pub mpsc_buffer_ch9: mpsc::Receiver<Vec<u8>>,
 }
 
 impl Clone for MpscTxs {
@@ -51,22 +75,22 @@ impl Clone for MpscTxs {
             remove_container: self.remove_container.clone(),
             local_elev: self.local_elev.clone(),
             sent_tcp_container: self.sent_tcp_container.clone(),
+
+            // Klonar buffer-kanalane
+            new_task: self.new_task.clone(),
+            mpsc_buffer_ch1: self.mpsc_buffer_ch1.clone(),
+            mpsc_buffer_ch2: self.mpsc_buffer_ch2.clone(),
+            mpsc_buffer_ch3: self.mpsc_buffer_ch3.clone(),
+            mpsc_buffer_ch4: self.mpsc_buffer_ch4.clone(),
+            mpsc_buffer_ch5: self.mpsc_buffer_ch5.clone(),
+            mpsc_buffer_ch6: self.mpsc_buffer_ch6.clone(),
+            mpsc_buffer_ch7: self.mpsc_buffer_ch7.clone(),
+            mpsc_buffer_ch8: self.mpsc_buffer_ch8.clone(),
+            mpsc_buffer_ch9: self.mpsc_buffer_ch9.clone(),
         }
     }
 }
 
-/// ## Structen inneholder alle Mpsc kanalene
-/// 
-/// Navn på kanalene er matchende for `txs` og `rxs`:
-///
-/// | Variabel  | Beskrivelse  |
-/// |-----------|-------------|
-/// | **udp_wv**  | Sender WV fra `udp_listener` til `world_view_handler` |
-/// | **tcp_to_master_failed**  | Signaliserer at TCP-til master har feila til `world_view_handler` |
-/// | **container**  | Sender slave-heis sin container fra `handle_slave` til `world_view_handler` |
-/// | **remove_container**  | Sender ID til 'død' slave til `world_view_handler` |
-/// | **local_elev**  | Buffer til fremtidig bruk |
-/// | **tcp_container**  | Buffer til fremtidig bruk |
 pub struct Mpscs {
     pub txs: MpscTxs,
     pub rxs: MpscRxs,
@@ -81,23 +105,59 @@ impl Mpscs {
         let (tx4, rx4) = mpsc::channel(300);
         let (tx5, rx5) = mpsc::channel(300);
 
-        Mpscs { 
-            txs: MpscTxs { 
+        // Initialisering av 10 nye buffer-kanalar
+        let (tx_buf0, rx_buf0) = mpsc::channel(300);
+        let (tx_buf1, rx_buf1) = mpsc::channel(300);
+        let (tx_buf2, rx_buf2) = mpsc::channel(300);
+        let (tx_buf3, rx_buf3) = mpsc::channel(300);
+        let (tx_buf4, rx_buf4) = mpsc::channel(300);
+        let (tx_buf5, rx_buf5) = mpsc::channel(300);
+        let (tx_buf6, rx_buf6) = mpsc::channel(300);
+        let (tx_buf7, rx_buf7) = mpsc::channel(300);
+        let (tx_buf8, rx_buf8) = mpsc::channel(300);
+        let (tx_buf9, rx_buf9) = mpsc::channel(300);
+
+        Mpscs {
+            txs: MpscTxs {
                 udp_wv: tx_udp,
                 tcp_to_master_failed: tx1,
                 container: tx2,
                 remove_container: tx3,
                 local_elev: tx4,
                 sent_tcp_container: tx5,
-            }, 
-            rxs: MpscRxs { 
+
+                // Legg til dei nye buffer-kanalane
+                new_task: tx_buf0,
+                mpsc_buffer_ch1: tx_buf1,
+                mpsc_buffer_ch2: tx_buf2,
+                mpsc_buffer_ch3: tx_buf3,
+                mpsc_buffer_ch4: tx_buf4,
+                mpsc_buffer_ch5: tx_buf5,
+                mpsc_buffer_ch6: tx_buf6,
+                mpsc_buffer_ch7: tx_buf7,
+                mpsc_buffer_ch8: tx_buf8,
+                mpsc_buffer_ch9: tx_buf9,
+            },
+            rxs: MpscRxs {
                 udp_wv: rx_udp,
                 tcp_to_master_failed: rx1,
                 container: rx2,
                 remove_container: rx3,
                 local_elev: rx4,
                 sent_tcp_container: rx5,
-            }
+
+                // Legg til dei nye buffer-kanalane
+                new_task: rx_buf0,
+                mpsc_buffer_ch1: rx_buf1,
+                mpsc_buffer_ch2: rx_buf2,
+                mpsc_buffer_ch3: rx_buf3,
+                mpsc_buffer_ch4: rx_buf4,
+                mpsc_buffer_ch5: rx_buf5,
+                mpsc_buffer_ch6: rx_buf6,
+                mpsc_buffer_ch7: rx_buf7,
+                mpsc_buffer_ch8: rx_buf8,
+                mpsc_buffer_ch9: rx_buf9,
+            },
         }
     }
 }
@@ -111,19 +171,44 @@ impl Clone for Mpscs {
         let (_, rx4) = mpsc::channel(300);
         let (_, rx5) = mpsc::channel(300);
 
+        // Initialiser mottakar-kanalane ved cloning
+        let (_, rx_buf0) = mpsc::channel(300);
+        let (_, rx_buf1) = mpsc::channel(300);
+        let (_, rx_buf2) = mpsc::channel(300);
+        let (_, rx_buf3) = mpsc::channel(300);
+        let (_, rx_buf4) = mpsc::channel(300);
+        let (_, rx_buf5) = mpsc::channel(300);
+        let (_, rx_buf6) = mpsc::channel(300);
+        let (_, rx_buf7) = mpsc::channel(300);
+        let (_, rx_buf8) = mpsc::channel(300);
+        let (_, rx_buf9) = mpsc::channel(300);
+
         Mpscs {
             txs: self.txs.clone(),
-            rxs: MpscRxs { 
+            rxs: MpscRxs {
                 udp_wv: rx_udp,
                 tcp_to_master_failed: rx1,
                 container: rx2,
                 remove_container: rx3,
                 local_elev: rx4,
                 sent_tcp_container: rx5,
-            }
+
+                // Klonar buffer-kanalane
+                new_task: rx_buf0,
+                mpsc_buffer_ch1: rx_buf1,
+                mpsc_buffer_ch2: rx_buf2,
+                mpsc_buffer_ch3: rx_buf3,
+                mpsc_buffer_ch4: rx_buf4,
+                mpsc_buffer_ch5: rx_buf5,
+                mpsc_buffer_ch6: rx_buf6,
+                mpsc_buffer_ch7: rx_buf7,
+                mpsc_buffer_ch8: rx_buf8,
+                mpsc_buffer_ch9: rx_buf9,
+            },
         }
     }
 }
+
 
 // --- BROADCAST-KANALAR ---
 

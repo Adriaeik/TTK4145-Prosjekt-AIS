@@ -1,3 +1,4 @@
+
 use crate::{elevio::poll::CallButton, network::local_network, utils, world_view::world_view::{self, ElevatorContainer, Task, TaskStatus}};
 
 
@@ -12,28 +13,29 @@ pub async fn distribute_task(chs: local_network::LocalChannels) {
 
     loop {
         utils::update_wv(chs.clone(), &mut wv).await;
-        wv_deser = world_view::deserialize_worldview(&wv);
-
-
-        let buttons = wv_deser.outside_button;
-
-        for button in buttons {
-            let task = create_task(button);
-            let (mut lowest_cost, mut id) = (i32::MAX, 0);
-
-            for elev in wv_deser.elevator_containers.iter() {
-                let cost = calculate_cost(task.clone(), elev.clone());
-                if cost < lowest_cost {
-                    lowest_cost = cost;
-                    id = elev.elevator_id;
+        if utils::is_master(wv.clone()) {
+            wv_deser = world_view::deserialize_worldview(&wv);
+    
+    
+            let buttons = wv_deser.outside_button;
+    
+            for button in buttons {
+                let task = create_task(button);
+                let (mut lowest_cost, mut id) = (i32::MAX, 0);
+    
+                for elev in wv_deser.elevator_containers.iter() {
+                    let cost = calculate_cost(task.clone(), elev.clone());
+                    if cost < lowest_cost {
+                        lowest_cost = cost;
+                        id = elev.elevator_id;
+                    }
                 }
+                let _ = chs.mpscs.txs.new_task.send((task, id)).await;
+                // si til worldview_update at knapp er delegert.
+                // si til worldview_update at container[id] har fått task
             }
-
-            
-
-            // si til worldview_update at knapp er delegert.
-            // si til worldview_update at container[id] har fått task
-
+        } else {
+            utils::slave_sleep().await;
         }
 
 

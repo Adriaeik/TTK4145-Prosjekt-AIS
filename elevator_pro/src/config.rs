@@ -26,6 +26,8 @@ pub const TCP_PER_U64: u64 = 10; // i millisekunder
 pub const UDP_PERIOD: Duration = Duration::from_millis(TCP_PER_U64);
 pub const TCP_PERIOD: Duration = Duration::from_millis(TCP_PER_U64);
 
+pub const SLAVE_TIMEOUT: Duration = Duration::from_millis(100);
+
 pub const UDP_BUFFER: usize = u16::MAX as usize;
 
 

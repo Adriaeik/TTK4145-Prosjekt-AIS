@@ -129,7 +129,7 @@ pub async fn tcp_handler(chs: local_network::LocalChannels, mut socket_rx: mpsc:
                         println!("Fått ny master");
                         // utils::close_tcp_stream(s).await;
                         master_accepted_tcp = false;
-                        tokio::time::sleep(Duration::from_millis(100)).await; //TODO: test om denne trengs
+                        utils::slave_sleep().await; //TODO: test om denne trengs
                     }
                     prev_master = wv[config::MASTER_IDX];
                     update_wv(chs.clone(), &mut wv).await;
@@ -144,7 +144,7 @@ pub async fn tcp_handler(chs: local_network::LocalChannels, mut socket_rx: mpsc:
                 }
             }
             else {
-                tokio::time::sleep(Duration::from_millis(100)).await; 
+                utils::slave_sleep().await; 
             }
             //Det slaven skal gjøre på TCP 
             //update_wv(chs.clone(), &mut wv).await;

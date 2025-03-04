@@ -24,6 +24,23 @@ pub async fn update_wv(mut main_local_chs: local_network::LocalChannels, mut wor
     let mut wv_edited_I = false;
     loop {
         //OBS: Error kommer når kanal er tom. ikke print der uten å eksplisitt eksludere channel_empty error type
+
+
+/* KANALER SLAVE HOVEDSAKLIG MOTTAR PÅ */
+        /*_____Fjerne knappar som vart sendt på TCP_____ */
+        match main_local_chs.mpscs.rxs.sent_tcp_container.try_recv() {
+            Ok(msg) => {
+                wv_edited_I = clear_sent_container_stuff(&mut worldview_serialised, msg);
+            },
+            Err(_) => {},
+        }
+        /*_____Oppdater WV fra UDP-melding_____ */
+        match main_local_chs.mpscs.rxs.udp_wv.try_recv() {
+            Ok(master_wv) => {
+                wv_edited_I = join_wv_from_udp(&mut worldview_serialised, master_wv);
+            },
+            Err(_) => {}, 
+        }
         /*_____Signal om at tilkobling til master har feila_____ */
         match main_local_chs.mpscs.rxs.tcp_to_master_failed.try_recv() {
             Ok(_) => {
@@ -31,6 +48,9 @@ pub async fn update_wv(mut main_local_chs: local_network::LocalChannels, mut wor
             },
             Err(_) => {},
         }
+        
+        
+/* KANALER MASTER HOVEDSAKLIG MOTTAR PÅ */
         /*_____Melding til master fra slaven (elevator-containeren til slaven)_____*/
         match main_local_chs.mpscs.rxs.container.try_recv() {
             Ok(container) => {
@@ -45,13 +65,10 @@ pub async fn update_wv(mut main_local_chs: local_network::LocalChannels, mut wor
             },
             Err(_) => {},
         }
-        /*_____Oppdater WV fra UDP-melding_____ */
-        match main_local_chs.mpscs.rxs.udp_wv.try_recv() {
-            Ok(master_wv) => {
-                wv_edited_I = join_wv_from_udp(&mut worldview_serialised, master_wv);
-            },
-            Err(_) => {}, 
-        }
+        
+
+
+/* KANALER MASTER OG SLAVE MOTTAR PÅ */
         /*_____Knapper trykket på lokal heis_____ */
         match main_local_chs.mpscs.rxs.local_elev.try_recv() {
             Ok(msg) => {
@@ -59,13 +76,9 @@ pub async fn update_wv(mut main_local_chs: local_network::LocalChannels, mut wor
             },
             Err(_) => {},
         }
-        /*_____Fjerne knappar som vart sendt på TCP_____ */
-        match main_local_chs.mpscs.rxs.sent_tcp_container.try_recv() {
-            Ok(msg) => {
-                wv_edited_I = clear_sent_container_stuff(&mut worldview_serialised, msg);
-            },
-            Err(_) => {},
-        }
+        
+
+/* KANALER ALLE SENDER LOKAL WV PÅ */
         /*_____Hvis worldview er endra, oppdater kanalen_____ */
         if wv_edited_I {
             let _ = main_local_chs.watches.txs.wv.send(worldview_serialised.clone());

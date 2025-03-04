@@ -296,3 +296,8 @@ pub async fn close_tcp_stream(stream: &mut TcpStream) {
         )),
     }
 }
+
+
+pub async fn slave_sleep() {
+    sleep(config::SLAVE_TIMEOUT);
+}
