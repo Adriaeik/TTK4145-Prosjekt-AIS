@@ -56,7 +56,7 @@ pub async fn initialize_worldview() -> Vec<u8> {
     // println!("WV length: {:?}", wv_from_udp);
     let mut wv_from_udp_deser = world_view::deserialize_worldview(&wv_from_udp);
     wv_from_udp_deser.add_elev(elev_container.clone());
-
+    
     if wv_from_udp_deser.master_id > utils::SELF_ID.load(Ordering::SeqCst) {
         wv_from_udp_deser.master_id = utils::SELF_ID.load(Ordering::SeqCst);
     }

@@ -66,6 +66,7 @@ pub async fn start_udp_listener(mut chs: local_network::LocalChannels) -> tokio:
         match socket.recv_from(&mut buf).await {
             Ok((len, _)) => {
                 message = String::from_utf8_lossy(&buf[..len]);
+                // println!("WV length: {:?}", len);
             }
             Err(e) => {
                 // utils::print_err(format!("udp_broadcast.rs, udp_listener(): {}", e));
