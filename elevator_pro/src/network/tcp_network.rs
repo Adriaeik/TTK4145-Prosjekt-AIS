@@ -104,7 +104,7 @@ pub async fn tcp_handler(chs: local_network::LocalChannels, mut socket_rx: mpsc:
             // delay som er random. master bruker litt tid på å behandle meldinger etter den har accepta når det er mange nye slaver i køen. Ved masterbytte på nettverk med mange heiser blir det derfor mye error-looper før det fikser segselv
             // Legge til et lite delay fra du er tilkoblet til du starter å sende meldinger så masteren ikke får mange tilkoblinger på en gang
             
-            sleep(Duration::from_millis(20*(SELF_ID.load(Ordering::SeqCst) as u64))).await;
+            sleep(Duration::from_millis(100*((SELF_ID.load(Ordering::SeqCst) - 10) as u64))).await;
             master_accepted_tcp = true;
             stream = Some(s);
         }
@@ -121,8 +121,8 @@ pub async fn tcp_handler(chs: local_network::LocalChannels, mut socket_rx: mpsc:
                     if new_master {
                         println!("Fått ny master");
                         utils::close_tcp_stream(s).await;
-                        tokio::time::sleep(Duration::from_millis(10)).await; //TODO: test om denne trengs
                         master_accepted_tcp = false;
+                        // tokio::time::sleep(Duration::from_millis(10)).await; //TODO: test om denne trengs
                     }
                     update_wv(chs.clone(), &mut wv).await;
                     //Sett atomic bool vi har sendt callbuttons = true
@@ -290,12 +290,10 @@ pub async fn send_tcp_message(chs: local_network::LocalChannels, stream: &mut Tc
     if let Err(e) = stream.write_all(&len).await {
         utils::print_err(format!("Feil ved sending av data til master: {}", e));
         let _ = chs.mpscs.txs.tcp_to_master_failed.send(true).await; // Anta at tilkoblingen feila
-        sleep(Duration::from_millis(20*(SELF_ID.load(Ordering::SeqCst) as u64))).await;
         send_succes_I = false;
     } else if let Err(e) = stream.write_all(&self_elev_serialized).await {
         utils::print_err(format!("Feil ved sending av data til master: {}", e));
         let _ = chs.mpscs.txs.tcp_to_master_failed.send(true).await; // Anta at tilkoblingen feila
-        sleep(Duration::from_millis(20*(SELF_ID.load(Ordering::SeqCst) as u64))).await;
 
         send_succes_I = false;
     } else if let Err(e) = stream.flush().await {
