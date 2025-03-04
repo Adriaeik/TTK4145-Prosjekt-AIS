@@ -287,16 +287,16 @@ pub async fn send_tcp_message(chs: local_network::LocalChannels, stream: &mut Tc
     let mut send_succes_I = true;
     
     if let Err(e) = stream.write_all(&len).await {
-        utils::print_err(format!("Feil ved sending av data til master: {}", e));
+        // utils::print_err(format!("Feil ved sending av data til master: {}", e));
         let _ = chs.mpscs.txs.tcp_to_master_failed.send(true).await; // Anta at tilkoblingen feila
         send_succes_I = false;
     } else if let Err(e) = stream.write_all(&self_elev_serialized).await {
-        utils::print_err(format!("Feil ved sending av data til master: {}", e));
+        // utils::print_err(format!("Feil ved sending av data til master: {}", e));
         let _ = chs.mpscs.txs.tcp_to_master_failed.send(true).await; // Anta at tilkoblingen feila
 
         send_succes_I = false;
     } else if let Err(e) = stream.flush().await {
-        utils::print_err(format!("Feil ved flushing av stream: {}", e));
+        // utils::print_err(format!("Feil ved flushing av stream: {}", e));
         let _ = chs.mpscs.txs.tcp_to_master_failed.send(true).await; // Anta at tilkoblingen feila
         send_succes_I = false;
     }

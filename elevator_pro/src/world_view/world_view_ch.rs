@@ -73,6 +73,7 @@ pub fn join_wv_from_udp(wv: &mut Vec<u8>, master_wv: Vec<u8>) -> bool {
 }
 
 pub fn abort_network(wv: &mut Vec<u8>) -> bool {
+    //Delay her?
     let mut deserialized_wv = world_view::deserialize_worldview(wv);
     deserialized_wv.elevator_containers.retain(|elevator| elevator.elevator_id == utils::SELF_ID.load(Ordering::SeqCst));
     deserialized_wv.set_num_elev(deserialized_wv.elevator_containers.len() as u8);
