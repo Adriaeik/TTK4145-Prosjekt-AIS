@@ -18,9 +18,6 @@ pub fn get_udp_timeout() -> &'static AtomicBool {
 }
 
 pub async fn start_udp_broadcaster(mut chs: local_network::LocalChannels) -> tokio::io::Result<()> {
-
-    
-
     chs.subscribe_broadcast();
     let addr: &str = &format!("{}:{}", config::BC_ADDR, config::DUMMY_PORT);
     let addr2: &str = &format!("{}:0", config::BC_LISTEN_ADDR);
@@ -60,7 +57,7 @@ pub async fn start_udp_listener(mut chs: local_network::LocalChannels) -> tokio:
     socket_temp.set_broadcast(true)?;
     socket_temp.bind(&socket_addr.into())?;
     let socket = UdpSocket::from_std(socket_temp.into())?;
-    let mut buf = [0; 1024];
+    let mut buf = [0; config::UDP_BUFFER];
     let mut read_wv: Vec<u8> = Vec::new();
     
     let mut message: Cow<'_, str> = std::borrow::Cow::Borrowed("a");
