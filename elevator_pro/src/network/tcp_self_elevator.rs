@@ -12,7 +12,7 @@ use std::sync::atomic::Ordering;
 use crate::elevator_logic::task_handler;
 use crate::utils::SELF_ID;
 use crate::world_view::world_view;
-use crate::{config, utils, world_view::world_view_update, elevio, elevio::poll::CallButton, elevio::elev as e};
+use crate::{config, utils, world_view::{world_view_update, world_view_ch}, elevio, elevio::poll::CallButton, elevio::elev as e};
 use utils::{print_info, print_ok, print_err, get_wv};
 
 use super::local_network;
@@ -175,6 +175,7 @@ pub async fn run_local_elevator(chs: local_network::LocalChannels) -> std::io::R
 
     let mut wv = utils::get_wv(chs.clone());
     loop {
+
         utils::update_wv(chs.clone(), &mut wv).await;
 
         if utils::is_master(wv.clone()) {
@@ -183,6 +184,8 @@ pub async fn run_local_elevator(chs: local_network::LocalChannels) -> std::io::R
             if let Some(i) = self_idx {
                 let _ = chs.mpscs.txs.container.send(world_view::serialize_elev_container(&wv_deser.elevator_containers[i])).await;
             }
+
+            world_view_update::join_wv(wv.clone(), wv.clone());
 
         }
     
