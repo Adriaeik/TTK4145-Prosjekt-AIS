@@ -119,7 +119,7 @@ pub async fn tcp_handler(chs: local_network::LocalChannels, mut socket_rx: mpsc:
                 if let Some(ref mut s) = stream {
                     if new_master {
                         println!("Fått ny master");
-                        utils::close_tcp_stream(s).await;
+                        // utils::close_tcp_stream(s).await;
                         master_accepted_tcp = false;
                         tokio::time::sleep(Duration::from_millis(10)).await; //TODO: test om denne trengs
                     }
