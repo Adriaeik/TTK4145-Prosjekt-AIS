@@ -105,7 +105,7 @@ pub async fn tcp_handler(chs: local_network::LocalChannels, mut socket_rx: mpsc:
             // Legge til et lite delay fra du er tilkoblet til du starter å sende meldinger så masteren ikke får mange tilkoblinger på en gang
             // sleep(Duration::from_millis(100*((SELF_ID.load(Ordering::SeqCst) - 10) as u64))).await;
             println!("Master accepta tilkobling");
-            panic!();
+            // panic!();
             master_accepted_tcp = true;
             stream = Some(s);
         } else {

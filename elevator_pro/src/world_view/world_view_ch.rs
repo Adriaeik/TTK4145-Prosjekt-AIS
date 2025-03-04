@@ -63,7 +63,7 @@ pub async fn update_wv(mut main_local_chs: local_network::LocalChannels, mut wor
         /*_____Hvis worldview er endra, oppdater kanalen_____ */
         if wv_edited_I {
             let _ = main_local_chs.watches.txs.wv.send(worldview_serialised.clone());
-            println!("Sendte worldview lokalt {}", worldview_serialised[1]);
+            // println!("Sendte worldview lokalt {}", worldview_serialised[1]);
     
             wv_edited_I = false;
         }
