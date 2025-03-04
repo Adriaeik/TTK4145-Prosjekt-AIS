@@ -172,6 +172,8 @@ fn clear_sent_container_stuff(wv: &mut Vec<u8>, tcp_container: Vec<u8>) -> bool 
         .collect();
     
     if let Some(i) = self_idx {
+        /* Oppdater task_statuser */
+        deserialized_wv.elevator_containers[i].tasks_status = tcp_container_des.tasks_status;
         /*_____ Fjern Tasks som er markert som ferdig av slaven _____ */
         deserialized_wv.elevator_containers[i].tasks.retain(|t| !completed_tasks_ids.contains(&t.id));
         /*_____ Fjern sendte CallButtons _____ */
