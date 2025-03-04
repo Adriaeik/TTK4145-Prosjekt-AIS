@@ -266,17 +266,18 @@ pub fn print_wv(worldview: Vec<u8>) {
             Green.paint("Nei").to_string()
         };
 
+        let task_color = match elev.tasks.len() {
+            0..=1 => Green,  // Få oppgåver
+            2..=4 => Yellow, // Middels mange oppgåver
+            _ => Red, // Mange oppgåver
+        };
         // Farge basert på `to_do`
         let task_list = elev.tasks.iter()
             .map(|t| {
-                let color = match t.to_do {
-                    0..=3 => Green,
-                    4..=10 => Yellow,
-                    _ => Red,
-                };
-                format!("{}:{}",
-                color.paint(t.id.to_string()),
-                    color.paint(t.to_do.to_string())
+                format!("{}:{}:{}",
+                task_color.paint(t.id.to_string()),
+                task_color.paint(t.to_do.to_string()),
+                    task_color.paint(format!("{:?}", t.status))
                 )
             })
             .collect::<Vec<String>>()

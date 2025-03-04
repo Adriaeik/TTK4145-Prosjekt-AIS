@@ -26,8 +26,8 @@ pub async fn initialize_worldview() -> Vec<u8> {
     let mut worldview = WorldView::default();
     let mut elev_container = ElevatorContainer::default();
     let init_task = Task{
-        id: u16::MAX,
-        to_do: 0,
+        id: 69,
+        to_do: 1,
         status: TaskStatus::DONE,
         is_inside: true,
     };
