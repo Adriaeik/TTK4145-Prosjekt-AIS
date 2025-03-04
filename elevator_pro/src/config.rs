@@ -27,4 +27,12 @@ pub const UDP_PERIOD: Duration = Duration::from_millis(TCP_PER_U64);
 pub const TCP_PERIOD: Duration = Duration::from_millis(TCP_PER_U64);
 
 pub const UDP_BUFFER: usize = u16::MAX as usize;
+
+
+/* Debug modes */
 pub static mut PRINT_WV_ON: bool = !false ^ true || true;
+pub static mut PRINT_ERR_ON: bool = !false ^ true || true;
+pub static mut PRINT_WARN_ON: bool = !false ^ true || true;
+pub static mut PRINT_OK_ON: bool = !false ^ true || true;
+pub static mut PRINT_INFO_ON: bool = !false ^ true || true;
+pub static mut PRINT_ELSE_ON: bool = !false ^ true || true;

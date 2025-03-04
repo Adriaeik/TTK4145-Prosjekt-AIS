@@ -7,23 +7,12 @@ use tokio::{sync::broadcast, time::sleep};
 use tokio::sync::mpsc;
 use tokio::net::TcpStream;
 use std::net::SocketAddr;
-use std::env;
+
 
 
 #[tokio::main]
 async fn main() {
-    let args: Vec<String> = env::args().collect();
-
-    if args.len() > 1 {
-        let command = args[1].to_lowercase();
-        
-        unsafe {
-            let rolle = match command.as_str() {
-                "no_wv" => config::PRINT_WV_ON = false,
-                _ => {},
-            };
-        }
-    } 
+    init::parse_args();
 
 
 

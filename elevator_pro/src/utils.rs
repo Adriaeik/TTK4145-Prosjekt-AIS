@@ -107,59 +107,101 @@ pub fn get_root_ip(ip: IpAddr) -> String {
 
 
 pub fn print_color(msg: String, color: Color) {
-    let mut stdout = StandardStream::stdout(ColorChoice::Always);
-    stdout.set_color(ColorSpec::new().set_fg(Some(color))).unwrap();
-    writeln!(&mut stdout, "[CUSTOM]:  {}", msg).unwrap();
-    stdout.set_color(&ColorSpec::new()).unwrap();
-    println!("\r\n");
+    let mut print_stat = true;
+    unsafe {
+        print_stat = config::PRINT_ELSE_ON;
+    }
+    if print_stat {        
+        let mut stdout = StandardStream::stdout(ColorChoice::Always);
+        stdout.set_color(ColorSpec::new().set_fg(Some(color))).unwrap();
+        writeln!(&mut stdout, "[CUSTOM]:  {}", msg).unwrap();
+        stdout.set_color(&ColorSpec::new()).unwrap();
+        println!("\r\n");
+    }
 }
 
 pub fn print_err(msg: String) {
-    let mut stdout = StandardStream::stdout(ColorChoice::Always);
-    stdout.set_color(ColorSpec::new().set_fg(Some(Color::Red))).unwrap();
-    writeln!(&mut stdout, "[ERROR]:   {}", msg).unwrap();
-    stdout.set_color(&ColorSpec::new()).unwrap();
-    println!("\r\n");
+    let mut print_stat = true;
+    unsafe {
+        print_stat = config::PRINT_ERR_ON;
+    }
+    if print_stat {
+        let mut stdout = StandardStream::stdout(ColorChoice::Always);
+        stdout.set_color(ColorSpec::new().set_fg(Some(Color::Red))).unwrap();
+        writeln!(&mut stdout, "[ERROR]:   {}", msg).unwrap();
+        stdout.set_color(&ColorSpec::new()).unwrap();
+        println!("\r\n");
+    }
 }
 
 pub fn print_warn(msg: String) {
-    let mut stdout = StandardStream::stdout(ColorChoice::Always);
-    stdout.set_color(ColorSpec::new().set_fg(Some(Color::Yellow))).unwrap();
-    writeln!(&mut stdout, "[WARNING]: {}", msg).unwrap();
-    stdout.set_color(&ColorSpec::new()).unwrap();
-    println!("\r\n");
+    let mut print_stat = true;
+    unsafe {
+        print_stat = config::PRINT_WARN_ON;
+    }
+    if print_stat {
+        let mut stdout = StandardStream::stdout(ColorChoice::Always);
+        stdout.set_color(ColorSpec::new().set_fg(Some(Color::Yellow))).unwrap();
+        writeln!(&mut stdout, "[WARNING]: {}", msg).unwrap();
+        stdout.set_color(&ColorSpec::new()).unwrap();
+        println!("\r\n");
+    }
 }
 
 pub fn print_ok(msg: String) {
-    let mut stdout = StandardStream::stdout(ColorChoice::Always);
-    stdout.set_color(ColorSpec::new().set_fg(Some(Color::Green))).unwrap();
-    writeln!(&mut stdout, "[OK]:      {}", msg).unwrap();
-    stdout.set_color(&ColorSpec::new()).unwrap();
-    println!("\r\n");
+    let mut print_stat = true;
+    unsafe {
+        print_stat = config::PRINT_OK_ON;
+    }
+    if print_stat {
+        let mut stdout = StandardStream::stdout(ColorChoice::Always);
+        stdout.set_color(ColorSpec::new().set_fg(Some(Color::Green))).unwrap();
+        writeln!(&mut stdout, "[OK]:      {}", msg).unwrap();
+        stdout.set_color(&ColorSpec::new()).unwrap();
+        println!("\r\n");
+    }
 }
 
 pub fn print_info(msg: String) {
-    let mut stdout = StandardStream::stdout(ColorChoice::Always);
-    stdout.set_color(ColorSpec::new().set_fg(Some(Color::Rgb(102, 178, 255/*lyseblå*/)))).unwrap();
-    writeln!(&mut stdout, "[INFO]:    {}", msg).unwrap();
-    stdout.set_color(&ColorSpec::new()).unwrap();
-    println!("\r\n");
+    let mut print_stat = true;
+    unsafe {
+        print_stat = config::PRINT_INFO_ON;
+    }
+    if print_stat {
+        let mut stdout = StandardStream::stdout(ColorChoice::Always);
+        stdout.set_color(ColorSpec::new().set_fg(Some(Color::Rgb(102, 178, 255/*lyseblå*/)))).unwrap();
+        writeln!(&mut stdout, "[INFO]:    {}", msg).unwrap();
+        stdout.set_color(&ColorSpec::new()).unwrap();
+        println!("\r\n");
+    }
 }
 
 pub fn print_master(msg: String) {
-    let mut stdout = StandardStream::stdout(ColorChoice::Always);
-    stdout.set_color(ColorSpec::new().set_fg(Some(Color::Rgb(255, 51, 255/*Rosa*/)))).unwrap();
-    writeln!(&mut stdout, "[MASTER]:  {}", msg).unwrap();
-    stdout.set_color(&ColorSpec::new()).unwrap();
-    println!("\r\n");
+    let mut print_stat = true;
+    unsafe {
+        print_stat = config::PRINT_ELSE_ON;
+    }
+    if print_stat {
+        let mut stdout = StandardStream::stdout(ColorChoice::Always);
+        stdout.set_color(ColorSpec::new().set_fg(Some(Color::Rgb(255, 51, 255/*Rosa*/)))).unwrap();
+        writeln!(&mut stdout, "[MASTER]:  {}", msg).unwrap();
+        stdout.set_color(&ColorSpec::new()).unwrap();
+        println!("\r\n");
+    }
 }
 
 pub fn print_slave(msg: String) {
-    let mut stdout = StandardStream::stdout(ColorChoice::Always);
-    stdout.set_color(ColorSpec::new().set_fg(Some(Color::Rgb(153, 76, 0/*Tilfeldig*/)))).unwrap();
-    writeln!(&mut stdout, "[SLAVE]:   {}", msg).unwrap();
-    stdout.set_color(&ColorSpec::new()).unwrap();
-    println!("\r\n");
+    let mut print_stat = true;
+    unsafe {
+        print_stat = config::PRINT_ELSE_ON;
+    }
+    if print_stat {
+        let mut stdout = StandardStream::stdout(ColorChoice::Always);
+        stdout.set_color(ColorSpec::new().set_fg(Some(Color::Rgb(153, 76, 0/*Tilfeldig*/)))).unwrap();
+        writeln!(&mut stdout, "[SLAVE]:   {}", msg).unwrap();
+        stdout.set_color(&ColorSpec::new()).unwrap();
+        println!("\r\n");
+    }
 }
 
 pub fn print_cosmic_err(fun: String) {

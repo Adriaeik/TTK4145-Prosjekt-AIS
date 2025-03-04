@@ -191,6 +191,14 @@ pub fn get_index_to_container(id: u8, wv: Vec<u8>) -> Option<usize> {
 
 
 pub fn print_wv(worldview: Vec<u8>) {
+    let mut print_stat = true;
+    unsafe {
+        print_stat = config::PRINT_WV_ON;
+    }
+    if print_stat {
+        return;
+    }
+
     let wv_deser = deserialize_worldview(&worldview);
     let mut gen_table = Table::new();
     gen_table.set_format(*format::consts::FORMAT_CLEAN);
