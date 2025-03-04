@@ -29,6 +29,7 @@ pub async fn distribute_task(chs: local_network::LocalChannels) {
                 }
             }
 
+            
 
             // si til worldview_update at knapp er delegert.
             // si til worldview_update at container[id] har fått task

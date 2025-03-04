@@ -60,7 +60,7 @@ pub async fn update_wv(mut main_local_chs: local_network::LocalChannels, mut wor
             Err(_) => {},
         }
         /*_____Fjerne knappar som vart sendt på TCP_____ */
-        match main_local_chs.mpscs.rxs.tcp_container.try_recv() {
+        match main_local_chs.mpscs.rxs.sent_tcp_container.try_recv() {
             Ok(msg) => {
                 wv_edited_I = clear_sent_container_stuff(&mut worldview_serialised, msg);
             },

@@ -30,7 +30,7 @@ pub struct MpscTxs {
     pub container: mpsc::Sender<Vec<u8>>,
     pub remove_container: mpsc::Sender<u8>,
     pub local_elev: mpsc::Sender<ElevMessage>,
-    pub tcp_container: mpsc::Sender<Vec<u8>>,
+    pub sent_tcp_container: mpsc::Sender<Vec<u8>>,
 }
 
 pub struct MpscRxs {
@@ -39,7 +39,7 @@ pub struct MpscRxs {
     pub container: mpsc::Receiver<Vec<u8>>,
     pub remove_container: mpsc::Receiver<u8>,
     pub local_elev: mpsc::Receiver<ElevMessage>,
-    pub tcp_container: mpsc::Receiver<Vec<u8>>,
+    pub sent_tcp_container: mpsc::Receiver<Vec<u8>>,
 }
 
 impl Clone for MpscTxs {
@@ -50,7 +50,7 @@ impl Clone for MpscTxs {
             container: self.container.clone(),
             remove_container: self.remove_container.clone(),
             local_elev: self.local_elev.clone(),
-            tcp_container: self.tcp_container.clone(),
+            sent_tcp_container: self.sent_tcp_container.clone(),
         }
     }
 }
@@ -88,7 +88,7 @@ impl Mpscs {
                 container: tx2,
                 remove_container: tx3,
                 local_elev: tx4,
-                tcp_container: tx5,
+                sent_tcp_container: tx5,
             }, 
             rxs: MpscRxs { 
                 udp_wv: rx_udp,
@@ -96,7 +96,7 @@ impl Mpscs {
                 container: rx2,
                 remove_container: rx3,
                 local_elev: rx4,
-                tcp_container: rx5,
+                sent_tcp_container: rx5,
             }
         }
     }
@@ -119,7 +119,7 @@ impl Clone for Mpscs {
                 container: rx2,
                 remove_container: rx3,
                 local_elev: rx4,
-                tcp_container: rx5,
+                sent_tcp_container: rx5,
             }
         }
     }
@@ -195,7 +195,7 @@ impl BroadcastRxs {
 /// | **mpsc_buffer_ch2**  | Buffer til fremtidig bruk |
 /// | **mpsc_buffer_ch3**  | Buffer til fremtidig bruk |
 /// | **local_elev**  | Buffer til fremtidig bruk |
-/// | **tcp_container**  | Buffer til fremtidig bruk |
+/// | **sent_tcp_container**  | Buffer til fremtidig bruk |
 pub struct Broadcasts {
     pub txs: BroadcastTxs,
     pub rxs: BroadcastRxs,
@@ -300,7 +300,7 @@ impl Clone for WatchRxs {
 /// | **mpsc_buffer_ch2**  | Buffer til fremtidig bruk |
 /// | **mpsc_buffer_ch3**  | Buffer til fremtidig bruk |
 /// | **local_elev**  | Buffer til fremtidig bruk |
-/// | **tcp_container**  | Buffer til fremtidig bruk |
+/// | **sent_tcp_container**  | Buffer til fremtidig bruk |
 pub struct Watches {
     pub txs: WatchTxs,
     pub rxs: WatchRxs,

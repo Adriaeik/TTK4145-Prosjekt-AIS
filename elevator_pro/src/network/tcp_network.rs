@@ -295,8 +295,6 @@ pub async fn send_tcp_message(chs: local_network::LocalChannels, stream: &mut Tc
     let self_elev_serialized = world_view::serialize_elev_container(&self_elev_container);
     let len = (self_elev_serialized.len() as u16).to_be_bytes(); // Konverter lengde til big-endian bytes
    
-    let mut send_succes_I = false;
-
     /* 
     DEBUG: engang?
     let cont_deser = world_view::deserialize_elev_container(&self_elev_serialized);
@@ -317,14 +315,10 @@ pub async fn send_tcp_message(chs: local_network::LocalChannels, stream: &mut Tc
         // utils::print_err(format!("Feil ved flushing av stream: {}", e));
         let _ = chs.mpscs.txs.tcp_to_master_failed.send(true).await; // Anta at tilkoblingen feila
     } else {
-        send_succes_I = true;     
+        // send_succes_I = true;     
+        let _ = chs.mpscs.txs.sent_tcp_container.send(self_elev_serialized).await;
     }
 
-
-    // FRIGJER LÅSEN (berre viss meldinga blei sendt)
-    if send_succes_I {
-        let _ = chs.mpscs.txs.tcp_container.send(self_elev_serialized).await;
-    }
 }
 
 
