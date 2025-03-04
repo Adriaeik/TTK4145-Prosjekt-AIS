@@ -15,6 +15,10 @@ Ein god gitter pusher alltid ✅
 - Fjerne fullførte tasks
 - Test for tap av tasks
 
+- Sliter litt når den starter i 0te etasje?
+- Sliter litt når den står lenge uten buttoncall?
+
+
 - Offlinemode
 - Backupmode
 
