@@ -8,6 +8,7 @@ pub async fn update_statuses(deser_wv: &mut world_view::WorldView, container: &E
     deser_wv.elevator_containers[i].obstruction = container.obstruction;
     deser_wv.elevator_containers[i].motor_dir = container.motor_dir;
     deser_wv.elevator_containers[i].calls = container.calls.clone(); 
+    deser_wv.elevator_containers[i].tasks_status = container.tasks_status.clone();
 }
 
 
