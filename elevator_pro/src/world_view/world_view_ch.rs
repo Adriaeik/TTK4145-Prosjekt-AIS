@@ -65,6 +65,12 @@ pub async fn update_wv(mut main_local_chs: local_network::LocalChannels, mut wor
             },
             Err(_) => {},
         }
+        match main_local_chs.mpscs.rxs.new_task.try_recv() {
+            Ok((task ,id)) => {
+                wv_edited_I = push_task(&mut worldview_serialised, task, id);
+            },
+            Err(_) => {},
+        }
         
 
 
@@ -195,3 +201,19 @@ fn clear_sent_container_stuff(wv: &mut Vec<u8>, tcp_container: Vec<u8>) -> bool 
         return false;
     }
 }
+
+fn push_task(wv: &mut Vec<u8>, task: Task, id: u8) -> bool {
+    let mut deser_wv = world_view::deserialize_worldview(&wv);
+    let self_idx = world_view::get_index_to_container(id, wv.clone());
+
+    if let Some(i) = self_idx {
+        deser_wv.elevator_containers[i].tasks.push(task);
+        *wv = world_view::serialize_worldview(&deser_wv);
+        return true;
+    } else {
+        return false;
+    }
+}
+
+
+

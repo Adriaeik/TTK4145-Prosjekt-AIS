@@ -1,6 +1,6 @@
 use std::{fmt::format, sync::atomic::Ordering, time::Duration};
 
-use elevator_pro::{config, network::{local_network, tcp_network, tcp_self_elevator, udp_broadcast}, utils::{self, print_err, print_info, print_ok}, world_view::{world_view, world_view_ch, world_view_update}};
+use elevator_pro::{config, elevator_logic::master::task_allocater, network::{local_network, tcp_network, tcp_self_elevator, udp_broadcast}, utils::{self, print_err, print_info, print_ok}, world_view::{world_view, world_view_ch, world_view_update}};
 use elevator_pro::init;
 
 use tokio::{sync::broadcast, time::sleep};
@@ -46,6 +46,7 @@ async fn main() {
     let chs_listener = main_local_chs.clone();
     let chs_local_elev = main_local_chs.clone();
     let mut chs_loop = main_local_chs.clone();
+    let mut chs_task_allocater = main_local_chs.clone();
     let (socket_tx, socket_rx) = mpsc::channel::<(TcpStream, SocketAddr)>(100);
 /* SLUTT ----------- Kloning av lokale channels til Tokio Tasks ---------------------- */                                                     
 
@@ -84,6 +85,10 @@ async fn main() {
     let _listener_handle = tokio::spawn(async move {
         utils::print_info("Starter tcp listener".to_string());
         let _ = tcp_network::listener_task(chs_listener, socket_tx).await;
+    });
+    let _allocater_handle = tokio::spawn(async move {
+        utils::print_info("Starter task allocater listener".to_string());
+        let _ = task_allocater::distribute_task(chs_task_allocater).await;
     });
     // Lag prat med egen heis thread her 
 /* SLUTT ----------- Starte Eksterne Nettverkstasks ---------------------- */
