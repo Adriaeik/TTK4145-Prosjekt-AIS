@@ -68,7 +68,7 @@ pub async fn update_wv(mut main_local_chs: local_network::LocalChannels, mut wor
         }
         match main_local_chs.mpscs.rxs.new_task.try_recv() {
             Ok((task ,id, button)) => {
-                utils::print_master(format!("Fikk task: {:?}", task));
+                // utils::print_master(format!("Fikk task: {:?}", task));
                 wv_edited_I = push_task(&mut worldview_serialised, task, id, button);
             },
             Err(_) => {},
@@ -84,6 +84,13 @@ pub async fn update_wv(mut main_local_chs: local_network::LocalChannels, mut wor
             },
             Err(_) => {},
         }
+        match main_local_chs.mpscs.rxs.update_task_status.try_recv() {
+            Ok((id, status)) => {
+                wv_edited_I = update_task_status(&mut worldview_serialised, id, status);
+            },
+            Err(_) => {},
+        }
+
         
 
 /* KANALER ALLE SENDER LOKAL WV PÅ */
@@ -224,6 +231,22 @@ fn push_task(wv: &mut Vec<u8>, task: Task, id: u8, button: CallButton) -> bool {
     }
     
     false
+}
+
+fn update_task_status(wv: &mut Vec<u8>, task_id: u16, new_status: TaskStatus) -> bool {
+    let mut wv_deser = world_view::deserialize_worldview(&wv);
+    let self_idx = world_view::get_index_to_container(utils::SELF_ID.load(Ordering::SeqCst), wv.clone());
+
+    if let Some(i) = self_idx {
+        if let Some(task) = wv_deser.elevator_containers[i]
+            .tasks_status
+            .iter_mut()
+            .find(|t| t.id == task_id) 
+            {
+                task.status = new_status;
+            }
+    }
+    true
 }
 
 

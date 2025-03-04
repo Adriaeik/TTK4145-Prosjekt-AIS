@@ -1,5 +1,7 @@
 
-use crate::{elevio::poll::CallButton, network::local_network, utils, world_view::world_view::{self, ElevatorContainer, Task, TaskStatus}};
+use std::{thread::sleep, time::Duration};
+
+use crate::{elevio::poll::{CallButton, CallType}, network::local_network, utils, world_view::world_view::{self, ElevatorContainer, Task, TaskStatus}};
 
 
 struct Orders {
@@ -11,21 +13,18 @@ pub async fn distribute_task(chs: local_network::LocalChannels) {
     let mut i: u16 = 0;
     let mut wv = utils::get_wv(chs.clone());
     let mut wv_deser = world_view::deserialize_worldview(&wv);
+    let mut prev_button_0 = CallButton{call: CallType::from(69), floor: 255, elev_id: 255}; 
 
     loop {
-        while !utils::update_wv(chs.clone(), &mut wv).await {
-            utils::slave_sleep().await;
-        }
-        if utils::is_master(wv.clone()) {
+        utils::update_wv(chs.clone(), &mut wv).await;
+        
+        while utils::is_master(wv.clone()) {
+            utils::update_wv(chs.clone(), &mut wv).await;
             wv_deser = world_view::deserialize_worldview(&wv);
-    
             let buttons = wv_deser.outside_button;
             
-            if !buttons.is_empty() {
-                println!("Buttons: {:?}", buttons);
-            }
-            for button in buttons {
-                let task = create_task(button, i);
+            if !buttons.is_empty() && buttons[0] != prev_button_0 {
+                let task = create_task(buttons[0], i);
                 i = (i % (u16::MAX - 1000)) + 1;
                 let (mut lowest_cost, mut id) = (i32::MAX, 0);
     
@@ -36,15 +35,13 @@ pub async fn distribute_task(chs: local_network::LocalChannels) {
                         id = elev.elevator_id;
                     }
                 }
-                let _ = chs.mpscs.txs.new_task.send((task, id, button)).await;
-                // si til worldview_update at knapp er delegert.
-                // si til worldview_update at container[id] har fått task
+                let _ = chs.mpscs.txs.new_task.send((task, id, buttons[0])).await;
+                println!("Antall knapper: {}", buttons.len());
+                prev_button_0 = buttons[0];   
             }
-        } else {
-            utils::slave_sleep().await;
         }
-
-
+        
+        sleep(Duration::from_millis(100));
     }
 }
 

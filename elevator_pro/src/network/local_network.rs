@@ -1,4 +1,4 @@
-use crate::elevio::poll::CallButton;
+use crate::{elevio::poll::CallButton, world_view::world_view::TaskStatus};
 use tokio::sync::{mpsc, broadcast, watch, Semaphore};
 use std::sync::Arc;
 use crate::world_view::world_view::Task;
@@ -34,7 +34,7 @@ pub struct MpscTxs {
 
     // 10 nye buffer-kanalar
     pub new_task: mpsc::Sender<(Task, u8, CallButton)>,
-    pub mpsc_buffer_ch1: mpsc::Sender<Vec<u8>>,
+    pub update_task_status: mpsc::Sender<(u16, TaskStatus)>,
     pub mpsc_buffer_ch2: mpsc::Sender<Vec<u8>>,
     pub mpsc_buffer_ch3: mpsc::Sender<Vec<u8>>,
     pub mpsc_buffer_ch4: mpsc::Sender<Vec<u8>>,
@@ -55,7 +55,7 @@ pub struct MpscRxs {
 
     // 10 nye buffer-kanalar
     pub new_task: mpsc::Receiver<(Task, u8, CallButton)>,
-    pub mpsc_buffer_ch1: mpsc::Receiver<Vec<u8>>,
+    pub update_task_status: mpsc::Receiver<(u16, TaskStatus)>,
     pub mpsc_buffer_ch2: mpsc::Receiver<Vec<u8>>,
     pub mpsc_buffer_ch3: mpsc::Receiver<Vec<u8>>,
     pub mpsc_buffer_ch4: mpsc::Receiver<Vec<u8>>,
@@ -78,7 +78,7 @@ impl Clone for MpscTxs {
 
             // Klonar buffer-kanalane
             new_task: self.new_task.clone(),
-            mpsc_buffer_ch1: self.mpsc_buffer_ch1.clone(),
+            update_task_status: self.update_task_status.clone(),
             mpsc_buffer_ch2: self.mpsc_buffer_ch2.clone(),
             mpsc_buffer_ch3: self.mpsc_buffer_ch3.clone(),
             mpsc_buffer_ch4: self.mpsc_buffer_ch4.clone(),
@@ -128,7 +128,7 @@ impl Mpscs {
 
                 // Legg til dei nye buffer-kanalane
                 new_task: tx_buf0,
-                mpsc_buffer_ch1: tx_buf1,
+                update_task_status: tx_buf1,
                 mpsc_buffer_ch2: tx_buf2,
                 mpsc_buffer_ch3: tx_buf3,
                 mpsc_buffer_ch4: tx_buf4,
@@ -148,7 +148,7 @@ impl Mpscs {
 
                 // Legg til dei nye buffer-kanalane
                 new_task: rx_buf0,
-                mpsc_buffer_ch1: rx_buf1,
+                update_task_status: rx_buf1,
                 mpsc_buffer_ch2: rx_buf2,
                 mpsc_buffer_ch3: rx_buf3,
                 mpsc_buffer_ch4: rx_buf4,
@@ -195,7 +195,7 @@ impl Clone for Mpscs {
 
                 // Klonar buffer-kanalane
                 new_task: rx_buf0,
-                mpsc_buffer_ch1: rx_buf1,
+                update_task_status: rx_buf1,
                 mpsc_buffer_ch2: rx_buf2,
                 mpsc_buffer_ch3: rx_buf3,
                 mpsc_buffer_ch4: rx_buf4,
@@ -276,7 +276,7 @@ impl BroadcastRxs {
 /// | Variabel  | Beskrivelse  |
 /// |-----------|-------------|
 /// | **shutdown**  | Signaliserer til alle tråder at de skal avslutte |
-/// | **mpsc_buffer_ch1**  | Buffer til fremtidig bruk |
+/// | **update_task_status**  | Buffer til fremtidig bruk |
 /// | **mpsc_buffer_ch2**  | Buffer til fremtidig bruk |
 /// | **mpsc_buffer_ch3**  | Buffer til fremtidig bruk |
 /// | **local_elev**  | Buffer til fremtidig bruk |
@@ -381,7 +381,7 @@ impl Clone for WatchRxs {
 /// | Variabel  | Beskrivelse  |
 /// |-----------|-------------|
 /// | **wv**  | wv oppdateres av ´world_view_handler´ og leses av i ´get_wv´ |
-/// | **mpsc_buffer_ch1**  | Buffer til fremtidig bruk |
+/// | **update_task_status**  | Buffer til fremtidig bruk |
 /// | **mpsc_buffer_ch2**  | Buffer til fremtidig bruk |
 /// | **mpsc_buffer_ch3**  | Buffer til fremtidig bruk |
 /// | **local_elev**  | Buffer til fremtidig bruk |

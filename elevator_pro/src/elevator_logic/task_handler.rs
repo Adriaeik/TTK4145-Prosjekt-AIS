@@ -3,7 +3,7 @@ use std::time::Duration;
 
 use crate::network::local_network;
 use crate::utils::update_wv;
-use crate::world_view::world_view::ElevatorContainer;
+use crate::world_view::world_view::{ElevatorContainer, TaskStatus};
 use crate::elevio::elev;
 use crate::{utils, world_view::world_view};
 
@@ -39,7 +39,10 @@ pub async fn execute_tasks(chs: local_network::LocalChannels, elevator: elev::El
             }
             else {
                 elevator.motor_direction(elev::DIRN_STOP);
-                
+                // Si fra at første task er ferdig
+                let _ = chs.mpscs.txs.update_task_status.send((tasks_from_udp[0].id, TaskStatus::DONE)).await;
+                // open_door_protocol().await;
+                sleep(Duration::from_millis(3000));
             }
         }
     }
