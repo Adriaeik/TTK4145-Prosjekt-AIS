@@ -1,5 +1,6 @@
 use crate::elevio::poll::CallButton;
-use tokio::sync::{mpsc, broadcast, watch};
+use tokio::sync::{mpsc, broadcast, watch, Semaphore};
+use std::sync::Arc;
 use crate::world_view::world_view::Task;
 
 
@@ -344,6 +345,30 @@ impl Watches {
     }
 }
 
+// --- SEMAPHORE-KANALAR ---
+
+pub struct Semaphores {
+    pub tcp_sent: Arc<Semaphore>,
+    pub sem_buffer: Arc<Semaphore>,
+}
+
+impl Semaphores {
+    pub fn new() -> Self {
+        Semaphores {
+            tcp_sent: Arc::new(Semaphore::new(10)),
+            sem_buffer: Arc::new(Semaphore::new(5)),
+        }
+    }
+}
+
+impl Clone for Semaphores {
+    fn clone(&self) -> Semaphores {
+        Semaphores {
+            tcp_sent: self.tcp_sent.clone(),
+            sem_buffer: self.sem_buffer.clone(),
+        }
+    }
+}
 
 
 // --- OVERKLASSE FOR ALLE KANALAR ---
@@ -356,6 +381,7 @@ pub struct LocalChannels {
     pub mpscs: Mpscs,
     pub broadcasts: Broadcasts,
     pub watches: Watches,
+    pub semaphores: Semaphores,
 }
 
 impl LocalChannels {
@@ -364,6 +390,7 @@ impl LocalChannels {
             mpscs: Mpscs::new(),
             broadcasts: Broadcasts::new(),
             watches: Watches::new(),
+            semaphores: Semaphores::new(),
         }
     }
 
@@ -382,6 +409,7 @@ impl Clone for LocalChannels {
             mpscs: self.mpscs.clone(),
             broadcasts: self.broadcasts.clone(),
             watches: self.watches.clone(),
+            semaphores: self.semaphores.clone(),
         }
     }
 }

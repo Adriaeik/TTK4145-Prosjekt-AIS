@@ -296,8 +296,7 @@ pub async fn send_tcp_message(chs: local_network::LocalChannels, stream: &mut Tc
     let len = (self_elev_serialized.len() as u16).to_be_bytes(); // Konverter lengde til big-endian bytes
    
     let mut send_succes_I = false;
-    TCP_SENT.store(send_succes_I, Ordering::SeqCst); 
-
+    let permit = chs.semaphores.tcp_sent.acquire().await.unwrap(); 
 
     let cont_deser = world_view::deserialize_elev_container(&self_elev_serialized);
     if !cont_deser.calls.is_empty() {
@@ -319,6 +318,8 @@ pub async fn send_tcp_message(chs: local_network::LocalChannels, stream: &mut Tc
         send_succes_I = true;
         TCP_SENT.store(send_succes_I, Ordering::SeqCst);     
     }
+
+    drop(permit);
 
 }
 

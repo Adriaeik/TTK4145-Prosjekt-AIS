@@ -54,8 +54,11 @@ pub async fn update_wv(mut main_local_chs: local_network::LocalChannels, mut wor
         /*_____Knapper trykket på lokal heis_____ */
         match main_local_chs.mpscs.rxs.local_elev.try_recv() {
             Ok(msg) => {
+                let permit = main_local_chs.semaphores.tcp_sent.acquire().await.unwrap();
                 tcp_network::TCP_SENT.store(false, Ordering::SeqCst);
-                wv_edited_I = recieve_local_elevator_msg(&mut worldview_serialised, msg).await;
+                recieve_local_elevator_msg(&mut worldview_serialised, msg).await;
+                let _ = main_local_chs.watches.txs.wv.send(worldview_serialised.clone());
+                drop(permit);
                 // Atomic bool: har sendt alle knapper = false
             },
             Err(_) => {},
