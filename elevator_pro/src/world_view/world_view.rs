@@ -84,7 +84,7 @@ impl Default for WorldView {
 
 impl WorldView {
     pub fn add_elev(&mut self, elevator: ElevatorContainer) {
-        utils::print_ok(format!("elevator med ID {} ble ansatt. (add_elev())", elevator.elevator_id));
+        // utils::print_ok(format!("elevator med ID {} ble ansatt. (add_elev())", elevator.elevator_id));
         self.elevator_containers.push(elevator);
         self.n = self.elevator_containers.len() as u8;
     }

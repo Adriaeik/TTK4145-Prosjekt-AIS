@@ -198,7 +198,7 @@ pub async fn listener_task(_chs: local_network::LocalChannels, socket_tx: mpsc::
         match listener.accept().await {
             Ok((socket, addr)) => {
                 utils::print_master(format!("{} kobla på TCP", addr));
-                if socket_tx.try_send((socket, addr)).is_err() {
+                if socket_tx.send((socket, addr)).await.is_err() {
                     utils::print_err("Hovudløkken har stengt, avsluttar listener.".to_string());
                     break;
                 }
@@ -302,3 +302,5 @@ pub async fn send_tcp_message(chs: local_network::LocalChannels, stream: &mut Tc
     }
     TCP_SENT.store(send_succes_I, Ordering::SeqCst);
 }
+
+

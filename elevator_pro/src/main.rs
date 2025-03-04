@@ -46,7 +46,7 @@ async fn main() {
     let chs_listener = main_local_chs.clone();
     let chs_local_elev = main_local_chs.clone();
     let mut chs_loop = main_local_chs.clone();
-    let (socket_tx, socket_rx) = mpsc::channel::<(TcpStream, SocketAddr)>(8);
+    let (socket_tx, socket_rx) = mpsc::channel::<(TcpStream, SocketAddr)>(100);
 /* SLUTT ----------- Kloning av lokale channels til Tokio Tasks ---------------------- */                                                     
 
 
