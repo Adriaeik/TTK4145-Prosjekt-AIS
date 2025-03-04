@@ -122,6 +122,7 @@ pub fn serialize_worldview(worldview: &WorldView) -> Vec<u8> {
             return serialized_data;
         }
         Err(e) => {
+            println!("{:?}", worldview);
             utils::print_err(format!("Serialization failed: {} (world_view.rs, serialize_worldview())", e));
             panic!();
         }

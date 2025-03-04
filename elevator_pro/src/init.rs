@@ -53,6 +53,7 @@ pub async fn initialize_worldview() -> Vec<u8> {
         return serialize_worldview(&worldview);
     }
 
+    // println!("WV length: {:?}", wv_from_udp);
     let mut wv_from_udp_deser = world_view::deserialize_worldview(&wv_from_udp);
     wv_from_udp_deser.add_elev(elev_container.clone());
 
@@ -60,6 +61,7 @@ pub async fn initialize_worldview() -> Vec<u8> {
         wv_from_udp_deser.master_id = utils::SELF_ID.load(Ordering::SeqCst);
     }
 
+    
     world_view::serialize_worldview(&wv_from_udp_deser) 
 }
 
@@ -75,7 +77,7 @@ pub async fn check_for_udp() -> Vec<u8> {
     socket_temp.set_broadcast(true).expect("Feil i set broadcast i init");
     socket_temp.bind(&socket_addr.into()).expect("Feil i bind i init");
     let socket = UdpSocket::from_std(socket_temp.into()).expect("Feil å lage socket i init");
-    let mut buf = [0; 1024];
+    let mut buf = [0; config::UDP_BUFFER];
     let mut read_wv: Vec<u8> = Vec::new();
     
     let mut message: Cow<'_, str> = std::borrow::Cow::Borrowed("a");

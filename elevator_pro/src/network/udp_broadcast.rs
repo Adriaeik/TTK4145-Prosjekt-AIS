@@ -68,7 +68,7 @@ pub async fn start_udp_listener(mut chs: local_network::LocalChannels) -> tokio:
                 message = String::from_utf8_lossy(&buf[..len]);
             }
             Err(e) => {
-                utils::print_err(format!("udp_broadcast.rs, udp_listener(): {}", e));
+                // utils::print_err(format!("udp_broadcast.rs, udp_listener(): {}", e));
                 return Err(e);
             }
         }
