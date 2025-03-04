@@ -54,12 +54,14 @@ pub async fn update_wv(mut main_local_chs: local_network::LocalChannels, mut wor
         /*_____Knapper trykket på lokal heis_____ */
         match main_local_chs.mpscs.rxs.local_elev.try_recv() {
             Ok(msg) => {
-                let permit = main_local_chs.semaphores.tcp_sent.acquire().await.unwrap();
-                tcp_network::TCP_SENT.store(false, Ordering::SeqCst);
-                recieve_local_elevator_msg(&mut worldview_serialised, msg).await;
-                let _ = main_local_chs.watches.txs.wv.send(worldview_serialised.clone());
-                drop(permit);
-                // Atomic bool: har sendt alle knapper = false
+                wv_edited_I = recieve_local_elevator_msg(&mut worldview_serialised, msg).await;
+            },
+            Err(_) => {},
+        }
+        /*_____Fjerne knappar som vart sendt på TCP_____ */
+        match main_local_chs.mpscs.rxs.tcp_container.try_recv() {
+            Ok(msg) => {
+                wv_edited_I = clear_sent_container_stuff(&mut worldview_serialised, msg);
             },
             Err(_) => {},
         }
@@ -156,3 +158,18 @@ pub async fn recieve_local_elevator_msg(wv: &mut Vec<u8>, msg: ElevMessage) -> b
 }
 
 
+fn clear_sent_container_stuff(wv: &mut Vec<u8>, tcp_container: Vec<u8>) -> bool {
+    let mut deserialized_wv = world_view::deserialize_worldview(&wv);
+    let self_idx = world_view::get_index_to_container(utils::SELF_ID.load(Ordering::SeqCst) , wv.clone());
+    let tcp_container_des = world_view::deserialize_elev_container(&tcp_container);
+
+    
+    if let Some(i) = self_idx {
+        deserialized_wv.elevator_containers[i].calls.retain(|call| !tcp_container_des.calls.contains(call));
+        *wv = world_view::serialize_worldview(&deserialized_wv);
+        return true;
+    } else {
+        utils::print_cosmic_err("The elevator does not exist clear_sent_container_stuff(wv: &mut Vec<u8>, tcp_container: Vec<u8>)".to_string());
+        return false;
+    }
+}

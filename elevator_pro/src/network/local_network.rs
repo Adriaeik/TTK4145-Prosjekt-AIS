@@ -30,7 +30,7 @@ pub struct MpscTxs {
     pub container: mpsc::Sender<Vec<u8>>,
     pub remove_container: mpsc::Sender<u8>,
     pub local_elev: mpsc::Sender<ElevMessage>,
-    pub mpsc_buffer_ch5: mpsc::Sender<bool>,
+    pub tcp_container: mpsc::Sender<Vec<u8>>,
 }
 
 pub struct MpscRxs {
@@ -39,7 +39,7 @@ pub struct MpscRxs {
     pub container: mpsc::Receiver<Vec<u8>>,
     pub remove_container: mpsc::Receiver<u8>,
     pub local_elev: mpsc::Receiver<ElevMessage>,
-    pub mpsc_buffer_ch5: mpsc::Receiver<bool>,
+    pub tcp_container: mpsc::Receiver<Vec<u8>>,
 }
 
 impl Clone for MpscTxs {
@@ -50,7 +50,7 @@ impl Clone for MpscTxs {
             container: self.container.clone(),
             remove_container: self.remove_container.clone(),
             local_elev: self.local_elev.clone(),
-            mpsc_buffer_ch5: self.mpsc_buffer_ch5.clone(),
+            tcp_container: self.tcp_container.clone(),
         }
     }
 }
@@ -66,7 +66,7 @@ impl Clone for MpscTxs {
 /// | **container**  | Sender slave-heis sin container fra `handle_slave` til `world_view_handler` |
 /// | **remove_container**  | Sender ID til 'død' slave til `world_view_handler` |
 /// | **local_elev**  | Buffer til fremtidig bruk |
-/// | **mpsc_buffer_ch5**  | Buffer til fremtidig bruk |
+/// | **tcp_container**  | Buffer til fremtidig bruk |
 pub struct Mpscs {
     pub txs: MpscTxs,
     pub rxs: MpscRxs,
@@ -88,7 +88,7 @@ impl Mpscs {
                 container: tx2,
                 remove_container: tx3,
                 local_elev: tx4,
-                mpsc_buffer_ch5: tx5,
+                tcp_container: tx5,
             }, 
             rxs: MpscRxs { 
                 udp_wv: rx_udp,
@@ -96,7 +96,7 @@ impl Mpscs {
                 container: rx2,
                 remove_container: rx3,
                 local_elev: rx4,
-                mpsc_buffer_ch5: rx5,
+                tcp_container: rx5,
             }
         }
     }
@@ -119,7 +119,7 @@ impl Clone for Mpscs {
                 container: rx2,
                 remove_container: rx3,
                 local_elev: rx4,
-                mpsc_buffer_ch5: rx5,
+                tcp_container: rx5,
             }
         }
     }
@@ -195,7 +195,7 @@ impl BroadcastRxs {
 /// | **mpsc_buffer_ch2**  | Buffer til fremtidig bruk |
 /// | **mpsc_buffer_ch3**  | Buffer til fremtidig bruk |
 /// | **local_elev**  | Buffer til fremtidig bruk |
-/// | **mpsc_buffer_ch5**  | Buffer til fremtidig bruk |
+/// | **tcp_container**  | Buffer til fremtidig bruk |
 pub struct Broadcasts {
     pub txs: BroadcastTxs,
     pub rxs: BroadcastRxs,
@@ -300,7 +300,7 @@ impl Clone for WatchRxs {
 /// | **mpsc_buffer_ch2**  | Buffer til fremtidig bruk |
 /// | **mpsc_buffer_ch3**  | Buffer til fremtidig bruk |
 /// | **local_elev**  | Buffer til fremtidig bruk |
-/// | **mpsc_buffer_ch5**  | Buffer til fremtidig bruk |
+/// | **tcp_container**  | Buffer til fremtidig bruk |
 pub struct Watches {
     pub txs: WatchTxs,
     pub rxs: WatchRxs,

@@ -1,4 +1,4 @@
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, Ordering, AtomicU8};
 
 use tokio::io::AsyncWriteExt;
 use tokio::sync::mpsc;
@@ -17,7 +17,7 @@ use super::local_network;
 
 // Definer ein global `AtomicU8`
 pub static IS_MASTER: AtomicBool = AtomicBool::new(false); // Startverdi 0
-pub static TCP_SENT: AtomicBool = AtomicBool::new(false); // Startverdi 0
+
 struct TcpWatchdog {
     timeout: Duration,
 }
@@ -296,12 +296,14 @@ pub async fn send_tcp_message(chs: local_network::LocalChannels, stream: &mut Tc
     let len = (self_elev_serialized.len() as u16).to_be_bytes(); // Konverter lengde til big-endian bytes
    
     let mut send_succes_I = false;
-    let permit = chs.semaphores.tcp_sent.acquire().await.unwrap(); 
 
+    /* 
+    DEBUG: engang?
     let cont_deser = world_view::deserialize_elev_container(&self_elev_serialized);
     if !cont_deser.calls.is_empty() {
         utils::print_slave(format!("Calls, faktisk sendt: {:?}", cont_deser.calls));
     }
+    */
     
 
     if let Err(e) = stream.write_all(&len).await {
@@ -315,12 +317,14 @@ pub async fn send_tcp_message(chs: local_network::LocalChannels, stream: &mut Tc
         // utils::print_err(format!("Feil ved flushing av stream: {}", e));
         let _ = chs.mpscs.txs.tcp_to_master_failed.send(true).await; // Anta at tilkoblingen feila
     } else {
-        send_succes_I = true;
-        TCP_SENT.store(send_succes_I, Ordering::SeqCst);     
+        send_succes_I = true;     
     }
 
-    drop(permit);
 
+    // FRIGJER LÅSEN (berre viss meldinga blei sendt)
+    if send_succes_I {
+        let _ = chs.mpscs.txs.tcp_container.send(self_elev_serialized).await;
+    }
 }
 
 
