@@ -195,7 +195,7 @@ pub fn print_wv(worldview: Vec<u8>) {
     unsafe {
         print_stat = config::PRINT_WV_ON;
     }
-    if print_stat {
+    if !print_stat {
         return;
     }
 
