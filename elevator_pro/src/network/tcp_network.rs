@@ -295,23 +295,31 @@ pub async fn send_tcp_message(chs: local_network::LocalChannels, stream: &mut Tc
     let self_elev_serialized = world_view::serialize_elev_container(&self_elev_container);
     let len = (self_elev_serialized.len() as u16).to_be_bytes(); // Konverter lengde til big-endian bytes
    
-    let mut send_succes_I = true;
+    let mut send_succes_I = false;
+    TCP_SENT.store(send_succes_I, Ordering::SeqCst); 
+
+
+    let cont_deser = world_view::deserialize_elev_container(&self_elev_serialized);
+    if !cont_deser.calls.is_empty() {
+        utils::print_slave(format!("Calls, faktisk sendt: {:?}", cont_deser.calls));
+    }
     
+
     if let Err(e) = stream.write_all(&len).await {
         // utils::print_err(format!("Feil ved sending av data til master: {}", e));
         let _ = chs.mpscs.txs.tcp_to_master_failed.send(true).await; // Anta at tilkoblingen feila
-        send_succes_I = false;
     } else if let Err(e) = stream.write_all(&self_elev_serialized).await {
+
         // utils::print_err(format!("Feil ved sending av data til master: {}", e));
         let _ = chs.mpscs.txs.tcp_to_master_failed.send(true).await; // Anta at tilkoblingen feila
-
-        send_succes_I = false;
     } else if let Err(e) = stream.flush().await {
         // utils::print_err(format!("Feil ved flushing av stream: {}", e));
         let _ = chs.mpscs.txs.tcp_to_master_failed.send(true).await; // Anta at tilkoblingen feila
-        send_succes_I = false;
+    } else {
+        send_succes_I = true;
+        TCP_SENT.store(send_succes_I, Ordering::SeqCst);     
     }
-    TCP_SENT.store(send_succes_I, Ordering::SeqCst);
+
 }
 
 

@@ -42,6 +42,11 @@ pub fn join_wv(mut my_wv: Vec<u8>, master_wv: Vec<u8>) -> Vec<u8> {
         // my_wv_deserialised.elevator_containers[my_i].calls.retain(|call| !to_remove_set.contains(call));
         // master_wv_deserialised.elevator_containers[master_i].calls = my_wv_deserialised.elevator_containers[my_i].calls.clone();
         if tcp_network::TCP_SENT.load(Ordering::SeqCst) {
+            if !my_wv_deserialised.elevator_containers[my_i].calls.is_empty() {
+
+                utils::print_master(format!("Calls, skal være sendt på tcp, blir fjerna: {:?}", my_wv_deserialised.elevator_containers[my_i].calls));
+            }
+
             tcp_network::TCP_SENT.store(false, Ordering::SeqCst);
             master_wv_deserialised.elevator_containers[master_i].calls.clear(); 
         } else {
