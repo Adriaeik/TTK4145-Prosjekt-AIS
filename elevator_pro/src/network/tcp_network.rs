@@ -195,6 +195,7 @@ pub async fn listener_task(_chs: local_network::LocalChannels, socket_tx: mpsc::
 
     /* Når listener accepter ny tilkobling -> send socket og addr til tcp_handler gjennom socket_tx */
     loop {
+        sleep(Duration::from_millis(100)).await;
         match listener.accept().await {
             Ok((socket, addr)) => {
                 utils::print_master(format!("{} kobla på TCP", addr));
