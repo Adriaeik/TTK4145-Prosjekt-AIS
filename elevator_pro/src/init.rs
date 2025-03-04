@@ -28,7 +28,7 @@ pub async fn initialize_worldview() -> Vec<u8> {
     let init_task = Task{
         id: u16::MAX,
         to_do: 0,
-        status: TaskStatus::PENDING,
+        status: TaskStatus::DONE,
         is_inside: true,
     };
     elev_container.tasks.push(init_task);

@@ -39,6 +39,7 @@ pub async fn execute_tasks(chs: local_network::LocalChannels, elevator: elev::El
             }
             else {
                 elevator.motor_direction(elev::DIRN_STOP);
+                
             }
         }
     }

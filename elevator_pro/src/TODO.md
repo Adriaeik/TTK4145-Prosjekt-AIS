@@ -9,7 +9,7 @@ Ein god gitter pusher alltid ✅
 - Når UDP melding blir for stor blir det feil i mottak. Hvis det fortsatt er problem når vi delegerer tasks, se på mulighet å  indikere i meldinga at den blir delt opp :)
 - Prøv å sette buffer på mottak til mye større!! (legg til i config så det er lett å endre)✅
 
-- Noen buttoncalls som forsvinner. mest sansynlig hos slaven før den blir sendt til master?
+- Noen buttoncalls som forsvinner. mest sansynlig hos slaven før den blir sendt til master?✅
 
 - Delegere tasks (veldig enkelt. ingen prioritering ogsånt)
 - Fjerne fullførte tasks

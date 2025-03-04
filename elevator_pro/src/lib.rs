@@ -24,5 +24,6 @@ pub mod elevator_logic {
     pub mod task_handler;
     pub mod master {
         pub mod wv_from_slaves;
+        pub mod task_allocater;
     }
 }

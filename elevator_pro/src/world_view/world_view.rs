@@ -9,7 +9,7 @@ use crate::elevio::poll::CallButton;
 
 
 
-#[derive(Serialize, Deserialize, Debug, Default, Clone)]
+#[derive(Serialize, Deserialize, Debug, Default, Clone, Hash)]
 pub struct Task {
     pub id: u16,
     pub to_do: u8, // Default: 0
@@ -17,7 +17,7 @@ pub struct Task {
     pub is_inside: bool,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Hash)]
 pub enum TaskStatus {
     PENDING,
     DONE,
