@@ -48,6 +48,7 @@ pub async fn start_udp_broadcaster(mut chs: local_network::LocalChannels) -> tok
 
 pub async fn start_udp_listener(mut chs: local_network::LocalChannels) -> tokio::io::Result<()> {
     chs.subscribe_broadcast();
+    let self_id = utils::SELF_ID.load(Ordering::SeqCst);
     let broadcast_listen_addr = format!("{}:{}", config::BC_LISTEN_ADDR, config::DUMMY_PORT);
     let socket_addr: SocketAddr = broadcast_listen_addr.parse().expect("Ugyldig adresse");
     let socket_temp = Socket::new(Domain::IPV4, Type::DGRAM, None)?;
@@ -93,13 +94,18 @@ pub async fn start_udp_listener(mut chs: local_network::LocalChannels) -> tokio:
 
             //utils::print_info(format!("read_wv: {:?}", read_wv));
             //utils::print_info(format!("full message: {:?}", message));
-            if my_wv[config::MASTER_IDX] >= read_wv[config::MASTER_IDX] && !(utils::SELF_ID.load(Ordering::SeqCst) == read_wv[config::MASTER_IDX]) {
-                
-                //Oppdater egen WV
-                my_wv = read_wv;
-                //TODO: Send denne wv tilbake til thread som behandler worldview
-                let _ = chs.mpscs.txs.udp_wv.send(my_wv.clone()).await;
+            if my_wv[config::MASTER_IDX] >= read_wv[config::MASTER_IDX] {
+                println!("UDP'en er fra master");
+                if !(self_id == read_wv[config::MASTER_IDX]) {
+                    //Oppdater egen WV
+                    my_wv = read_wv;
+                    //TODO: Send denne wv tilbake til thread som behandler worldview
+                    println!("Signaliserer at vi har fått ny wv fra UDP");
+                    let _ = chs.mpscs.txs.udp_wv.send(my_wv.clone()).await;
+
+                }
             }
+            
         }
     }
 }
