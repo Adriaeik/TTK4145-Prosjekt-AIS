@@ -36,6 +36,9 @@ pub async fn start_udp_broadcaster(mut chs: local_network::LocalChannels) -> tok
     loop{
         let chs_clone = chs.clone();
         utils::update_wv(chs_clone, &mut wv).await;
+        
+        println!("Master sin ID: {}", wv[config::MASTER_IDX]);
+
         if utils::SELF_ID.load(Ordering::SeqCst) == wv[config::MASTER_IDX] {
             println!("Jeg er master, sender UDP, master ID: {}", wv[config::MASTER_IDX]);
             //TODO: Lag bedre delay?
@@ -85,7 +88,7 @@ pub async fn start_udp_listener(mut chs: local_network::LocalChannels) -> tokio:
             utils::update_wv(chs.clone(), &mut my_wv).await;
             //Bare broadcast hvis du er master
             if read_wv[config::MASTER_IDX] != my_wv[config::MASTER_IDX] {
-                println!("UDP sin ID: {}, egen wv ID: {}", read_wv[config::MASTER_IDX], my_wv[config::MASTER_IDX]);
+                //println!("UDP sin ID: {}, egen wv ID: {}", read_wv[config::MASTER_IDX], my_wv[config::MASTER_IDX]);
                 
             } else {
                 get_udp_timeout().store(false, Ordering::SeqCst);
@@ -95,14 +98,12 @@ pub async fn start_udp_listener(mut chs: local_network::LocalChannels) -> tokio:
             //utils::print_info(format!("read_wv: {:?}", read_wv));
             //utils::print_info(format!("full message: {:?}", message));
             if my_wv[config::MASTER_IDX] >= read_wv[config::MASTER_IDX] {
-                println!("UDP'en er fra master");
                 if !(self_id == read_wv[config::MASTER_IDX]) {
                     //Oppdater egen WV
                     my_wv = read_wv;
                     //TODO: Send denne wv tilbake til thread som behandler worldview
-                    println!("Signaliserer at vi har fått ny wv fra UDP");
+                    // println!("Signaliserer at vi har fått ny wv fra UDP");
                     let _ = chs.mpscs.txs.udp_wv.send(my_wv.clone()).await;
-
                 }
             }
             
