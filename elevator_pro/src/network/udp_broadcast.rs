@@ -84,7 +84,7 @@ pub async fn start_udp_listener(mut chs: local_network::LocalChannels) -> tokio:
             utils::update_wv(chs.clone(), &mut my_wv).await;
             //Bare broadcast hvis du er master
             if read_wv[config::MASTER_IDX] != my_wv[config::MASTER_IDX] {
-                //println!("UDP sin ID: {}, egen wv ID: {}", read_wv[config::MASTER_IDX], my_wv[config::MASTER_IDX]);
+                println!("UDP sin ID: {}, egen wv ID: {}", read_wv[config::MASTER_IDX], my_wv[config::MASTER_IDX]);
                 
             } else {
                 get_udp_timeout().store(false, Ordering::SeqCst);
