@@ -231,7 +231,7 @@ async fn read_from_stream(stream: &mut TcpStream, chs: local_network::LocalChann
                     utils::print_info(format!("Stenger stream til slave 1: {:?}", stream.peer_addr()));
                     let id = utils::ip2id(stream.peer_addr().expect("Peer har ingen IP?").ip());
                     let _ = chs.mpscs.txs.remove_container.send(id).await;
-                    let _ = stream.shutdown().await;
+                    // let _ = stream.shutdown().await;
                     return None;
                 }
                 Ok(_) => {
@@ -244,7 +244,7 @@ async fn read_from_stream(stream: &mut TcpStream, chs: local_network::LocalChann
                             utils::print_info(format!("Stenger stream til slave 2: {:?}", stream.peer_addr()));
                             let id = utils::ip2id(stream.peer_addr().expect("Peer har ingen IP?").ip());
                             let _ = chs.mpscs.txs.remove_container.send(id).await;
-                            let _ = stream.shutdown().await;
+                            // let _ = stream.shutdown().await;
                             return None;
                         }
                         Ok(_) => return Some(buffer),
@@ -253,7 +253,7 @@ async fn read_from_stream(stream: &mut TcpStream, chs: local_network::LocalChann
                             utils::print_info(format!("Stenger stream til slave 3: {:?}", stream.peer_addr()));
                             let id = utils::ip2id(stream.peer_addr().expect("Peer har ingen IP?").ip());
                             let _ = chs.mpscs.txs.remove_container.send(id).await;
-                            let _ = stream.shutdown().await;
+                            // let _ = stream.shutdown().await;
                             return None;
                         }
                     }
@@ -263,7 +263,7 @@ async fn read_from_stream(stream: &mut TcpStream, chs: local_network::LocalChann
                     utils::print_info(format!("Stenger stream til slave 4: {:?}", stream.peer_addr()));
                     let id = utils::ip2id(stream.peer_addr().expect("Peer har ingen IP?").ip());
                     let _ = chs.mpscs.txs.remove_container.send(id).await;
-                    let _ = stream.shutdown().await;
+                    // let _ = stream.shutdown().await;
                     return None;
                 }
             }
@@ -276,7 +276,7 @@ async fn read_from_stream(stream: &mut TcpStream, chs: local_network::LocalChann
             let id = utils::ip2id(stream.peer_addr().expect("Peer har ingen IP?").ip());
             utils::print_info(format!("Mistar masterstatus, stenger stream til slave {}", id));
             let _ = chs.mpscs.txs.remove_container.send(id).await;
-            let _ = stream.shutdown().await;
+            // let _ = stream.shutdown().await;
             return None;
         }
     }
