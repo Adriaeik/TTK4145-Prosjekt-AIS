@@ -239,10 +239,12 @@ pub fn get_wv(chs: local_network::LocalChannels) -> Vec<u8> {
     chs.watches.rxs.wv.borrow().clone()
 }
 
-pub async fn update_wv(mut chs: local_network::LocalChannels, wv: &mut Vec<u8>) {
+pub async fn update_wv(mut chs: local_network::LocalChannels, wv: &mut Vec<u8>) -> bool {
     if chs.watches.rxs.wv.changed().await.is_ok() {
         *wv = chs.watches.rxs.wv.borrow().clone();
+        return true
     }
+    false
 }
 
 /// Sjekker om du er master, basert på nyeste worldview

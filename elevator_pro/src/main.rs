@@ -92,9 +92,10 @@ async fn main() {
         let mut wv = utils::get_wv(chs_print.clone());
         loop {
             let chs_clone = chs_print.clone();
-            utils::update_wv(chs_clone, &mut wv).await;
+            if utils::update_wv(chs_clone, &mut wv).await {
                 world_view::print_wv(wv.clone());
                 tokio::time::sleep(Duration::from_millis(500)).await;
+            }
         }
     });
 
