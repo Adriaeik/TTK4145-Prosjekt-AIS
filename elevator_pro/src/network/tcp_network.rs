@@ -113,26 +113,29 @@ pub async fn tcp_handler(chs: local_network::LocalChannels, mut socket_rx: mpsc:
         }
 
         /* Mens du er slave: Sjekk om det har kommet ny master / connection til master har dødd */
+        let mut prev_master = wv[config::MASTER_IDX];
+        let mut new_master = prev_master != wv[config::MASTER_IDX];
         while !utils::is_master(wv.clone()) && master_accepted_tcp {
-            let prev_master = wv[config::MASTER_IDX];
-            update_wv(chs.clone(), &mut wv).await;
-            let new_master = prev_master != wv[config::MASTER_IDX];
-            println!("Master: {}, prev master: {}", wv[config::MASTER_IDX], prev_master);
+            // update_wv(chs.clone(), &mut wv).await;
+            
+            if new_master {
+                println!("Master: {}, prev master: {}", wv[config::MASTER_IDX], prev_master);
+            }
                 
             if world_view_update::get_network_status().load(Ordering::SeqCst) {
                 // utils::print_slave("Jeg er slave".to_string());
                 if let Some(ref mut s) = stream {
                     if new_master {
                         println!("Fått ny master");
-                        panic!();
                         // utils::close_tcp_stream(s).await;
                         master_accepted_tcp = false;
                         tokio::time::sleep(Duration::from_millis(100)).await; //TODO: test om denne trengs
                     }
+                    prev_master = wv[config::MASTER_IDX];
                     update_wv(chs.clone(), &mut wv).await;
-                    //Sett atomic bool vi har sendt callbuttons = true
-                    
                     send_tcp_message(chs.clone(), s, wv.clone()).await;
+                    new_master = prev_master != wv[config::MASTER_IDX];
+
                     
 
                     //TODO: lag bedre delay
