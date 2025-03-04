@@ -2,6 +2,7 @@ use std::sync::atomic::Ordering;
 use std::u16;
 use tokio::time::sleep;
 
+use crate::config;
 use crate::world_view::world_view;
 use crate::world_view::world_view::TaskStatus;
 use crate::network::tcp_network;
@@ -17,7 +18,6 @@ pub async fn update_wv(mut main_local_chs: local_network::LocalChannels, mut wor
     println!("Starter update_wv");
     let _ = main_local_chs.watches.txs.wv.send(worldview_serialised.clone());
     
-    let mut i = 0;
     
 
     let mut wv_edited_I = false;
@@ -62,9 +62,9 @@ pub async fn update_wv(mut main_local_chs: local_network::LocalChannels, mut wor
         }
         /*_____Hvis worldview er endra, oppdater kanalen_____ */
         if wv_edited_I {
-            i += 1;
             let _ = main_local_chs.watches.txs.wv.send(worldview_serialised.clone());
-            println!("Sendte worldview lokalt {}", i);
+            println!("Sendte worldview lokalt {}", worldview_serialised[1]);
+    
             wv_edited_I = false;
         }
     }
