@@ -246,6 +246,7 @@ pub fn print_wv(worldview: Vec<u8>) {
         Cell::new(&Blue.bold().paint("Siste etasje").to_string()),
         Cell::new(&Blue.bold().paint("Tasks (ToDo:Status)").to_string()),
         Cell::new(&Blue.bold().paint("Calls (Etg:Call)").to_string()),
+        Cell::new(&Blue.bold().paint("Tasks_status (ToDo:Status)").to_string()),
     ]));
 
     // Iterer over alle heisane
@@ -289,6 +290,17 @@ pub fn print_wv(worldview: Vec<u8>) {
             .collect::<Vec<String>>()
             .join(", ");
 
+        let task_stat_list = elev.tasks_status.iter()
+            .map(|t| {
+                format!("{}:{}:{}",
+                task_color.paint(t.id.to_string()),
+                task_color.paint(t.to_do.to_string()),
+                    task_color.paint(format!("{:?}", t.status))
+                )
+            })
+            .collect::<Vec<String>>()
+            .join(", ");
+
         table.add_row(Row::new(vec![
             Cell::new(&id_text),
             Cell::new(&door_status),
@@ -297,6 +309,7 @@ pub fn print_wv(worldview: Vec<u8>) {
             Cell::new(&format!("{}", elev.last_floor_sensor)),
             Cell::new(&task_list),
             Cell::new(&call_list),
+            Cell::new(&task_stat_list),
         ]));
     }
 
