@@ -37,7 +37,7 @@ pub async fn start_udp_broadcaster(mut chs: local_network::LocalChannels) -> tok
         let chs_clone = chs.clone();
         utils::update_wv(chs_clone, &mut wv).await;
         if utils::SELF_ID.load(Ordering::SeqCst) == wv[config::MASTER_IDX] {
-            //println!("Jeg er master, sender UDP, master ID: {}", wv[config::MASTER_IDX]);
+            println!("Jeg er master, sender UDP, master ID: {}", wv[config::MASTER_IDX]);
             //TODO: Lag bedre delay?
             sleep(config::UDP_PERIOD);
             let mesage = format!("{:?}{:?}", config::KEY_STR, wv).to_string();
