@@ -136,7 +136,9 @@ pub async fn tcp_handler(chs: local_network::LocalChannels, mut socket_rx: mpsc:
                     prev_master = wv[config::MASTER_IDX];
                     update_wv(chs.clone(), &mut wv).await;
                     send_tcp_message(chs.clone(), s, wv.clone()).await;
-                    new_master = prev_master != wv[config::MASTER_IDX];
+                    if prev_master != wv[config::MASTER_IDX] {
+                        new_master = true;
+                    }
 
                     
 
