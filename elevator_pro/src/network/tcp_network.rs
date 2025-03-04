@@ -117,7 +117,7 @@ pub async fn tcp_handler(chs: local_network::LocalChannels, mut socket_rx: mpsc:
             let prev_master = wv[config::MASTER_IDX];
             update_wv(chs.clone(), &mut wv).await;
             let new_master = prev_master != wv[config::MASTER_IDX];
-            println!("Master: {}", wv[config::MASTER_IDX]);
+            println!("Master: {}, prev master: {}", wv[config::MASTER_IDX], prev_master);
                 
             if world_view_update::get_network_status().load(Ordering::SeqCst) {
                 // utils::print_slave("Jeg er slave".to_string());
