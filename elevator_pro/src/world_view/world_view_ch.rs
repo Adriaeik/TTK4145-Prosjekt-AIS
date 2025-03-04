@@ -164,16 +164,15 @@ fn clear_sent_container_stuff(wv: &mut Vec<u8>, tcp_container: Vec<u8>) -> bool 
     let self_idx = world_view::get_index_to_container(utils::SELF_ID.load(Ordering::SeqCst) , wv.clone());
     let tcp_container_des = world_view::deserialize_elev_container(&tcp_container);
 
-    let completed_tasks_ids: HashSet<u16> = tcp_container_des
+    let tasks_ids: HashSet<u16> = tcp_container_des
         .tasks_status
         .iter()
-        .filter(|t| t.status == TaskStatus::DONE)
         .map(|t| t.id)
         .collect();
     
     if let Some(i) = self_idx {
         /*_____ Fjern Tasks som er markert som ferdig av slaven _____ */
-        deserialized_wv.elevator_containers[i].tasks.retain(|t| !completed_tasks_ids.contains(&t.id));
+        deserialized_wv.elevator_containers[i].tasks_status.retain(|t| tasks_ids.contains(&t.id));
         /*_____ Fjern sendte CallButtons _____ */
         deserialized_wv.elevator_containers[i].calls.retain(|call| !tcp_container_des.calls.contains(call));
         *wv = world_view::serialize_worldview(&deserialized_wv);

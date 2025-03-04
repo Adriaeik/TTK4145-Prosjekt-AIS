@@ -1,4 +1,5 @@
 use crate::world_view::world_view::{self, ElevatorContainer};
+use crate::elevator_logic::master::wv_from_slaves::world_view::TaskStatus;
 use std::collections::HashSet;
 
 
@@ -9,6 +10,16 @@ pub async fn update_statuses(deser_wv: &mut world_view::WorldView, container: &E
     deser_wv.elevator_containers[i].motor_dir = container.motor_dir;
     deser_wv.elevator_containers[i].calls = container.calls.clone(); 
     deser_wv.elevator_containers[i].tasks_status = container.tasks_status.clone();
+
+    let completed_tasks_ids: HashSet<u16> = container
+    .tasks_status
+    .iter()
+    .filter(|t| t.status == TaskStatus::DONE)
+    .map(|t| t.id)
+    .collect();
+
+    /*_____ Fjern Tasks som er markert som ferdig av slaven _____ */
+    deser_wv.elevator_containers[i].tasks.retain(|t| !completed_tasks_ids.contains(&t.id));
 }
 
 
