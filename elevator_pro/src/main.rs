@@ -7,10 +7,26 @@ use tokio::{sync::broadcast, time::sleep};
 use tokio::sync::mpsc;
 use tokio::net::TcpStream;
 use std::net::SocketAddr;
+use std::env;
 
 
 #[tokio::main]
 async fn main() {
+    let args: Vec<String> = env::args().collect();
+
+    if args.len() > 1 {
+        let command = args[1].to_lowercase();
+        
+        unsafe {
+            let rolle = match command.as_str() {
+                "no_wv" => config::PRINT_WV_ON = false,
+                _ => {},
+            };
+        }
+    } 
+
+
+
 /* START ----------- Task for å overvake Nettverksstatus ---------------------- */
     /* oppdaterer ein atomicbool der true er online, false er då offline */
     let _network_status_watcher_task = tokio::spawn(async move {
@@ -86,11 +102,13 @@ async fn main() {
     let _print_task = tokio::spawn(async move {
         let mut wv = utils::get_wv(chs_print.clone());
         loop {
-            if config::PRINT_WV_ON {
-                let chs_clone = chs_print.clone();
-                utils::update_wv(chs_clone, &mut wv).await;
-                world_view::print_wv(wv.clone());
-                tokio::time::sleep(Duration::from_millis(500)).await;
+            unsafe {
+                if config::PRINT_WV_ON {
+                    let chs_clone = chs_print.clone();
+                    utils::update_wv(chs_clone, &mut wv).await;
+                        world_view::print_wv(wv.clone());
+                        tokio::time::sleep(Duration::from_millis(500)).await;
+                }
             }
         }
     });
