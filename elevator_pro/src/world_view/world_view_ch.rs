@@ -68,6 +68,7 @@ pub async fn update_wv(mut main_local_chs: local_network::LocalChannels, mut wor
         }
         match main_local_chs.mpscs.rxs.new_task.try_recv() {
             Ok((task ,id, button)) => {
+                utils::print_master(format!("Fikk task: {:?}", task));
                 wv_edited_I = push_task(&mut worldview_serialised, task, id, button);
             },
             Err(_) => {},
