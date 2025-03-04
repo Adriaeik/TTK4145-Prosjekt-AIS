@@ -137,8 +137,8 @@ pub async fn tcp_handler(chs: local_network::LocalChannels, mut socket_rx: mpsc:
                     if prev_master != wv[config::MASTER_IDX] {
                         new_master = true;
                     }
-                    println!("Master: {}, prev master: {}", wv[config::MASTER_IDX], prev_master);
-                    println!("Fått ny master status {}", new_master);
+                    // println!("Master: {}, prev master: {}", wv[config::MASTER_IDX], prev_master);
+                    // println!("Fått ny master status {}", new_master);
                     //TODO: lag bedre delay
                     tokio::time::sleep(config::TCP_PERIOD).await; 
                 }
