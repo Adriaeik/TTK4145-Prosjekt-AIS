@@ -12,9 +12,8 @@ use std::net::SocketAddr;
 
 #[tokio::main]
 async fn main() {
+    // Oppdater config-verdier basert på argumenter
     init::parse_args();
-
-
 
 /* START ----------- Task for å overvake Nettverksstatus ---------------------- */
     /* oppdaterer ein atomicbool der true er online, false er då offline */
@@ -45,47 +44,52 @@ async fn main() {
     let chs_print = main_local_chs.clone();
     let chs_listener = main_local_chs.clone();
     let chs_local_elev = main_local_chs.clone();
+    let chs_task_allocater = main_local_chs.clone();
     let mut chs_loop = main_local_chs.clone();
-    let mut chs_task_allocater = main_local_chs.clone();
     let (socket_tx, socket_rx) = mpsc::channel::<(TcpStream, SocketAddr)>(100);
 /* SLUTT ----------- Kloning av lokale channels til Tokio Tasks ---------------------- */                                                     
 
-
+/* START ----------- Starte kritiske tasks ----------- */
+    //Task som kontinuerlig oppdaterer lokale worldview
     let _update_wv_task = tokio::spawn(async move {
         utils::print_info("Starter å oppdatere wv".to_string());
         let _ = world_view_ch::update_wv(main_local_chs, worldview_serialised).await;
     });
-    //TODO: Få den til å signalisere at vi er i known state. Den kommer ikke til å returnere etterhvert
+    //Task som håndterer den lokale heisen
+    //TODO: Få den til å signalisere at vi er i known state.
     let _local_elev_task = tokio::spawn(async {
         let _ = tcp_self_elevator::run_local_elevator(chs_local_elev).await;
     });
+/* SLUTT ----------- Starte kritiske tasks ----------- */
 
 
 /* START ----------- Starte Eksterne Nettverkstasks ---------------------- */
+    //Task som hører etter UDP-broadcasts
     let _listen_task = tokio::spawn(async move {
         utils::print_info("Starter å høre etter UDP-broadcast".to_string());
         let _ = udp_broadcast::start_udp_listener(chs_udp_listen).await;
     });
-
+    //Task som starter egen UDP-broadcaster
     let _broadcast_task = tokio::spawn(async move {
         utils::print_info("Starter UDP-broadcaster".to_string());
         let _ = udp_broadcast::start_udp_broadcaster(chs_udp_bc).await;
     });
-
+    //Task som håndterer TCP-koblinger
     let _tcp_task = tokio::spawn(async move {
         utils::print_info("Starter å TCPe".to_string());
         let _ = tcp_network::tcp_handler(chs_tcp, socket_rx).await;
     });
-
+    //UDP Watchdog
     let _udp_watchdog = tokio::spawn(async move {
         utils::print_info("Starter udp watchdog".to_string());
         let _ = udp_broadcast::udp_watchdog(chs_udp_wd).await;
     });
-    
+    //Task som starter TCP-listener
     let _listener_handle = tokio::spawn(async move {
         utils::print_info("Starter tcp listener".to_string());
         let _ = tcp_network::listener_task(chs_listener, socket_tx).await;
     });
+    //Task som fordeler heis-tasks
     let _allocater_handle = tokio::spawn(async move {
         utils::print_info("Starter task allocater listener".to_string());
         let _ = task_allocater::distribute_task(chs_task_allocater).await;
@@ -93,6 +97,7 @@ async fn main() {
     // Lag prat med egen heis thread her 
 /* SLUTT ----------- Starte Eksterne Nettverkstasks ---------------------- */
 
+    //Task som printer worldview
     let _print_task = tokio::spawn(async move {
         let mut wv = utils::get_wv(chs_print.clone());
         loop {
@@ -104,8 +109,8 @@ async fn main() {
         }
     });
 
-
-    chs_loop.broadcasts.rxs.shutdown.recv().await;
+    //Vent med å avslutte programmet
+    let _ = chs_loop.broadcasts.rxs.shutdown.recv().await;
 
 
 }

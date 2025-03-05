@@ -2,8 +2,9 @@ use crate::world_view::world_view::{self, ElevatorContainer};
 use crate::elevator_logic::master::wv_from_slaves::world_view::TaskStatus;
 use std::collections::HashSet;
 
-
+/// ### Oppdatere statuser til slave-heis basert på melding fra TCP
 pub async fn update_statuses(deser_wv: &mut world_view::WorldView, container: &ElevatorContainer, i: usize) {
+    //Setter alle 'enkle' statuser likt som slaven har 
     deser_wv.elevator_containers[i].door_open = container.door_open;
     deser_wv.elevator_containers[i].last_floor_sensor = container.last_floor_sensor;
     deser_wv.elevator_containers[i].obstruction = container.obstruction;
@@ -11,18 +12,19 @@ pub async fn update_statuses(deser_wv: &mut world_view::WorldView, container: &E
     deser_wv.elevator_containers[i].calls = container.calls.clone(); 
     deser_wv.elevator_containers[i].tasks_status = container.tasks_status.clone();
 
+    // Finner ID til tasks slaven er ferdig med
     let completed_tasks_ids: HashSet<u16> = container
-    .tasks_status
-    .iter()
-    .filter(|t| t.status == TaskStatus::DONE)
-    .map(|t| t.id)
-    .collect();
+        .tasks_status
+        .iter()
+        .filter(|t| t.status == TaskStatus::DONE)
+        .map(|t| t.id)
+        .collect();
 
     /*_____ Fjern Tasks som er markert som ferdig av slaven _____ */
     deser_wv.elevator_containers[i].tasks.retain(|t| !completed_tasks_ids.contains(&t.id));
 }
 
-
+/// ### Oppdaterer globale call_buttons fra slaven sine lokale call_buttons
 pub async fn update_call_buttons(deser_wv: &mut world_view::WorldView, container: &ElevatorContainer, i: usize) {
     // Sett opp et HashSet for å sjekke for duplikater
     let mut seen = HashSet::new();
@@ -42,7 +44,7 @@ pub async fn update_call_buttons(deser_wv: &mut world_view::WorldView, container
     }
 }
 
-
+/// Kommende funksjon
 pub async fn update_tasks() {
 
 }
