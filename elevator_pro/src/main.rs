@@ -111,8 +111,6 @@ async fn main() {
 
     //Vent med å avslutte programmet
     let _ = chs_loop.broadcasts.rxs.shutdown.recv().await;
-
-
 }
 
 

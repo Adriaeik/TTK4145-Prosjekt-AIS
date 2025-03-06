@@ -1,10 +1,4 @@
-use tokio::io::AsyncWriteExt;
-use tokio::sync::mpsc;
-use tokio::{io::AsyncReadExt, net::TcpListener};
-use tokio::task::JoinHandle;
-use tokio::net::TcpStream;
-use std::net::SocketAddr;
-use tokio::time::{sleep, Duration, Instant};
+use tokio::time::{sleep, Duration};
 use crossbeam_channel as cbc;
 use tokio::process::Command;
 use std::sync::atomic::Ordering;
@@ -12,11 +6,9 @@ use std::sync::atomic::Ordering;
 use crate::elevator_logic::task_handler;
 use crate::utils::SELF_ID;
 use crate::world_view::world_view;
-use crate::{config, utils, world_view::{world_view_update, world_view_ch}, elevio, elevio::poll::CallButton, elevio::elev as e};
-use utils::{print_info, print_ok, print_err, get_wv};
+use crate::{config, utils::{self, print_ok}, world_view::world_view_update, elevio, elevio::poll::CallButton, elevio::elev as e};
 
 use super::local_network;
-use super::tcp_network::IS_MASTER;
 
 
 
@@ -54,12 +46,15 @@ impl LocalElevChannels {
 }
 
 
-
+/// ### Henter ut lokal IP adresse
 fn get_ip_address() -> String {
     let self_id = utils::SELF_ID.load(Ordering::SeqCst);
     format!("{}.{}", config::NETWORK_PREFIX, self_id)
 }
 
+/// ### Starter elevator_server
+/// 
+/// Tar høyde for om du er på windows eller ubuntu.
 async fn start_elevator_server() {
     let ip_address = get_ip_address();
     let ssh_password = "Sanntid15"; // Hardkodet passord, vurder sikkerhetsrisiko
@@ -95,43 +90,15 @@ async fn start_elevator_server() {
     println!("Elevator server startet.");
 }
 
-async fn init_local_elevator_connection(txs: LocalElevTxs, elevator: e::Elevator) -> std::io::Result<()> {
-    print_ok(format!("Elevator started:\n{:#?}", elevator));
-    {
-        let elevator = elevator.clone();
-        tokio::spawn(async move {
-            elevio::poll::call_buttons(elevator, txs.call_button, config::ELEV_POLL)
-        });
-    }
-    {
-        let elevator = elevator.clone();
-        tokio::spawn(async move {
-            elevio::poll::floor_sensor(elevator, txs.floor_sensor, config::ELEV_POLL)
-        });
-    }
-    {
-        let elevator = elevator.clone();
-        tokio::spawn(async move {
-            elevio::poll::stop_button(elevator, txs.obstruction, config::ELEV_POLL)
-        });
-    }
-    {
-        let elevator = elevator.clone();
-        tokio::spawn(async move {
-            elevio::poll::obstruction(elevator, txs.stop_button, config::ELEV_POLL)
-        });
-    }
-    Ok(())
-
-}
-
+/// ### Kjører den lokale heisen
 pub async fn run_local_elevator(chs: local_network::LocalChannels) -> std::io::Result<()> {
+    // Start elevator-serveren
     start_elevator_server().await;
     let local_elev_channels: LocalElevChannels = LocalElevChannels::new();
     utils::slave_sleep().await;
     let elevator: e::Elevator = e::Elevator::init(config::LOCAL_ELEV_IP, config::DEFAULT_NUM_FLOORS).expect("Feil!");
     
-    
+    // Start polling på meldinger fra heisen
     {
         let elevator = elevator.clone();
         tokio::spawn(async move {
@@ -157,7 +124,7 @@ pub async fn run_local_elevator(chs: local_network::LocalChannels) -> std::io::R
         });
     }
  
- 
+    //Start en task som viderefører meldinger fra heisen til update_worldview 
     {
         let chs_clone = chs.clone();
         let _listen_task = tokio::spawn(async move {
@@ -165,6 +132,7 @@ pub async fn run_local_elevator(chs: local_network::LocalChannels) -> std::io::R
         });
     }
 
+    // Task som utfører deligerte tasks (ikke implementert korrekt enda)
     {
         let chs_clone = chs.clone();
         let _handle_task = tokio::spawn(async move {
@@ -173,9 +141,9 @@ pub async fn run_local_elevator(chs: local_network::LocalChannels) -> std::io::R
         tokio::task::yield_now().await;
     }
  
+    // Loop som sender egen container på kanalen som motar slave-kontainere hvis man er master
     let mut wv = utils::get_wv(chs.clone());
     loop {
-
         utils::update_wv(chs.clone(), &mut wv).await;
         if utils::is_master(wv.clone()) {
             /* Oppdater task og task_status, send din container tilbake som om den fikk fra tcp */
@@ -185,45 +153,11 @@ pub async fn run_local_elevator(chs: local_network::LocalChannels) -> std::io::R
                 let _ = chs.mpscs.txs.container.send(world_view::serialize_elev_container(&wv_deser.elevator_containers[i])).await;
             }
         }
-        sleep(Duration::from_millis(100)).await;
+        sleep(config::TCP_PERIOD).await;
     }
-
-
-    // let mut floor = 0;
-    // loop {
-    //     floor = (floor % 254) + 1;
-    //     sleep(config::ELEV_POLL).await;
-    //     let msg = local_network::ElevMessage {
-    //         msg_type: local_network::ElevMsgType::FSENS,
-    //         call_button: None,
-    //         floor_sensor: Some(floor),
-    //         stop_button: None,
-    //         obstruction: None,
-    //     };
-    //     let _ = chs.mpscs.txs.local_elev.send(msg).await;
-    //     sleep(config::ELEV_POLL).await;
-    //     let msg2 = local_network::ElevMessage {
-    //         msg_type: local_network::ElevMsgType::OBSTRX,
-    //         call_button: None,
-    //         floor_sensor: None,
-    //         stop_button: None,
-    //         obstruction: Some(true),
-    //     };
-    //     let _ = chs.mpscs.txs.local_elev.send(msg2).await;
-    //     sleep(Duration::from_millis(1000)).await;
-    //     sleep(config::ELEV_POLL).await;
-    //     let msg3 = local_network::ElevMessage {
-    //         msg_type: local_network::ElevMsgType::OBSTRX,
-    //         call_button: None,
-    //         floor_sensor: None,
-    //         stop_button: None,
-    //         obstruction: Some(false),
-    //     };
-    //     let _ = chs.mpscs.txs.local_elev.send(msg3).await;
-    //     sleep(Duration::from_millis(1000)).await;
-    // }
 }
 
+/// ### Videresender melding fra egen heis til update_wv
 async fn read_from_local_elevator(rxs: LocalElevRxs, chs: local_network::LocalChannels) -> std::io::Result<()> {
     loop {
         // Sjekker hver kanal med `try_recv()`

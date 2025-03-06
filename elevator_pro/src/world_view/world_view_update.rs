@@ -69,7 +69,7 @@ pub fn join_wv(mut my_wv: Vec<u8>, master_wv: Vec<u8>) -> Vec<u8> {
     my_wv 
 }
 
-
+/// ### Sjekker om vi har internett-tilkobling
 pub async fn watch_ethernet() {
     let mut last_net_status = false;
     let mut net_status = false;

@@ -23,6 +23,7 @@ use std::borrow::Cow;
 
 use std::env;
 
+//Initialiserer worldview
 pub async fn initialize_worldview() -> Vec<u8> {
     let mut worldview = WorldView::default();
     let mut elev_container = ElevatorContainer::default();
@@ -44,6 +45,7 @@ pub async fn initialize_worldview() -> Vec<u8> {
         }
     };
 
+    // Hent ut egen ID (siste tall i IP-adressen)
     utils::SELF_ID.store(ip2id(ip), Ordering::SeqCst); //🐌 Seigast
     elev_container.elevator_id = utils::SELF_ID.load(Ordering::SeqCst);
     worldview.master_id = utils::SELF_ID.load(Ordering::SeqCst);
@@ -57,10 +59,11 @@ pub async fn initialize_worldview() -> Vec<u8> {
         return serialize_worldview(&worldview);
     }
 
-    // println!("WV length: {:?}", wv_from_udp);
+    //Hvis det er UDP-er på nettverker, koble deg til dem ved å sette worldview = dem sin + egen heis
     let mut wv_from_udp_deser = world_view::deserialize_worldview(&wv_from_udp);
     wv_from_udp_deser.add_elev(elev_container.clone());
     
+    //Sett egen ID som master_ID hvis tidligere master har høyere ID enn deg
     if wv_from_udp_deser.master_id > utils::SELF_ID.load(Ordering::SeqCst) {
         wv_from_udp_deser.master_id = utils::SELF_ID.load(Ordering::SeqCst);
     }
@@ -71,6 +74,9 @@ pub async fn initialize_worldview() -> Vec<u8> {
 
 
 
+/// Hører etter UDP broadcaster i 1 sekund
+/// 
+/// Passer på at UDPen er fra 'vårt' nettverk før den 'aksepterer' den for retur
 pub async fn check_for_udp() -> Vec<u8> {
     let broadcast_listen_addr = format!("{}:{}", config::BC_LISTEN_ADDR, config::DUMMY_PORT);
     let socket_addr: SocketAddr = broadcast_listen_addr.parse().expect("Ugyldig adresse");
@@ -107,6 +113,7 @@ pub async fn check_for_udp() -> Vec<u8> {
             }
         }
 
+        // verifiser at UDPen er fra 'oss'
         if &message[1..config::KEY_STR.len() + 1] == config::KEY_STR {
             let clean_message = &message[config::KEY_STR.len() + 3..message.len() - 1]; // Fjerner `"`
             read_wv = clean_message
@@ -122,6 +129,20 @@ pub async fn check_for_udp() -> Vec<u8> {
 }
 
 
+/// ### Leser argumenter på cargo run
+/// 
+/// Brukes for å endre hva som printes i runtime. Valgmuligheter:
+/// 
+/// `print_wv::(true/false)` &rarr; Printer worldview 2 ganger i sekundet  
+/// `print_err::(ture/false)` &rarr; Printer error meldinger  
+/// `print_wrn::(true/false)` &rarr; Printer warning meldinger   
+/// `print_ok::(true/false)` &rarr; Printer ok meldinger   
+/// `print_info::(true/false)` &rarr; Printer info meldinger   
+/// `print_else::(true/false` &rarr; Printer andre meldinger, bla. master, slave, color meldinger   
+/// `debug::` &rarr; Skrur av alle prints andre enn error meldinger   
+/// `help` &rarr; Skriver ut alle mulige argumenter uten å starte programmet
+/// 
+/// Alle prints er på om ingen argumnter er gitt
 pub fn parse_args() {
     let args: Vec<String> = env::args().collect();
     

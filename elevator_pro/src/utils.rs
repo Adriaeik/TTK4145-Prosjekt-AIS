@@ -204,13 +204,12 @@ pub fn print_slave(msg: String) {
     }
 }
 
+/// ### Printes når noe skjer som i teorien er logisk umulig
 pub fn print_cosmic_err(fun: String) {
     let mut stdout = StandardStream::stdout(ColorChoice::Always);
-
     // Skriv ut "[ERROR]:" i rød
     stdout.set_color(ColorSpec::new().set_fg(Some(Color::Red))).unwrap();
     write!(&mut stdout, "[ERROR]: ").unwrap();
-
     // Definer regnbuefargene
     let colors = [
         Color::Red,
@@ -220,7 +219,6 @@ pub fn print_cosmic_err(fun: String) {
         Color::Blue,
         Color::Magenta,
     ];
-
     // Resten av meldingen i regnbuefarger
     let message = format!("Cosmic rays flipped a bit! 👽 ⚛️ 🔄 1️⃣ 0️⃣ IN: {}", fun);
     for (i, c) in message.chars().enumerate() {
@@ -228,7 +226,6 @@ pub fn print_cosmic_err(fun: String) {
         stdout.set_color(ColorSpec::new().set_fg(Some(color))).unwrap();
         write!(&mut stdout, "{}", c).unwrap();
     }
-
     // Tilbakestill fargen
     stdout.set_color(&ColorSpec::new()).unwrap();
     println!();
@@ -239,6 +236,9 @@ pub fn get_wv(chs: local_network::LocalChannels) -> Vec<u8> {
     chs.watches.rxs.wv.borrow().clone()
 }
 
+/// Oppdaterer `wv` til den nyeste lokale worldviewen
+/// 
+/// Oppdaterer kun om worldview er endra siden forrige gang funksjonen ble kalla
 pub async fn update_wv(mut chs: local_network::LocalChannels, wv: &mut Vec<u8>) -> bool {
     if chs.watches.rxs.wv.changed().await.is_ok() {
         *wv = chs.watches.rxs.wv.borrow().clone();
@@ -299,5 +299,5 @@ pub async fn close_tcp_stream(stream: &mut TcpStream) {
 
 
 pub async fn slave_sleep() {
-    sleep(config::SLAVE_TIMEOUT);
+    let _ = sleep(config::SLAVE_TIMEOUT);
 }

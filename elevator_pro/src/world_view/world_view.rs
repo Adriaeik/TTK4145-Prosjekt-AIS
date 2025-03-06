@@ -189,7 +189,7 @@ pub fn get_index_to_container(id: u8, wv: Vec<u8>) -> Option<usize> {
 }
 
 
-
+/// ### Printer wv på et pent og oversiktlig format
 pub fn print_wv(worldview: Vec<u8>) {
     let mut print_stat = true;
     unsafe {

@@ -1,4 +1,4 @@
-
+//! # Denne delen av prosjektet er 'ikke påbegynt' 
 use std::{thread::sleep, time::Duration};
 
 use crate::{elevio::poll::{CallButton, CallType}, network::local_network, utils, world_view::world_view::{self, ElevatorContainer, Task, TaskStatus}};
@@ -8,7 +8,9 @@ struct Orders {
     task: Vec<Task>,
 }
 
-
+/// ### Ikke ferdig, såvidt starta
+/// 
+/// Nå gir den task som er feil til feil heis !
 pub async fn distribute_task(chs: local_network::LocalChannels) {
     let mut i: u16 = 0;
     let mut wv = utils::get_wv(chs.clone());

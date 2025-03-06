@@ -1,23 +1,17 @@
-use std::sync::atomic::{AtomicBool, Ordering, AtomicU8};
+//! ## Håndterer TCP-logikk i systemet
 
-use tokio::io::AsyncWriteExt;
-use tokio::sync::mpsc;
-use tokio::{io::AsyncReadExt, net::TcpListener};
-use tokio::task::JoinHandle;
-use tokio::net::TcpStream;
+use std::sync::atomic::{AtomicBool, Ordering};
+use tokio::{io::{AsyncReadExt, AsyncWriteExt}, net::{TcpListener, TcpStream}, task::JoinHandle, sync::mpsc, time::{sleep, Duration, Instant}};
 use std::net::SocketAddr;
-use tokio::time::{sleep, Duration, Instant};
-
-use crate::utils::SELF_ID;
-use crate::world_view::world_view;
-use crate::{config, utils, world_view::world_view_update};
-use utils::{print_info, print_ok, print_err, get_wv, update_wv};
-
+use crate::{config, utils::{self, SELF_ID, print_info, print_ok, print_err, get_wv, update_wv}, world_view::{world_view_update, world_view}};
 use super::local_network;
 
 // Definer ein global `AtomicU8`
 pub static IS_MASTER: AtomicBool = AtomicBool::new(false); // Startverdi 0
 
+/// ### TcpWatchdog
+/// 
+/// Håndterer timeout på TCP connections hos master, og lesing fra slave
 struct TcpWatchdog {
     timeout: Duration,
 }
@@ -65,7 +59,7 @@ impl TcpWatchdog {
 }
 
 
-
+/// ### Håndterer TCP-connections
 pub async fn tcp_handler(chs: local_network::LocalChannels, mut socket_rx: mpsc::Receiver<(TcpStream, SocketAddr)>) {
     let mut wv = get_wv(chs.clone());
     loop {
@@ -76,7 +70,6 @@ pub async fn tcp_handler(chs: local_network::LocalChannels, mut socket_rx: mpsc:
                 while let Ok((socket, addr)) = socket_rx.try_recv() {
                     let chs_clone = chs.clone();
                     utils::print_info(format!("Ny slave tilkobla: {}", addr));
-                    //TODO: Legg til disse threadsa i en vec, så de kan avsluttes når vi ikke er master mer
                     let _slave_task: JoinHandle<()> = tokio::spawn(async move {
                         let tcp_watchdog = TcpWatchdog {
                             timeout: Duration::from_millis(config::TCP_TIMEOUT),
@@ -101,11 +94,7 @@ pub async fn tcp_handler(chs: local_network::LocalChannels, mut socket_rx: mpsc:
         let mut master_accepted_tcp = false;
         let mut stream:Option<TcpStream> = None;
         if let Some(s) = connect_to_master(chs.clone()).await {
-            // delay som er random. master bruker litt tid på å behandle meldinger etter den har accepta når det er mange nye slaver i køen. Ved masterbytte på nettverk med mange heiser blir det derfor mye error-looper før det fikser segselv
-            // Legge til et lite delay fra du er tilkoblet til du starter å sende meldinger så masteren ikke får mange tilkoblinger på en gang
-            // sleep(Duration::from_millis(100*((SELF_ID.load(Ordering::SeqCst) - 10) as u64))).await;
             println!("Master accepta tilkobling");
-            // panic!();
             master_accepted_tcp = true;
             stream = Some(s);
         } else {
@@ -113,60 +102,50 @@ pub async fn tcp_handler(chs: local_network::LocalChannels, mut socket_rx: mpsc:
         }
 
         /* Mens du er slave: Sjekk om det har kommet ny master / connection til master har dødd */
-        let mut prev_master = wv[config::MASTER_IDX];
+        let mut prev_master: u8;
         let mut new_master = false;
         while !utils::is_master(wv.clone()) && master_accepted_tcp {
-            // update_wv(chs.clone(), &mut wv).await;
-            
-            // if new_master || true {
-            //     println!("Master: {}, prev master: {}", wv[config::MASTER_IDX], prev_master);
-            // }
                 
             if world_view_update::get_network_status().load(Ordering::SeqCst) {
-                // utils::print_slave("Jeg er slave".to_string());
                 if let Some(ref mut s) = stream {
                     if new_master {
-                        println!("Fått ny master");
-                        // utils::close_tcp_stream(s).await;
+                        utils::print_slave(format!("Fått ny master"));
                         master_accepted_tcp = false;
-                        utils::slave_sleep().await; //TODO: test om denne trengs
+                        utils::slave_sleep().await;
                     }
                     prev_master = wv[config::MASTER_IDX];
                     update_wv(chs.clone(), &mut wv).await;
+                    // Send neste TCP melding til master
                     send_tcp_message(chs.clone(), s, wv.clone()).await;
                     if prev_master != wv[config::MASTER_IDX] {
                         new_master = true;
                     }
-                    // println!("Master: {}, prev master: {}", wv[config::MASTER_IDX], prev_master);
-                    // println!("Fått ny master status {}", new_master);
-                    //TODO: lag bedre delay
                     tokio::time::sleep(config::TCP_PERIOD).await; 
                 }
             }
             else {
                 utils::slave_sleep().await; 
             }
-            //Det slaven skal gjøre på TCP 
-            //update_wv(chs.clone(), &mut wv).await;
         } 
-        //ble master -> koble fra master  
-      
+        //ble master -> restart loopen 
     }
-
 }
 
-/// Forsøker å koble til master via TCP.
+/// ### Forsøker å koble til master via TCP.
 /// Returnerer `Some(TcpStream)` ved suksess, `None` ved feil.
 async fn connect_to_master(chs: local_network::LocalChannels) -> Option<TcpStream> {
     let wv = get_wv(chs.clone());
 
+    // Sjekker at vi har internett før vi prøver å koble til
     if world_view_update::get_network_status().load(Ordering::SeqCst) {
         let master_ip = format!("{}.{}:{}", config::NETWORK_PREFIX, wv[config::MASTER_IDX], config::PN_PORT);
         print_info(format!("Prøver å koble på: {} i TCP_listener()", master_ip));
 
+        // Prøv å koble til master
         match TcpStream::connect(&master_ip).await {
             Ok(stream) => {
                 print_ok(format!("Har kobla på Master: {} i TCP_listener()", master_ip));
+                // Klarte å koble til master, returner streamen
                 Some(stream)
             }
             Err(e) => {
@@ -176,7 +155,6 @@ async fn connect_to_master(chs: local_network::LocalChannels) -> Option<TcpStrea
                     Ok(_) => print_info("Sa ifra at TCP til master feila".to_string()),
                     Err(err) => print_err(format!("Feil ved sending til tcp_to_master_failed: {}", err)),
                 }
-
                 None
             }
         }
@@ -185,10 +163,12 @@ async fn connect_to_master(chs: local_network::LocalChannels) -> Option<TcpStrea
     }
 }
 
+/// ### Starter og kjører TCP-listener
 pub async fn listener_task(_chs: local_network::LocalChannels, socket_tx: mpsc::Sender<(TcpStream, SocketAddr)>) {
-    let self_ip = format!("{}.{}", config::NETWORK_PREFIX, utils::SELF_ID.load(Ordering::SeqCst));
+    let self_ip = format!("{}.{}", config::NETWORK_PREFIX, SELF_ID.load(Ordering::SeqCst));
+    // Ved første init, vent til vi er sikre på at vi har internett
     while !world_view_update::get_network_status().load(Ordering::SeqCst) {
-        tokio::time::sleep(Duration::from_millis(10)).await;
+        tokio::time::sleep(config::TCP_PERIOD).await;
     }
 
     /* Binder listener til PN_PORT */
@@ -293,16 +273,7 @@ pub async fn send_tcp_message(chs: local_network::LocalChannels, stream: &mut Tc
     let self_elev_container = utils::extract_self_elevator_container(wv);
 
     let self_elev_serialized = world_view::serialize_elev_container(&self_elev_container);
-    let len = (self_elev_serialized.len() as u16).to_be_bytes(); // Konverter lengde til big-endian bytes
-   
-    /* 
-    DEBUG: engang?
-    let cont_deser = world_view::deserialize_elev_container(&self_elev_serialized);
-    if !cont_deser.calls.is_empty() {
-        utils::print_slave(format!("Calls, faktisk sendt: {:?}", cont_deser.calls));
-    }
-    */
-    
+    let len = (self_elev_serialized.len() as u16).to_be_bytes(); // Konverter lengde til big-endian bytes    
 
     if let Err(e) = stream.write_all(&len).await {
         // utils::print_err(format!("Feil ved sending av data til master: {}", e));
@@ -318,7 +289,6 @@ pub async fn send_tcp_message(chs: local_network::LocalChannels, stream: &mut Tc
         // send_succes_I = true;     
         let _ = chs.mpscs.txs.sent_tcp_container.send(self_elev_serialized).await;
     }
-
 }
 
 

@@ -1,3 +1,5 @@
+//! ## Håndterer UDP-logikk i systemet
+
 use crate::config;
 use crate::utils;
 use super::local_network;
@@ -17,7 +19,9 @@ pub fn get_udp_timeout() -> &'static AtomicBool {
     UDP_TIMEOUT.get_or_init(|| AtomicBool::new(false))
 }
 
+/// ### Starter og kjører udp-broadcaster
 pub async fn start_udp_broadcaster(mut chs: local_network::LocalChannels) -> tokio::io::Result<()> {
+    // Sett opp sockets
     chs.subscribe_broadcast();
     let addr: &str = &format!("{}:{}", config::BC_ADDR, config::DUMMY_PORT);
     let addr2: &str = &format!("{}:0", config::BC_LISTEN_ADDR);
@@ -37,10 +41,8 @@ pub async fn start_udp_broadcaster(mut chs: local_network::LocalChannels) -> tok
         let chs_clone = chs.clone();
         utils::update_wv(chs_clone, &mut wv).await;
 
-        // println!("Master sin ID: {}", wv[config::MASTER_IDX]);
-
+        // Hvis du er master, broadcast worldview
         if utils::SELF_ID.load(Ordering::SeqCst) == wv[config::MASTER_IDX] {
-            // println!("Jeg er master, sender UDP, master ID: {}", wv[config::MASTER_IDX]);
             //TODO: Lag bedre delay?
             sleep(config::UDP_PERIOD);
             let mesage = format!("{:?}{:?}", config::KEY_STR, wv).to_string();
@@ -49,7 +51,9 @@ pub async fn start_udp_broadcaster(mut chs: local_network::LocalChannels) -> tok
     }
 }
 
+/// ### Starter og kjører udp-listener
 pub async fn start_udp_listener(mut chs: local_network::LocalChannels) -> tokio::io::Result<()> {
+    //Sett opp sockets
     chs.subscribe_broadcast();
     let self_id = utils::SELF_ID.load(Ordering::SeqCst);
     let broadcast_listen_addr = format!("{}:{}", config::BC_LISTEN_ADDR, config::DUMMY_PORT);
@@ -66,6 +70,7 @@ pub async fn start_udp_listener(mut chs: local_network::LocalChannels) -> tokio:
     
     let mut message: Cow<'_, str> = std::borrow::Cow::Borrowed("a");
     let mut my_wv = utils::get_wv(chs.clone());
+    // Loop mottar og behandler udp-broadcaster
     loop {
         match socket.recv_from(&mut buf).await {
             Ok((len, _)) => {
@@ -78,6 +83,7 @@ pub async fn start_udp_listener(mut chs: local_network::LocalChannels) -> tokio:
             }
         }
         
+        // Verifiser at broadcasten var fra 'oss'
         if &message[1..config::KEY_STR.len()+1] == config::KEY_STR { //Plusser på en, siden serialiseringa av stringen tar med '"'-tegnet
             let clean_message = &message[config::KEY_STR.len()+3..message.len()-1]; // Fjerner `"`
             read_wv = clean_message
@@ -86,23 +92,19 @@ pub async fn start_udp_listener(mut chs: local_network::LocalChannels) -> tokio:
             .collect(); // Samle i Vec<u8>
 
             utils::update_wv(chs.clone(), &mut my_wv).await;
-            //Bare broadcast hvis du er master
             if read_wv[config::MASTER_IDX] != my_wv[config::MASTER_IDX] {
-                //println!("UDP sin ID: {}, egen wv ID: {}", read_wv[config::MASTER_IDX], my_wv[config::MASTER_IDX]);
-                
+                // mulighet for debug print
             } else {
+                // Betyr at du har fått UDP-fra nettverkets master -> Restart UDP watchdog
                 get_udp_timeout().store(false, Ordering::SeqCst);
                 // println!("Resetter UDP-watchdog");
             }
 
-            //utils::print_info(format!("read_wv: {:?}", read_wv));
-            //utils::print_info(format!("full message: {:?}", message));
+            // Hvis broadcast har lavere ID enn nettverkets tidligere master
             if my_wv[config::MASTER_IDX] >= read_wv[config::MASTER_IDX] {
                 if !(self_id == read_wv[config::MASTER_IDX]) {
                     //Oppdater egen WV
                     my_wv = read_wv;
-                    //TODO: Send denne wv tilbake til thread som behandler worldview
-                    // println!("Signaliserer at vi har fått ny wv fra UDP");
                     let _ = chs.mpscs.txs.udp_wv.send(my_wv.clone()).await;
                 }
             }
@@ -112,7 +114,7 @@ pub async fn start_udp_listener(mut chs: local_network::LocalChannels) -> tokio:
 }
 
 
-
+/// ### jalla udp watchdog
 pub async fn udp_watchdog(chs: local_network::LocalChannels) {
     loop {
         if get_udp_timeout().load(Ordering::SeqCst) == false {
