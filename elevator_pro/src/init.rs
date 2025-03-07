@@ -1,29 +1,15 @@
 
-use core::time;
-use std::sync::atomic::Ordering;
 
-use crate::world_view::world_view::{self, serialize_worldview, ElevatorContainer, WorldView};
-use crate::utils::{self, ip2id, print_err};
-use crate::world_view::world_view::Task;
-use env_logger::init;
-use local_ip_address::local_ip;
-use crate::world_view::world_view::TaskStatus;
-use crate::config;
-
-use std::net::SocketAddr;
-use std::sync::OnceLock;
-use tokio::time::Instant;
-use std::sync::atomic::AtomicBool;
-use tokio::time::timeout;
-use std::thread::sleep;
-use std::time::Duration;
-use tokio::net::UdpSocket;
+use std::{sync::atomic::Ordering, net::SocketAddr, time::Duration, borrow::Cow, env};
+use tokio::{time::{Instant, timeout}, net::UdpSocket};
 use socket2::{Domain, Socket, Type};
-use std::borrow::Cow;
+use local_ip_address::local_ip;
+use crate::{world_view::world_view::{self, serialize_worldview, ElevatorContainer, WorldView, Task, TaskStatus}, utils::{self, ip2id, print_err}, config};
 
-use std::env;
 
-//Initialiserer worldview
+/// ### Initialiserer worldview
+/// 
+/// 
 pub async fn initialize_worldview() -> Vec<u8> {
     let mut worldview = WorldView::default();
     let mut elev_container = ElevatorContainer::default();

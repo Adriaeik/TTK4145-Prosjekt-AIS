@@ -1,7 +1,8 @@
 [package]
 name = "elevator_pro"
-version = "0.1.0"
+version = "0.3.0"
 edition = "2021"
+authors = ["Ravn Erik Budde", "Adrian Valaker Eikeland"]
 
 [dependencies]
 crossbeam-channel = "0.5" #ikkje gløym denne

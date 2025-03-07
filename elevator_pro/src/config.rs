@@ -1,4 +1,4 @@
-//! Globale verdier osv
+//! Globale verdier
 use std::net::Ipv4Addr;
 use std::time::Duration;
 
