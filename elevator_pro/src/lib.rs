@@ -12,7 +12,6 @@
 //! - **Elevio**: Interface for elevator I/O.
 //! - **Elevator Logic**: Task management and control logic for elevators.
 //! 
-//! 
 pub mod config;
 pub mod utils;
 pub mod init;
