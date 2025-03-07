@@ -11,9 +11,14 @@
 //! - **World View**: Managing and updating the world view.
 //! - **Elevio**: Interface for elevator I/O.
 //! - **Elevator Logic**: Task management and control logic for elevators.
-//! 
+
+/// Global variables
 pub mod config;
+
+/// Help functions
 pub mod utils;
+
+/// Initialize functions
 pub mod init;
 
 /// Network communication via UDP and TCP.

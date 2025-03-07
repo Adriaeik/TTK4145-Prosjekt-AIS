@@ -1,3 +1,9 @@
+Link til crates.io: https://crates.io/crates/elevatorpro
+
+doc ligger der, direkte til doc: https://docs.rs/elevatorpro/latest/
+
+
+
 - Lage funksjoner for update_wv i world_view_ch ✅
 - Teste at det fortsatt funker (husk å teste etter hver hjelpefunksjon!!!!!)✅
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!✅
