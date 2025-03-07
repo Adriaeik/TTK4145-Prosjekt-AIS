@@ -94,7 +94,7 @@ pub async fn check_for_udp() -> Vec<u8> {
             }
             Err(_) => {
                 // Timeout skjedde – stopp løkka
-                utils::print_warn("Timeout – ingen data mottatt innen 1 sekund.".to_string());
+                utils::print_warn("Timeout - ingen data mottatt innen 1 sekund.".to_string());
                 break;
             }
         }
