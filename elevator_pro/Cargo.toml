@@ -6,7 +6,7 @@ authors = ["Ravn Erik Budde", "Adrian Valaker Eikeland"]
 readme = "README.md"
 description = "TTK4145 Real-time Programming elevator project, Group 25, spring 2025"
 repository = "https://github.com/Adriaeik/TTK4145-Prosjekt-AIS"
-license = "LICENSE"
+license-file = "LICENSE.txt"
 
 [dependencies]
 crossbeam-channel = "0.5" #ikkje gløym denne
