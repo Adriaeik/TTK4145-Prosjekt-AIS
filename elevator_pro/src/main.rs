@@ -1,3 +1,5 @@
+#![warn(missing_docs)]
+
 use std::{fmt::format, sync::atomic::Ordering, time::Duration};
 
 use elevator_pro::{config, elevator_logic::master::task_allocater, network::{local_network, tcp_network, tcp_self_elevator, udp_broadcast}, utils::{self, print_err, print_info, print_ok}, world_view::{world_view, world_view_ch, world_view_update}};

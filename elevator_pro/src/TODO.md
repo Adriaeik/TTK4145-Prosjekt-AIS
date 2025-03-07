@@ -35,7 +35,7 @@ Ein god gitter pusher alltid ✅
 - Pynte utskrift av WV
 
 
-
+- https://doc.rust-lang.org/rustdoc/write-documentation/what-to-include.html
 
 ### Tanker om taskallocating
 
