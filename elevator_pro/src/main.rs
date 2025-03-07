@@ -3,8 +3,8 @@ use tokio::sync::mpsc;
 use tokio::net::TcpStream;
 use std::net::SocketAddr;
 
-use elevator_pro::{elevator_logic::master::task_allocater, network::{local_network, tcp_network, tcp_self_elevator, udp_broadcast}, utils, world_view::{world_view, world_view_ch, world_view_update}};
-use elevator_pro::init;
+use elevatorpro::{elevator_logic::master::task_allocater, network::{local_network, tcp_network, tcp_self_elevator, udp_broadcast}, utils, world_view::{world_view, world_view_ch, world_view_update}};
+use elevatorpro::init;
 
 
 
