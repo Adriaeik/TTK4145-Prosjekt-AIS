@@ -11,6 +11,8 @@ Ein god gitter pusher alltid ✅
 
 - Noen buttoncalls som forsvinner. mest sansynlig hos slaven før den blir sendt til master?✅
 
+- Master bør ACKe buttoncalls (og tasks?) så vi ikke fjerner knapper om master dør før den fikk det med seg
+
 - Delegere tasks (veldig enkelt. ingen prioritering ogsånt)
 - Fjerne fullførte tasks
 - Test for tap av tasks
