@@ -1,6 +1,6 @@
 [package]
 name = "elevatorpro" #navn til crate to crates.io
-version = "0.0.3" #version nummer, må endres hver gang man oppdaterer docs og kode. Pass på å kjøre cargo doc og cargo update før cargo publish
+version = "0.0.4" #version nummer, må endres hver gang man oppdaterer docs og kode. Pass på å kjøre cargo doc og cargo update før cargo publish
 edition = "2021"
 authors = ["Ravn Erik Budde", "Adrian Valaker Eikeland"]
 readme = "README.md"
