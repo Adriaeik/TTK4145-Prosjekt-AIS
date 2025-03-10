@@ -90,13 +90,13 @@ pub fn join_wv(mut my_wv: Vec<u8>, master_wv: Vec<u8>) -> Vec<u8> {
     my_wv 
 }
 
-/// ### Monitors the Ethernet connection status asynchronously.
+/// Monitors the Ethernet connection status asynchronously.
 ///
 /// This function continuously checks whether the device has a valid network connection.
 /// It determines connectivity by verifying that the device's IP matches the expected network prefix.
 /// The network status is stored in a shared atomic boolean (`get_network_status()`).
 ///
-/// # Behavior
+/// ## Behavior
 /// - Retrieves the device's IP address using `utils::get_self_ip()`.
 /// - Extracts the root IP using `utils::get_root_ip()` and compares it to `config::NETWORK_PREFIX`.
 /// - Updates the network status (`true` if connected, `false` if disconnected).
@@ -104,15 +104,18 @@ pub fn join_wv(mut my_wv: Vec<u8>, master_wv: Vec<u8>) -> Vec<u8> {
 ///   - `"Vi er online"` when connected.  
 ///   - `"Vi er offline"` when disconnected.
 ///
-/// # Note
+/// ## Note
 /// This function runs in an infinite loop and should be spawned as an asynchronous task.
 ///
-/// # Example
+/// ## Example
 /// ```
-/// 
+/// use tokio;
+/// # #[tokio::test]
+/// # async fn test_watch_ethernet() {
 /// tokio::spawn(async {
 ///     watch_ethernet().await;
 /// });
+/// # }
 /// ```
 pub async fn watch_ethernet() {
     let mut last_net_status = false;
