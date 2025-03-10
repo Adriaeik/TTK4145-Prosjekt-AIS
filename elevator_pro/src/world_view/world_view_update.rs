@@ -30,6 +30,7 @@ pub fn get_network_status() -> &'static AtomicBool {
 
 
 /// Calls join_wv. See [join_wv]
+/// TODO: drop denne funksjonen, la join_wv være join_wv_from_udp for å droppe unødvendige funksjoner
 pub fn join_wv_from_udp(wv: &mut Vec<u8>, master_wv: Vec<u8>) -> bool {
     *wv = join_wv(wv.clone(), master_wv);
     true
@@ -411,7 +412,7 @@ pub fn update_task_status(wv: &mut Vec<u8>, task_id: u16, new_status: TaskStatus
 /// ```
 pub async fn watch_ethernet() {
     let mut last_net_status = false;
-    let mut net_status = false;
+    let mut net_status;
     loop {
         let ip = utils::get_self_ip();
 

@@ -1,15 +1,13 @@
-use std::sync::atomic::Ordering;
-use std::u16;
-use crate::elevio::poll::CallButton;
-use crate::world_view::world_view;
-use crate::world_view::world_view_update::{join_wv_from_udp, abort_network, join_wv_from_tcp_container, remove_container, recieve_local_elevator_msg, clear_from_sent_tcp, push_task, update_task_status};
-use crate::world_view::world_view::TaskStatus;
-use crate::network::local_network::{self, ElevMessage};
-use std::collections::HashSet;
-use crate::utils::{self, print_info};
-use crate::elevator_logic::master;
-
-use super::world_view::Task;
+use crate::world_view::world_view_update::{ join_wv_from_udp, 
+                                            abort_network, 
+                                            join_wv_from_tcp_container, 
+                                            remove_container, 
+                                            recieve_local_elevator_msg, 
+                                            clear_from_sent_tcp, 
+                                            push_task, 
+                                            update_task_status
+                                        };
+use crate::network::local_network::LocalChannels;
 
 
 
@@ -65,10 +63,12 @@ use super::world_view::Task;
 //     }
 // }
 
+
 /// ### Oppdatering av lokal worldview
 /// 
 /// Funksjonen leser nye meldinger fra andre tasks som indikerer endring i systemet, og endrer og oppdaterer det lokale worldviewen basert på dette.
-pub async fn update_wv(mut main_local_chs: local_network::LocalChannels, mut worldview_serialised: Vec<u8>) {
+#[allow(non_snake_case)]
+pub async fn update_wv(mut main_local_chs: LocalChannels, mut worldview_serialised: Vec<u8>) {
     println!("Starter update_wv");
     let _ = main_local_chs.watches.txs.wv.send(worldview_serialised.clone());
     
