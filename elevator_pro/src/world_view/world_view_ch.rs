@@ -1,16 +1,12 @@
 use std::sync::atomic::Ordering;
 use std::u16;
-use tokio::time::sleep;
-
-use crate::config;
 use crate::elevio::poll::CallButton;
 use crate::world_view::world_view;
 use crate::world_view::world_view::TaskStatus;
-use crate::network::tcp_network;
 use crate::world_view::world_view_update;
 use crate::network::local_network::{self, ElevMessage};
 use std::collections::HashSet;
-use crate::utils::{self, print_err, print_info, print_ok};
+use crate::utils::{self, print_info};
 use crate::elevator_logic::master;
 
 use super::world_view::Task;
