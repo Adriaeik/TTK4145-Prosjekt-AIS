@@ -7,7 +7,7 @@ use std::hash::{Hash, Hasher};
 
 use crate::utils;
 
-use super::elev::{self, DIRN_STOP, DIRN_DOWN, DIRN_UP};
+use super::elev::{self/*, DIRN_STOP, DIRN_DOWN, DIRN_UP*/};
 
 /// Represents the type of call for an elevator.
 ///
