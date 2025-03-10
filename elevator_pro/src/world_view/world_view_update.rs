@@ -1,27 +1,49 @@
-
-
-use crate::network::local_network;
 use crate::world_view::world_view;
-use crate::network::tcp_network;
 use crate::{config, utils};
 
 use std::collections::HashSet;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::OnceLock;
-use std::thread::sleep;
-use std::time::Duration;
 
 
-static ONLINE: OnceLock<AtomicBool> = OnceLock::new(); // worldview_channel_request
+static ONLINE: OnceLock<AtomicBool> = OnceLock::new(); 
+
+/// Retrieves the current network status as an atomic boolean.
+///
+/// This function returns a reference to a static `AtomicBool`
+/// that represents whether the system is online or offline.
+///
+/// # Returns
+/// A reference to an `AtomicBool`:
+/// - `true` if the system is online.
+/// - `false` if the system is offline.
+///
+/// The initial value is `false` until explicitly changed.
 pub fn get_network_status() -> &'static AtomicBool {
     ONLINE.get_or_init(|| AtomicBool::new(false))
 }
 
 
-
-
+/// Merges the local worldview with the master worldview received over UDP.
+///
+/// This function updates the local worldview (`my_wv`) by integrating relevant data
+/// from `master_wv`. It ensures that the local elevator's status and tasks are synchronized
+/// with the master worldview.
+///
+/// ## Arguments
+/// * `my_wv` - A serialized `Vec<u8>` representing the local worldview.
+/// * `master_wv` - A serialized `Vec<u8>` representing the worldview received over UDP.
+///
+/// ## Returns
+/// A new serialized `Vec<u8>` representing the updated worldview.
+///
+/// ## Behavior
+/// - If the local elevator exists in both worldviews, it updates its state in `master_wv`.
+/// - Synchronizes `door_open`, `obstruction`, `last_floor_sensor`, and `motor_dir`.
+/// - Updates `calls` and `tasks_status` with local data.
+/// - Ensures that `tasks_status` retains only tasks present in `tasks`.
+/// - If the local elevator is missing in `master_wv`, it is added to `master_wv`.
 pub fn join_wv(mut my_wv: Vec<u8>, master_wv: Vec<u8>) -> Vec<u8> {
-    //TODO: Lag copy funkjon for worldview structen
     let my_wv_deserialised = world_view::deserialize_worldview(&my_wv);
     let mut master_wv_deserialised = world_view::deserialize_worldview(&master_wv);
 
@@ -30,37 +52,36 @@ pub fn join_wv(mut my_wv: Vec<u8>, master_wv: Vec<u8>) -> Vec<u8> {
 
 
     if let (Some(i_org), Some(i_new)) = (my_self_index, master_self_index) {
-        master_wv_deserialised.elevator_containers[i_new].door_open = my_wv_deserialised.elevator_containers[i_org].door_open;
-        master_wv_deserialised.elevator_containers[i_new].obstruction = my_wv_deserialised.elevator_containers[i_org].obstruction;
-        master_wv_deserialised.elevator_containers[i_new].last_floor_sensor = my_wv_deserialised.elevator_containers[i_org].last_floor_sensor;
-        master_wv_deserialised.elevator_containers[i_new].motor_dir = my_wv_deserialised.elevator_containers[i_org].motor_dir;
+        let my_view = &my_wv_deserialised.elevator_containers[i_org];
+        let master_view = &mut master_wv_deserialised.elevator_containers[i_new];
 
-        master_wv_deserialised.elevator_containers[i_new].calls = my_wv_deserialised.elevator_containers[i_org].calls.clone();
+        // Synchronize elevator status
+        master_view.door_open = my_view.door_open;
+        master_view.obstruction = my_view.obstruction;
+        master_view.last_floor_sensor = my_view.last_floor_sensor;
+        master_view.motor_dir = my_view.motor_dir;
 
-        master_wv_deserialised.elevator_containers[i_new].tasks_status = my_wv_deserialised.elevator_containers[i_org].tasks_status.clone();
+        // Update call buttons and task statuses
+        master_view.calls = my_view.calls.clone();
+        master_view.tasks_status = my_view.tasks_status.clone();
 
+        /* Update task statuses */
+        let new_ids: HashSet<u16> = master_view.tasks.iter().map(|t| t.id).collect();
+        let old_ids: HashSet<u16> = master_view.tasks_status.iter().map(|t| t.id).collect();
 
-
-
-        /*Oppdater task_statuses. putt i funksjon hvis det funker?*/
-        let new_ids: HashSet<u16> = master_wv_deserialised.elevator_containers[i_new].tasks.iter().map(|t| t.id).collect();
-        let old_ids: HashSet<u16> = master_wv_deserialised.elevator_containers[i_new].tasks_status.iter().map(|t| t.id).collect();
-
-        // Legg til taskar frå masters task som ikkje allereie finst i task_status
-        for task in master_wv_deserialised.elevator_containers[i_new].tasks.clone().iter() {
+        // Add missing tasks from master's task list
+        for task in master_view.tasks.clone().iter() {
             if !old_ids.contains(&task.id) {
-                master_wv_deserialised.elevator_containers[i_new].tasks_status.push(task.clone());
+                master_view.tasks_status.push(task.clone());
             }
         }
-        // Fjern taskar frå task_status som ikkje fins lenger i masters tasks
-        master_wv_deserialised.elevator_containers[i_org]
-        .tasks_status
-        .retain(|t| new_ids.contains(&t.id));
+        // Remove outdated tasks from task_status
+        master_view.tasks_status.retain(|t| new_ids.contains(&t.id));
 
+        // Call buttons synchronization is handled through TCP reliability
 
-        //Oppdater callbuttons, når master har fått de med seg fjern dine egne
-        // Bytter til at vi antar at TCP får frem alle meldinger, og at vi fjerner calls etter vi har sendt på TCP    
     } else if let Some(i_org) = my_self_index {
+        // If the local elevator is missing in master_wv, add it
         master_wv_deserialised.add_elev(my_wv_deserialised.elevator_containers[i_org].clone());
     }
 
@@ -69,7 +90,30 @@ pub fn join_wv(mut my_wv: Vec<u8>, master_wv: Vec<u8>) -> Vec<u8> {
     my_wv 
 }
 
-/// ### Sjekker om vi har internett-tilkobling
+/// ### Monitors the Ethernet connection status asynchronously.
+///
+/// This function continuously checks whether the device has a valid network connection.
+/// It determines connectivity by verifying that the device's IP matches the expected network prefix.
+/// The network status is stored in a shared atomic boolean (`get_network_status()`).
+///
+/// # Behavior
+/// - Retrieves the device's IP address using `utils::get_self_ip()`.
+/// - Extracts the root IP using `utils::get_root_ip()` and compares it to `config::NETWORK_PREFIX`.
+/// - Updates the network status (`true` if connected, `false` if disconnected).
+/// - Prints status changes:  
+///   - `"Vi er online"` when connected.  
+///   - `"Vi er offline"` when disconnected.
+///
+/// # Note
+/// This function runs in an infinite loop and should be spawned as an asynchronous task.
+///
+/// # Example
+/// ```
+/// 
+/// tokio::spawn(async {
+///     watch_ethernet().await;
+/// });
+/// ```
 pub async fn watch_ethernet() {
     let mut last_net_status = false;
     let mut net_status = false;

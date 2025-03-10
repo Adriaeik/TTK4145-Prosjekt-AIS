@@ -35,11 +35,11 @@ pub mod network {
 
 /// Management of the system's world view.
 pub mod world_view {
-    /// Handles communication between elevators regarding the world view.
+    /// Handles messages on internal channels regarding changes in worldview
     pub mod world_view_ch;
-    /// Updates the world view.
+    /// Help functions to update local worldview
     pub mod world_view_update;
-    /// Manages the world view.
+    /// The worldview struct, and some help-functions
     pub mod world_view;
 }
 
