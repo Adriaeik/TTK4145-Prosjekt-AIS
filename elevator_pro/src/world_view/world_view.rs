@@ -33,11 +33,11 @@ impl Default for TaskStatus {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
 pub enum ElevatorStatus {
-    Up,
-    Down,
-    Idle,
-    DoorOpen,
-    Error,
+    UP,
+    DOWN,
+    IDLE,
+    DOOR_OPEN,
+    ERROR,
 }
 /// Represents the state of an elevator, including tasks, status indicators, and movement.
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -69,7 +69,7 @@ impl Default for ElevatorContainer {
             num_floors: config::DEFAULT_NUM_FLOORS,
             calls: Vec::new(),
             task: None,
-            status: ElevatorStatus::Idle,
+            status: ElevatorStatus::IDLE,
             obstruction: false,
             last_floor_sensor: 255, // Spesifikk verdi for sensor
         }
@@ -350,7 +350,7 @@ pub fn print_wv(worldview: Vec<u8>) {
         let id_text = Yellow.bold().paint(format!("{}", elev.elevator_id)).to_string();
 
         // Door og obstruction i grøn/raud
-        let door_status = if elev.status == ElevatorStatus::DoorOpen {
+        let door_status = if elev.status == ElevatorStatus::DOOR_OPEN {
             Yellow.paint("Åpen").to_string()
         } else {
             Green.paint("Lukket").to_string()
@@ -378,19 +378,19 @@ pub fn print_wv(worldview: Vec<u8>) {
             .join(", ");
 
         let task_stat_list = match elev.status {
-            ElevatorStatus::DoorOpen => {
+            ElevatorStatus::DOOR_OPEN => {
                 Yellow.paint(format!("{:?}", elev.status))
             },
-            ElevatorStatus::Down => {
+            ElevatorStatus::DOWN => {
                 Blue.paint(format!("{:?}", elev.status))
             },
-            ElevatorStatus::Error => {
+            ElevatorStatus::ERROR => {
                 Red.paint(format!("{:?}", elev.status))
             },
-            ElevatorStatus::Idle => {
+            ElevatorStatus::IDLE => {
                 Green.paint(format!("{:?}", elev.status))
             },
-            ElevatorStatus::Up => {
+            ElevatorStatus::UP => {
                 Blue.paint(format!("{:?}", elev.status))
             },
         };

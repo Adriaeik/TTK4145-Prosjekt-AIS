@@ -45,22 +45,25 @@ pub async fn delegate_tasks(chs: LocalChannels, mut container_ch: mpsc::Receiver
             },
             Err(_) => {},
         }
+        // Sjekk for heisar som har "timea ut" og samle opp oppgåver dei har
         let mut dead_tasks = detect_dead_elevators(&mut elevators, config::TASK_TIMEOUT);
         tasks.append(&mut dead_tasks);
+
+         // Oppdater kostkartet med den noverande tilstanden til heisar og udelegerte oppgåver
         update_cost_map(&mut cost_map, elevators.clone(), tasks.clone());
 
+        // For kvar heis, finn oppgåva med lågast kostnad og deleger den
         for (id, elevator) in elevators.iter_mut() {
             if let Some(task_costs) = cost_map.get(id) {
-                // Finn oppgåva med lågast kostnad for denne heisen.
                 if let Some((best_task, _best_cost)) = task_costs.iter().min_by(|a, b| {
-                    a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal)
+                    a.1.cmp(&b.1)
                 }) {
-                    // Send oppgåva til heisen via kanal, og merk at heisen no har fått ein oppgåve.
-                    // Eksempel på å sende oppgåva:
+                    // Her kan du sende oppgåva til heisa via ein kanal.
+                    // Eksempel:
                     // send_task_to_elevator(*id, best_task.clone());
                     elevator.current_task = Some(best_task.clone());
                     
-                    //  bør også fjerne oppgåva frå den globale lista slik at ho ikkje blir tildele kjent att.
+                    // Viss nødvendig: Fjern oppgåva frå den globale lista for å unngå at den vert delegert fleire gonger.
                 }
             }
         }
@@ -109,11 +112,7 @@ fn detect_dead_elevators(elevators: &mut HashMap<u8, ElevatorState>, timeout: u6
 }
 
 
-/* 
-fn update_cost_map(cost_map: &mut HashMap<u8, Vec<(Task, u32)>>, elevators: HashMap<u8, ElevatorState>, tasks: Vec<Task>) {
-
-} */
-
+/// Oppdaterer kostkartet med kostnader for kvar kombinasjon av heis og oppgåve.
 fn update_cost_map(cost_map: &mut CostMap, elevators: HashMap<u8, ElevatorState>, tasks: Vec<Task>) {
     cost_map.clear();
     for (id, elevator) in elevators.iter() {
@@ -126,19 +125,53 @@ fn update_cost_map(cost_map: &mut CostMap, elevators: HashMap<u8, ElevatorState>
     }
 }
 
-
-fn compute_cost(elevator: &ElevatorState, task: &Task) -> f64 {
-    // Dersom kalltypen er INSIDE, må berre den aktuelle heisen motta oppgåva.
+/// Reknar ut kostnaden for ein oppgåve basert på heisens tilstand og retning.
+/// Dersom oppgåva er eit INSIDE-kall og heis-ID ikkje stemmer, returner u32::MAX.
+fn compute_cost(elevator: &ElevatorState, task: &Task) -> u32 {
+    // INSIDE-kall skal berre behandlast av den heisa som sende kalla.
     if task.call.call_type == CallType::INSIDE && task.call.elev_id != elevator.id {
-        return f64::INFINITY; // Gjev ein "uendelig" kostnad.
+        return u32::MAX;
     }
     
-    // Rekn ut avstanda som ein enkel kostnadsfaktor.
-    // Her antar eg at 'task.call' har eit felt 'floor' som representerer etasjen kall.
-    let distance = (elevator.floor as i32 - task.call.floor as i32).abs() as f64;
+    // Dersom heisa er i ein ERROR-status, skal den ikkje bli brukt.
+    if let ElevatorStatus::ERROR = elevator.state {
+        return u32::MAX;
+    }
     
-    // Her kan du utvide med fleire faktorar, for eksempel:
-    // - Legg til ein straff dersom heisen allereie er på veg mot ein annan oppgåve.
-    // - Ta omsyn til retninga til heisen.
-    distance
+    // Grunnkostnaden er basert på avstanden mellom heisens noverande etasje og kalla si etasje.
+    let distance = if elevator.floor > task.call.floor {
+        elevator.floor - task.call.floor
+    } else {
+        task.call.floor - elevator.floor
+    };
+    let mut cost = distance as u32;
+    
+    // Dersom heisa allereie har ein oppgåve, legg på ein ekstra straff.
+    if elevator.current_task.is_some() {
+        cost += 5; // Straff for at heisa er opptatt
+    }
+    
+    // For kall som kjem frå utsida, sjekk om heisa er på veg i rett retning.
+    if task.call.call_type != CallType::INSIDE {
+        if !is_moving_toward(elevator, &task.call) {
+            cost += 10; // Straff for feil retning
+        }
+    }
+    
+    cost
+}
+
+/// Hjelpefunksjon som avgjer om heisa er på veg mot kalla si etasje.
+/// - For heisar som er på veg oppover, bør kalla ligge same eller over heisens etasje.
+/// - For heisar på veg nedover, bør kalla ligge same eller under heisens etasje.
+/// - Heisar i IDLE- eller DOOR_OPEN-status blir rekna som at dei kan endre retning utan ekstra straff.
+fn is_moving_toward(elevator: &ElevatorState, call: &CallButton) -> bool {
+    match elevator.state {
+        ElevatorStatus::UP    => call.floor >= elevator.floor,
+        ElevatorStatus::DOWN  => call.floor <= elevator.floor,
+        ElevatorStatus::IDLE | ElevatorStatus::DOOR_OPEN => true,
+        ElevatorStatus::ERROR => false,
+        // Eventuelle andre statusar: vi tek ein konservativ tilnærming.
+        _ => true,
+    }
 }
