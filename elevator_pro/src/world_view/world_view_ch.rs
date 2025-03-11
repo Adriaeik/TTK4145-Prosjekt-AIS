@@ -73,55 +73,6 @@ pub async fn update_wv(mut main_local_chs: LocalChannels, mut worldview_serialis
     let _ = main_local_chs.watches.txs.wv.send(worldview_serialised.clone());
     
     let mut wv_edited_I = false;
-
-    // loop {
-    //     tokio::select! {
-    //         /* KANALER SLAVE MOTTAR PÅ */
-    //         Some(msg) = main_local_chs.mpscs.rxs.sent_tcp_container.recv() => {
-    //             wv_edited_I = clear_from_sent_tcp(&mut worldview_serialised, msg);
-    //         }
-    //         Some(master_wv) = main_local_chs.mpscs.rxs.udp_wv.recv() => {
-    //             wv_edited_I = join_wv_from_udp(&mut worldview_serialised, master_wv);
-    //         }
-    //         Some(_) = main_local_chs.mpscs.rxs.tcp_to_master_failed.recv() => {
-    //             wv_edited_I = abort_network(&mut worldview_serialised);
-    //         }
-
-    //         /* KANALER MASTER MOTTAR PÅ */
-    //         Some(container) = main_local_chs.mpscs.rxs.container.recv() => {
-    //             wv_edited_I = join_wv_from_tcp_container(&mut worldview_serialised, container).await;
-    //         }
-    //         Some(id) = main_local_chs.mpscs.rxs.remove_container.recv() => {
-    //             wv_edited_I = remove_container(&mut worldview_serialised, id);
-    //         }
-    //         Some((task, id, button)) = main_local_chs.mpscs.rxs.new_task.recv() => {
-    //             wv_edited_I = push_task(&mut worldview_serialised, task, id, button);
-    //         }
-
-    //         /* KANALER MASTER OG SLAVE MOTTAR PÅ */
-    //         Some(msg) = main_local_chs.mpscs.rxs.local_elev.recv() => {
-    //             wv_edited_I = recieve_local_elevator_msg(&mut worldview_serialised, msg).await;
-    //         }
-    //         Some((id, status)) = main_local_chs.mpscs.rxs.update_task_status.recv() => {
-    //             println!("Skal sette status {:?} på task id: {}", status, id);
-    //             wv_edited_I = update_task_status(&mut worldview_serialised, id, status);
-    //         }
-
-    //         /* Timeout for å unngå 100% CPU-bruk */
-    //         _ = tokio::time::sleep(tokio::time::Duration::from_millis(1)) => {}
-    //     }
-
-    //     /* Hvis worldview er oppdatert, send til andre */
-    //     if wv_edited_I {
-    //         let _ = main_local_chs.watches.txs.wv.send(worldview_serialised.clone());
-    //         wv_edited_I = false;
-    //     }
-    // }
-    
-
-
-
-
     loop {
         //OBS: Error kommer når kanal er tom. ikke print der uten å eksplisitt eksludere channel_empty error type
 
