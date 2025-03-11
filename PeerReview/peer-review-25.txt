@@ -17,7 +17,6 @@ dbca849d
 - Comments are present but overly informal at times, mixing humorous or casual language (e.g., "Killing myself... ReeeEEEEeeee!") with technical explanations. More professional and concise commenting could enhance clarity(JK).
 - The handling of network disconnection (`network_status`) is clear, yet abruptly terminating the application (`std::process::exit(1)`) might not be ideal for robustness or recovery in real-world scenarios.
 - Configuration handling via environment variables (`ELEVATOR_NETWORK_ID`, `NUMBER_FLOORS`) is functional but lacks clear error-handling or informative fallback procedures for incorrect inputs or missing configurations, potentially causing runtime errors.
-- NØØØØØØØØØØØØØØØØØØØØØØØØØØØRRRRDSSSSS
 
 975af7d1
 8
