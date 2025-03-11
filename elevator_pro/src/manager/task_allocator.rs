@@ -11,6 +11,7 @@ use crate::world_view::world_view::{deserialize_elev_container, ElevatorContaine
 use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc;
 use crate::config;
+use crate::elevio::poll::CallType;
 
 #[derive(Debug, Clone)]
 pub struct ElevatorState {
@@ -48,8 +49,20 @@ pub fn delegate_tasks(chs: LocalChannels, mut container_ch: mpsc::Receiver::<Vec
         tasks.append(&mut dead_tasks);
         update_cost_map(&mut cost_map, elevators.clone(), tasks.clone());
 
-        for (id, elevator) in elevators.clone() {
-            //Send task med lavest cost i cost_map tilhørende id på kanal til update_wv. Marker her at den har tasken
+        for (id, elevator) in elevators.iter_mut() {
+            if let Some(task_costs) = cost_map.get(id) {
+                // Finn oppgåva med lågast kostnad for denne heisen.
+                if let Some((best_task, _best_cost)) = task_costs.iter().min_by(|a, b| {
+                    a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal)
+                }) {
+                    // Send oppgåva til heisen via kanal, og merk at heisen no har fått ein oppgåve.
+                    // Eksempel på å sende oppgåva:
+                    // send_task_to_elevator(*id, best_task.clone());
+                    elevator.current_task = Some(best_task.clone());
+                    
+                    //  bør også fjerne oppgåva frå den globale lista slik at ho ikkje blir tildele kjent att.
+                }
+            }
         }
     }
 }
@@ -96,7 +109,36 @@ fn detect_dead_elevators(elevators: &mut HashMap<u8, ElevatorState>, timeout: u6
 }
 
 
-
+/* 
 fn update_cost_map(cost_map: &mut HashMap<u8, Vec<(Task, u32)>>, elevators: HashMap<u8, ElevatorState>, tasks: Vec<Task>) {
 
+} */
+
+fn update_cost_map(cost_map: &mut CostMap, elevators: HashMap<u8, ElevatorState>, tasks: Vec<Task>) {
+    cost_map.clear();
+    for (id, elevator) in elevators.iter() {
+         let mut task_costs = Vec::new();
+         for task in tasks.iter() {
+              let cost = compute_cost(elevator, task);
+              task_costs.push((task.clone(), cost));
+         }
+         cost_map.insert(*id, task_costs);
+    }
+}
+
+
+fn compute_cost(elevator: &ElevatorState, task: &Task) -> f64 {
+    // Dersom kalltypen er INSIDE, må berre den aktuelle heisen motta oppgåva.
+    if task.call.type == CallType::INSIDE && task.call.elev_id != elevator.id {
+        return f64::INFINITY; // Gjev ein "uendelig" kostnad.
+    }
+    
+    // Rekn ut avstanda som ein enkel kostnadsfaktor.
+    // Her antar eg at 'task.call' har eit felt 'floor' som representerer etasjen kall.
+    let distance = (elevator.floor as i32 - task.call.floor as i32).abs() as f64;
+    
+    // Her kan du utvide med fleire faktorar, for eksempel:
+    // - Legg til ein straff dersom heisen allereie er på veg mot ein annan oppgåve.
+    // - Ta omsyn til retninga til heisen.
+    distance
 }
