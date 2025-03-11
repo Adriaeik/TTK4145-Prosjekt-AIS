@@ -64,6 +64,7 @@ pub async fn execute_tasks(chs: local_network::LocalChannels, elevator: elev::El
             elevator.motor_direction(elev::DIRN_STOP);
             let _ = chs.mpscs.txs.update_elev_state.send(ElevatorStatus::IDLE).await;
             last_state = ElevatorStatus::IDLE;
+            sleep(Duration::from_millis(100));
         }
     }
 }
