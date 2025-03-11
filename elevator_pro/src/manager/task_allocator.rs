@@ -4,7 +4,8 @@
 // Regn med vi får inn array med (ID, State, Floor, Task), og et array med udelegerte tasks, `ID`: elevID, `State`: UP/DOWN/IDLE/DOOR_OPEN/ERROR, `Floor`: Floor, `Task`: Some(Task). Bør vite hvor mange etasjer heisen kan gå til. 
 
 use std::collections::HashMap;
-use std::time::Instant;
+use std::thread::sleep;
+use std::time::{Duration, Instant};
 use crate::elevio::poll::CallButton;
 use crate::network::local_network::{LocalChannels};
 use crate::world_view::world_view::{deserialize_elev_container, ElevatorContainer, ElevatorStatus};
@@ -41,7 +42,9 @@ pub async fn delegate_tasks(chs: LocalChannels, mut container_ch: mpsc::Receiver
     loop {
         match container_ch.try_recv() {
             Ok(cont_ser) => {
-                update_elevator(&mut elevators, deserialize_elev_container(&cont_ser)); // Oppdater states
+                println!("Fikk melding fra slave heis");
+                let mut new_tasks = update_elevator(&mut elevators, deserialize_elev_container(&cont_ser)); // Oppdater states
+                tasks.append(&mut new_tasks);
             },
             Err(_) => {},
         }
@@ -51,9 +54,10 @@ pub async fn delegate_tasks(chs: LocalChannels, mut container_ch: mpsc::Receiver
 
          // Oppdater kostkartet med den noverande tilstanden til heisar og udelegerte oppgåver
         update_cost_map(&mut cost_map, elevators.clone(), tasks.clone());
-
+        // println!("Tasks i tasks {:?}", tasks);
         // For kvar heis, finn oppgåva med lågast kostnad og deleger den
         for (id, elevator) in elevators.iter_mut() {
+            
             if let Some(task_costs) = cost_map.get(id) {
                 if let Some((best_task, _best_cost)) = task_costs.iter().min_by(|a, b| {
                     a.1.cmp(&b.1)
@@ -67,12 +71,13 @@ pub async fn delegate_tasks(chs: LocalChannels, mut container_ch: mpsc::Receiver
                 }
             }
         }
+        sleep(Duration::from_millis(20));
     }
 }
 
 /// Får inn hashmap med alle elevatorstates, oppdaterer statuser basert på elevcontainer mottat på TCP
 /// Oppdaterer også tiden vi sist hørte fra den
-fn update_elevator(elevators: &mut HashMap<u8, ElevatorState>, elevator_container: ElevatorContainer) {
+fn update_elevator(elevators: &mut HashMap<u8, ElevatorState>, elevator_container: ElevatorContainer) -> Vec<Task> {
     let entry = elevators.entry(elevator_container.elevator_id).or_insert(ElevatorState {
         id: elevator_container.elevator_id,
         floor: elevator_container.last_floor_sensor,
@@ -88,6 +93,15 @@ fn update_elevator(elevators: &mut HashMap<u8, ElevatorState>, elevator_containe
 
     // Denne skal ta tiden på en task. Så oppdater den hvis status er Up/Down og den nye staten er ulik
     entry.last_updated = Instant::now();
+
+    let mut new_tasks = Vec::new();
+    for call in elevator_container.calls {
+        print!("Knapp: {:?}", call);
+        let task = Task { id: 69, call: call};
+        new_tasks.push(task.clone());
+        println!("    Tilsvarende task: {:?}", task.clone());
+    }
+    new_tasks
 }
 
 

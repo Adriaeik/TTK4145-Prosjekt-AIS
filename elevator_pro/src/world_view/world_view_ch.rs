@@ -58,7 +58,7 @@ pub async fn update_wv(mut main_local_chs: LocalChannels, mut worldview_serialis
         match main_local_chs.mpscs.rxs.container.try_recv() {
             Ok(container) => {
                 wv_edited_I = join_wv_from_tcp_container(&mut worldview_serialised, container.clone()).await;
-                to_task_alloc_tx.send(container.clone()).await;
+                let _ = to_task_alloc_tx.send(container.clone()).await;
             },
             Err(_) => {},
         }

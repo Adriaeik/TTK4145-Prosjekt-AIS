@@ -140,20 +140,21 @@ pub async fn run_local_elevator(chs: local_network::LocalChannels) -> std::io::R
         });
         tokio::task::yield_now().await;
     }
- 
+    
     // Loop som sender egen container på kanalen som motar slave-kontainere hvis man er master
-    let mut wv = utils::get_wv(chs.clone());
+    // let mut wv = utils::get_wv(chs.clone());
     loop {
-        utils::update_wv(chs.clone(), &mut wv).await;
-        if utils::is_master(wv.clone()) {
-            /* Oppdater task og task_status, send din container tilbake som om den fikk fra tcp */
-            let wv_deser = world_view::deserialize_worldview(&world_view_update::join_wv(wv.clone(), wv.clone()));
-            let self_idx = world_view::get_index_to_container(SELF_ID.load(Ordering::SeqCst), world_view::serialize_worldview(&wv_deser));
-            if let Some(i) = self_idx {
-                let _ = chs.mpscs.txs.container.send(world_view::serialize_elev_container(&wv_deser.elevator_containers[i])).await;
-            }
-        }
-        sleep(config::TCP_PERIOD).await;
+        tokio::task::yield_now().await;
+        // utils::update_wv(chs.clone(), &mut wv).await;
+        // if utils::is_master(wv.clone()) {
+        //     /* Oppdater task og task_status, send din container tilbake som om den fikk fra tcp */
+        //     let wv_deser = world_view::deserialize_worldview(&world_view_update::join_wv(wv.clone(), wv.clone()));
+        //     let self_idx = world_view::get_index_to_container(SELF_ID.load(Ordering::SeqCst), world_view::serialize_worldview(&wv_deser));
+        //     if let Some(i) = self_idx {
+        //         let _ = chs.mpscs.txs.container.send(world_view::serialize_elev_container(&wv_deser.elevator_containers[i])).await;
+        //     }
+        // }
+        // sleep(config::TCP_PERIOD).await;
     }
 }
 
