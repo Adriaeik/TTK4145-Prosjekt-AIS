@@ -142,6 +142,7 @@ async fn main() {
     // Lag prat med egen heis thread her 
 /* SLUTT ----------- Starte Eksterne Nettverkstasks ---------------------- */
 
+/*
     //Task som printer worldview
     let _print_task = tokio::spawn(async move {
         let mut wv = utils::get_wv(chs_print.clone());
@@ -153,7 +154,7 @@ async fn main() {
             }
         }
     });
-
+*/
     //Vent med å avslutte programmet
     let _ = chs_loop.broadcasts.rxs.shutdown.recv().await;
 }
