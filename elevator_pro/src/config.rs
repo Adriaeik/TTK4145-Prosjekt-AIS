@@ -71,3 +71,9 @@ pub static mut PRINT_OK_ON: bool = true;
 pub static mut PRINT_INFO_ON: bool = true;
 /// Bool to determine if program should print other prints
 pub static mut PRINT_ELSE_ON: bool = true;
+
+
+/// Penalty for beeing busy
+pub const BUSY_PENALTY: u32 = 5;
+/// Penalty for going wrong direction
+pub const WRONG_DIRECTION_PENALTY: u32 = 10;
