@@ -314,9 +314,9 @@ pub fn print_wv(worldview: Vec<u8>) {
     let n_text = format!("{}", wv_deser.get_num_elev()); // Fjern ANSI og bruk prettytable farge
     let m_id_text = format!("{}", wv_deser.master_id);
     let button_list = wv_deser.outside_button.iter()
-    .map(|c| match c.call {
-        CallType::INSIDE => format!("{}:{:?}({})", c.floor, c.call, c.elev_id),
-        _ => format!("{}:{:?}:PUBLIC", c.floor, c.call),
+    .map(|c| match c.call_type {
+        CallType::INSIDE => format!("{}:{:?}({})", c.floor, c.call_type, c.elev_id),
+        _ => format!("{}:{:?}:PUBLIC", c.floor, c.call_type),
     })
     .collect::<Vec<String>>()
     .join(", ");
@@ -373,7 +373,7 @@ pub fn print_wv(worldview: Vec<u8>) {
 
         // Vanleg utskrift av calls
         let call_list = elev.calls.iter()
-            .map(|c| format!("{}:{:?}", c.floor, c.call))
+            .map(|c| format!("{}:{:?}", c.floor, c.call_type))
             .collect::<Vec<String>>()
             .join(", ");
 

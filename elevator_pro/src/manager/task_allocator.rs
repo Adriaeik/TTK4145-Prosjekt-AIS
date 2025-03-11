@@ -129,7 +129,7 @@ fn update_cost_map(cost_map: &mut CostMap, elevators: HashMap<u8, ElevatorState>
 
 fn compute_cost(elevator: &ElevatorState, task: &Task) -> f64 {
     // Dersom kalltypen er INSIDE, må berre den aktuelle heisen motta oppgåva.
-    if task.call.type == CallType::INSIDE && task.call.elev_id != elevator.id {
+    if task.call.call_type == CallType::INSIDE && task.call.elev_id != elevator.id {
         return f64::INFINITY; // Gjev ein "uendelig" kostnad.
     }
     

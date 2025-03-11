@@ -75,14 +75,14 @@ pub struct CallButton {
     pub floor: u8,
 
     /// The type of call (UP, DOWN, or INSIDE).
-    pub call: CallType,
+    pub call_type: CallType,
 
     /// The ID of the elevator making the call (only relevant for `INSIDE` calls).
     pub elev_id: u8,
 }
 impl Default for CallButton {
     fn default() -> Self {
-        CallButton{floor: 1, call: CallType::INSIDE, elev_id: config::ERROR_ID}
+        CallButton{floor: 1, call_type: CallType::INSIDE, elev_id: config::ERROR_ID}
     }
 }
 
@@ -109,11 +109,11 @@ impl PartialEq for CallButton {
     /// ```
     fn eq(&self, other: &Self) -> bool {
         // Hvis call er INSIDE, sammenligner vi også elev_id
-        if self.call == CallType::INSIDE {
-            self.floor == other.floor && self.call == other.call && self.elev_id == other.elev_id
+        if self.call_type == CallType::INSIDE {
+            self.floor == other.floor && self.call_type == other.call_type && self.elev_id == other.elev_id
         } else {
             // For andre CallType er det tilstrekkelig å sammenligne floor og call
-            self.floor == other.floor && self.call == other.call
+            self.floor == other.floor && self.call_type == other.call_type
         }
     }
 }
@@ -125,8 +125,8 @@ impl Hash for CallButton {
     fn hash<H: Hasher>(&self, state: &mut H) {
         // Sørger for at hash er konsistent med eq
         self.floor.hash(state);
-        self.call.hash(state);
-        if self.call == CallType::INSIDE {
+        self.call_type.hash(state);
+        if self.call_type == CallType::INSIDE {
             self.elev_id.hash(state);
         }
     }
@@ -140,7 +140,7 @@ pub fn call_buttons(elev: elev::Elevator, ch: cbc::Sender<CallButton>, period: t
             for c in 0..3 {
                 let v = elev.call_button(f, c);
                 if v && prev[f as usize][c as usize] != v {
-                    ch.send(CallButton { floor: f, call: CallType::from(c), elev_id: utils::SELF_ID.load(Ordering::SeqCst)}).unwrap();
+                    ch.send(CallButton { floor: f, call_type: CallType::from(c), elev_id: utils::SELF_ID.load(Ordering::SeqCst)}).unwrap();
                 }
                 prev[f as usize][c as usize] = v;
             }

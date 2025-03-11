@@ -43,7 +43,7 @@ pub async fn initialize_worldview(self_container : Option< world_view::ElevatorC
         let mut container = ElevatorContainer::default();
         let init_task = Task {
             id: 69,
-            call: CallButton{floor: 0, call: CallType::INSIDE, elev_id: SELF_ID.load(Ordering::SeqCst)},
+            call: CallButton{floor: 0, call_type: CallType::INSIDE, elev_id: SELF_ID.load(Ordering::SeqCst)},
         };
         container.task = Some(init_task.clone());
         container
