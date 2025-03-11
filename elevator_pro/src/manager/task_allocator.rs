@@ -10,9 +10,11 @@ use crate::elevio::poll::CallButton;
 use crate::network::local_network::{LocalChannels};
 use crate::world_view::world_view::{deserialize_elev_container, ElevatorContainer, ElevatorStatus};
 use serde::{Deserialize, Serialize};
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, RwLock};
 use crate::config;
 use crate::elevio::poll::CallType;
+use tokio::sync::Mutex;
+use std::sync::Arc;
 
 #[derive(Debug, Clone)]
 pub struct ElevatorState {
@@ -35,28 +37,49 @@ type CostMap = HashMap<u8, Vec<(Task, u32)>>; // ElevatorID -> List of (Task, Co
 
 
 pub async fn delegate_tasks(chs: LocalChannels, mut container_ch: mpsc::Receiver::<Vec<u8>>) {
-    let mut elevators: HashMap<u8, ElevatorState> = HashMap::new();
-    let mut tasks: Vec<Task> = Vec::new();
+    let elevators: Arc<RwLock<HashMap<u8, ElevatorState>>> = Arc::new(RwLock::new(HashMap::new()));
+    let tasks: Arc<Mutex<Vec<Task>>> = Arc::new(Mutex::new(Vec::new()));
     let mut cost_map: CostMap = CostMap::new();
     
-    loop {
-        println!("Meldinger i kø: {}", container_ch.len());
-        match container_ch.try_recv() {
-            Ok(cont_ser) => {
-                // println!("Fikk melding fra slave heis");
-                let mut new_tasks = update_elevator(&mut elevators, deserialize_elev_container(&cont_ser)); // Oppdater states
-                tasks.append(&mut new_tasks);
-            },
-            Err(_) => {},
+    let tasks_clone = tasks.clone(); 
+    let elevator_clone = elevators.clone();
+    tokio::spawn(async move {
+        loop {
+            sleep(Duration::from_millis(1));
+            println!("Meldinger i kø: {}", container_ch.len());
+            match container_ch.try_recv() {
+                Ok(cont_ser) => {
+                    // println!("Fikk melding fra slave heis");
+                    let mut elevators_unlocked = elevator_clone.write().await;
+                    let mut new_tasks = update_elevator(&mut elevators_unlocked, deserialize_elev_container(&cont_ser)); // Oppdater states
+                    // Sjekk for heisar som har "timea ut" og samle opp oppgåver dei har
+                    let mut dead_tasks = detect_dead_elevators(&mut elevators_unlocked, config::TASK_TIMEOUT);
+                    new_tasks.append(&mut dead_tasks);
+                    let mut tasks_locked = tasks_clone.lock().await;
+                    tasks_locked.append(&mut new_tasks);
+                },
+                Err(_) => {},
+            }
         }
-        // Sjekk for heisar som har "timea ut" og samle opp oppgåver dei har
-        let mut dead_tasks = detect_dead_elevators(&mut elevators, config::TASK_TIMEOUT);
-        tasks.append(&mut dead_tasks);
+    });
+
+
+    let mut tasks_vec_copy: Vec<Task>;
+    let mut elevator_copy: HashMap<u8, ElevatorState>;
+    loop {
+        {
+            tasks_vec_copy = tasks.lock().await.clone();
+        }
+        {
+            elevator_copy = elevators.read().await.clone();
+
+        }
+
 
          // Oppdater kostkartet med den noverande tilstanden til heisar og udelegerte oppgåver
-        update_cost_map(&mut cost_map, elevators.clone(), tasks.clone());
+        update_cost_map(&mut cost_map, elevator_copy.clone(), tasks_vec_copy.clone());
         // For kvar heis, finn oppgåva med lågast kostnad og deleger den
-        for (id, elevator) in elevators.iter_mut() {
+        for (id, elevator) in elevator_copy.iter_mut() {
             
             if let Some(task_costs) = cost_map.get(id) {
                 if let Some((best_task, _best_cost)) = task_costs.iter().min_by(|a, b| {

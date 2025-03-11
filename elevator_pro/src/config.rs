@@ -37,7 +37,7 @@ pub const KEY_STR: &str = "Gruppe 25";
 /// Timeout duration of TCP connections
 pub const TCP_TIMEOUT: u64 = 5000; // i millisekunder
 /// Probably unneccasary
-pub const TCP_PER_U64: u64 = 100; // i millisekunder
+pub const TCP_PER_U64: u64 = 10; // i millisekunder
 /// Period between sending of UDP broadcasts 
 pub const UDP_PERIOD: Duration = Duration::from_millis(TCP_PER_U64);
 /// Period between sending of TCP messages to master-node
