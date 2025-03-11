@@ -13,7 +13,7 @@ use crate::world_view::world_view_update::{ join_wv_from_udp,
                                             update_elev_state,
                                         };
 use crate::network::local_network::LocalChannels;
-use crate::utils::{self, extract_self_elevator_container};
+use crate::utils::{self, extract_self_elevator_container, print_err, print_warn};
 use crate::world_view::world_view::{self, deserialize_worldview, serialize_worldview};
 
 
@@ -58,8 +58,23 @@ pub async fn update_wv(mut main_local_chs: LocalChannels, mut worldview_serialis
         /*_____Melding til master fra slaven (elevator-containeren til slaven)_____*/
         match main_local_chs.mpscs.rxs.container.try_recv() {
             Ok(container) => {
+                // print_err(format!("Starter"));
                 wv_edited_I = join_wv_from_tcp_container(&mut worldview_serialised, container.clone()).await;
+                // println!("1");
+                // println!("2");
+                // println!("3");
+                // println!("4");
+                // println!("5");
+                // println!("6");
+                // println!("7");
+                // println!("8");
+                // println!("9");
+                // println!("10");
+                // println!("11");
+                // println!("12");
+                // println!("13");
                 let _ = to_task_alloc_tx.send(container.clone()).await;
+                // print_warn(format!("Slutter"));
             },
             Err(_) => {},
         }

@@ -179,7 +179,7 @@ pub async fn join_wv_from_tcp_container(wv: &mut Vec<u8>, container: Vec<u8>) ->
         // Master styrer task, ikke overskriv det med slaven sitt forrige WV
 
         //Oppdater call_buttons
-        master::wv_from_slaves::update_call_buttons(&mut deserialized_wv, &deser_container, i).await;
+        // master::wv_from_slaves::update_call_buttons(&mut deserialized_wv, &deser_container, i).await;
         *wv = world_view::serialize_worldview(&deserialized_wv);
         return true;
     } else {

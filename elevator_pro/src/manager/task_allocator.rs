@@ -40,6 +40,7 @@ pub async fn delegate_tasks(chs: LocalChannels, mut container_ch: mpsc::Receiver
     let mut cost_map: CostMap = CostMap::new();
     
     loop {
+        println!("Meldinger i kø: {}", container_ch.len());
         match container_ch.try_recv() {
             Ok(cont_ser) => {
                 // println!("Fikk melding fra slave heis");
@@ -65,7 +66,7 @@ pub async fn delegate_tasks(chs: LocalChannels, mut container_ch: mpsc::Receiver
                     // Eksempel:
                     // send_task_to_elevator(*id, best_task.clone());
                     elevator.current_task = Some(best_task.clone());
-                    println!("Best task for ID {} is {:?}", *id, best_task.clone());
+                    // println!("Best task for ID {} is {:?}", *id, best_task.clone());
                     
                     // Viss nødvendig: Fjern oppgåva frå den globale lista for å unngå at den vert delegert fleire gonger.
                 }
