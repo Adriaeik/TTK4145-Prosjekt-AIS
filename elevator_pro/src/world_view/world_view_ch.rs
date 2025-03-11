@@ -9,6 +9,7 @@ use crate::world_view::world_view_update::{ join_wv_from_udp,
                                             remove_container, 
                                             recieve_local_elevator_msg, 
                                             clear_from_sent_tcp,
+                                            update_elev_state,
                                         };
 use crate::network::local_network::LocalChannels;
 use crate::utils::{self, extract_self_elevator_container};
@@ -80,13 +81,13 @@ pub async fn update_wv(mut main_local_chs: LocalChannels, mut worldview_serialis
 
 /* KANALER MASTER OG SLAVE MOTTAR PÅ */
         /*____Får signal når en task er ferdig_____ */
-        // match main_local_chs.mpscs.rxs.update_task_status.try_recv() {
-        //     Ok((id, status)) => {
-        //         println!("Skal sette status {:?} på task id: {}", status, id);
-        //         wv_edited_I = update_task_status(&mut worldview_serialised, id, status);
-        //     },
-        //     Err(_) => {},
-        // }
+        match main_local_chs.mpscs.rxs.update_elev_state.try_recv() {
+            Ok(status) => {
+                wv_edited_I = update_elev_state(&mut worldview_serialised, status);
+                master_container_updated_I = utils::is_master(worldview_serialised.clone());
+            },
+            Err(_) => {},
+        }
         /*_____Knapper trykket på lokal heis_____ */
         match main_local_chs.mpscs.rxs.local_elev.try_recv() {
             Ok(msg) => {
