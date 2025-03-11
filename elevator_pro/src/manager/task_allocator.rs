@@ -125,6 +125,7 @@ fn update_cost_map(cost_map: &mut CostMap, elevators: HashMap<u8, ElevatorState>
     }
 }
 
+
 /// Reknar ut kostnaden for ein oppgåve basert på heisens tilstand og retning.
 /// Dersom oppgåva er eit INSIDE-kall og heis-ID ikkje stemmer, returner u32::MAX.
 fn compute_cost(elevator: &ElevatorState, task: &Task) -> u32 {
@@ -148,13 +149,13 @@ fn compute_cost(elevator: &ElevatorState, task: &Task) -> u32 {
     
     // Dersom heisa allereie har ein oppgåve, legg på ein ekstra straff.
     if elevator.current_task.is_some() {
-        cost += 5; // Straff for at heisa er opptatt
+        cost += config::BUSY_PENALTY; // Straff for at heisa er opptatt
     }
     
     // For kall som kjem frå utsida, sjekk om heisa er på veg i rett retning.
     if task.call.call_type != CallType::INSIDE {
         if !is_moving_toward(elevator, &task.call) {
-            cost += 10; // Straff for feil retning
+            cost += config::WRONG_DIRECTION_PENALTY; // Straff for feil retning
         }
     }
     
@@ -175,3 +176,5 @@ fn is_moving_toward(elevator: &ElevatorState, call: &CallButton) -> bool {
         _ => true,
     }
 }
+
+
