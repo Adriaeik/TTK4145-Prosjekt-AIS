@@ -33,19 +33,25 @@ use crate::{world_view::world_view::{self, serialize_worldview, ElevatorContaine
 /// let worldview_data: Vec<u8> = initialize_worldview().await;
 /// let worldview: worldview::worldview::WorldView = worldview::worldview::deserialize_worldview(&worldview_data);
 /// ```
-pub async fn initialize_worldview() -> Vec<u8> {
+pub async fn initialize_worldview(self_container : Option< world_view::ElevatorContainer>) -> Vec<u8> {
     let mut worldview = WorldView::default();
-    let mut elev_container = ElevatorContainer::default();
-
-    // Create an initial placeholder task
-    let init_task = Task {
-        id: 69,
-        to_do: 0,
-        status: TaskStatus::PENDING,
-        is_inside: true,
+    
+    let mut elev_container = if let Some(container) = self_container {
+        container
+    } else {
+        // Opprett ein standard ElevatorContainer med ein initial placeholder-task
+        let mut container = ElevatorContainer::default();
+        let init_task = Task {
+            id: 69,
+            to_do: 0,
+            status: TaskStatus::PENDING,
+            is_inside: true,
+        };
+        container.tasks.push(init_task.clone());
+        container.tasks_status.push(init_task);
+        container
     };
-    elev_container.tasks.push(init_task.clone());
-    elev_container.tasks_status.push(init_task.clone());
+
 
     // Retrieve local IP address
     let ip = match local_ip() {

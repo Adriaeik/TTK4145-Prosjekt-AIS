@@ -24,10 +24,10 @@ async fn main() {
     // vi starter i bacup med å skrive "cargo r -- backup"
     let mut is_backup = init::parse_args();
     
-
+    let mut self_container: Option< world_view::ElevatorContainer> = None;
     if is_backup {
         println!("Starter backup-prosess...");
-        backup::run_as_backup().await;
+        self_container = Some(backup::run_as_backup().await);
 
         is_backup = false;
         //TODO: Visst vi er backup. så skal vi subscribe på TCP porten til år hovukode og den sender oss wv over TCP. 
@@ -67,7 +67,7 @@ async fn main() {
 
 
 /*Skaper oss eit verdensbildet ved fødselen, vi tar vår første pust */
-    let worldview_serialised = init::initialize_worldview().await;
+    let worldview_serialised = init::initialize_worldview(self_container).await;
 
     
 /* START ----------- Init av lokale channels ---------------------- */
