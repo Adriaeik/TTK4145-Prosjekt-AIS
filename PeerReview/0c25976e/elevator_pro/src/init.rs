@@ -1,33 +1,44 @@
 
-use core::time;
-use std::sync::atomic::Ordering;
 
-use crate::world_view::world_view::{self, serialize_worldview, ElevatorContainer, WorldView};
-use crate::utils::{self, ip2id, print_err};
-use crate::world_view::world_view::Task;
-use env_logger::init;
-use local_ip_address::local_ip;
-use crate::world_view::world_view::TaskStatus;
-use crate::config;
-
-use std::net::SocketAddr;
-use std::sync::OnceLock;
-use tokio::time::Instant;
-use std::sync::atomic::AtomicBool;
-use tokio::time::timeout;
-use std::thread::sleep;
-use std::time::Duration;
-use tokio::net::UdpSocket;
+use std::{sync::atomic::Ordering, net::SocketAddr, time::Duration, borrow::Cow, env};
+use tokio::{time::{Instant, timeout}, net::UdpSocket};
 use socket2::{Domain, Socket, Type};
-use std::borrow::Cow;
+use local_ip_address::local_ip;
+use crate::{world_view::world_view::{self, serialize_worldview, ElevatorContainer, WorldView, Task, TaskStatus}, utils::{self, ip2id, print_err}, config};
 
-use std::env;
 
-//Initialiserer worldview
+/// ### Initializes the worldview on startup
+///
+/// This function creates an initial worldview for the elevator system and attempts to join an existing network if possible.
+///
+/// ## Steps:
+/// 1. **Create an empty worldview and elevator container.**
+/// 2. **Add an initial placeholder task** to both the task queue and task status list.
+/// 3. **Retrieve the local machine's IP address** to determine its unique ID.
+/// 4. **Set the elevator ID and master ID** using the extracted IP-based identifier.
+/// 5. **Listen for UDP messages** for a brief period to detect other nodes on the network.
+/// 6. **If no nodes are found**, return the current worldview as is, with self id as the network master.
+/// 7. **If other elevators are detected**, merge their worldview with the local elevator's data.
+/// 8. **Check if the master ID should be updated** based on the smallest ID present.
+/// 9. **Return the serialized worldview**, ready to be used for network synchronization.
+///
+/// ## Returns:
+/// - A `Vec<u8>` containing the serialized worldview data.
+/// 
+/// ## Panics:
+/// - No internet connection on start-up will result in a panic!
+///
+/// ## Example Usage:
+/// ```rust
+/// let worldview_data: Vec<u8> = initialize_worldview().await;
+/// let worldview: worldview::worldview::WorldView = worldview::worldview::deserialize_worldview(&worldview_data);
+/// ```
 pub async fn initialize_worldview() -> Vec<u8> {
     let mut worldview = WorldView::default();
     let mut elev_container = ElevatorContainer::default();
-    let init_task = Task{
+
+    // Create an initial placeholder task
+    let init_task = Task {
         id: 69,
         to_do: 0,
         status: TaskStatus::PENDING,
@@ -36,113 +47,156 @@ pub async fn initialize_worldview() -> Vec<u8> {
     elev_container.tasks.push(init_task.clone());
     elev_container.tasks_status.push(init_task.clone());
 
-    // Hent lokal IP-adresse
+    // Retrieve local IP address
     let ip = match local_ip() {
         Ok(ip) => ip,
         Err(e) => {
-            print_err(format!("Fant ikke IP i starten av main: {}", e));
+            print_err(format!("Failed to get local IP at startup: {}", e));
             panic!();
         }
     };
 
-    // Hent ut egen ID (siste tall i IP-adressen)
-    utils::SELF_ID.store(ip2id(ip), Ordering::SeqCst); //🐌 Seigast
+    // Extract self ID from IP address (last segment of IP)
+    utils::SELF_ID.store(ip2id(ip), Ordering::SeqCst);
     elev_container.elevator_id = utils::SELF_ID.load(Ordering::SeqCst);
     worldview.master_id = utils::SELF_ID.load(Ordering::SeqCst);
     worldview.add_elev(elev_container.clone());
 
-
-    //Hør etter UDP i 1 sek?. Hvis den får en wordlview: oppdater
+    // Listen for UDP messages for a short time to detect other elevators
     let wv_from_udp = check_for_udp().await;
-    if wv_from_udp.is_empty(){
-        utils::print_info("Ingen andre på Nett".to_string());
+    if wv_from_udp.is_empty() {
+        utils::print_info("No other elevators detected on the network.".to_string());
         return serialize_worldview(&worldview);
     }
 
-    //Hvis det er UDP-er på nettverker, koble deg til dem ved å sette worldview = dem sin + egen heis
+    // If other elevators are found, merge worldview and add the local elevator
     let mut wv_from_udp_deser = world_view::deserialize_worldview(&wv_from_udp);
     wv_from_udp_deser.add_elev(elev_container.clone());
-    
-    //Sett egen ID som master_ID hvis tidligere master har høyere ID enn deg
+
+    // Set self as master if the current master has a higher ID
     if wv_from_udp_deser.master_id > utils::SELF_ID.load(Ordering::SeqCst) {
         wv_from_udp_deser.master_id = utils::SELF_ID.load(Ordering::SeqCst);
     }
 
-    
-    world_view::serialize_worldview(&wv_from_udp_deser) 
+    // Serialize and return the updated worldview
+    world_view::serialize_worldview(&wv_from_udp_deser)
 }
 
 
 
-/// Hører etter UDP broadcaster i 1 sekund
-/// 
-/// Passer på at UDPen er fra 'vårt' nettverk før den 'aksepterer' den for retur
+/// ### Listens for a UDP broadcast message for 1 second
+///
+/// This function listens for incoming UDP broadcasts on a predefined port.
+/// It ensures that the received message originates from the expected network before accepting it.
+///
+/// ## Steps:
+/// 1. **Set up a UDP socket** bound to a predefined broadcast address.
+/// 2. **Configure socket options** for reuse and broadcasting.
+/// 3. **Start a timer** and listen for UDP packets for up to 1 second.
+/// 4. **If a message is received**, attempt to decode it as a UTF-8 string.
+/// 5. **Filter out messages that do not contain the expected key**.
+/// 6. **Extract the relevant data** and convert it into a `Vec<u8>`.
+/// 7. **Return the parsed data or an empty vector** if no valid message was received.
+///
+/// ## Returns:
+/// - A `Vec<u8>` containing parsed worldview data if a valid UDP message was received.
+/// - An empty vector if no message was received within 1 second.
+///
+/// ## Example Usage:
+/// ```rust
+/// let udp_data = check_for_udp().await;
+/// if !udp_data.is_empty() {
+///     println!("Received worldview data: {:?}", udp_data);
+/// } else {
+///     println!("No UDP message received within 1 second.");
+/// }
+/// ```
 pub async fn check_for_udp() -> Vec<u8> {
+    // Construct the UDP broadcast listening address
     let broadcast_listen_addr = format!("{}:{}", config::BC_LISTEN_ADDR, config::DUMMY_PORT);
-    let socket_addr: SocketAddr = broadcast_listen_addr.parse().expect("Ugyldig adresse");
-    let socket_temp = Socket::new(Domain::IPV4, Type::DGRAM, None).expect("Feil å lage ny socket  iinit");
-    
-    
-    socket_temp.set_reuse_address(true).expect("feil i set_resuse_addr i init");
-    socket_temp.set_broadcast(true).expect("Feil i set broadcast i init");
-    socket_temp.bind(&socket_addr.into()).expect("Feil i bind i init");
-    let socket = UdpSocket::from_std(socket_temp.into()).expect("Feil å lage socket i init");
+    let socket_addr: SocketAddr = broadcast_listen_addr.parse().expect("Invalid address");
+
+    // Create a new UDP socket
+    let socket_temp = Socket::new(Domain::IPV4, Type::DGRAM, None)
+        .expect("Failed to create new socket");
+
+    // Configure socket for address reuse and broadcasting
+    socket_temp.set_reuse_address(true).expect("Failed to set reuse address");
+    socket_temp.set_broadcast(true).expect("Failed to enable broadcast mode");
+    socket_temp.bind(&socket_addr.into()).expect("Failed to bind socket");
+
+    // Convert standard socket into an async UDP socket
+    let socket = UdpSocket::from_std(socket_temp.into()).expect("Failed to create UDP socket");
+
+    // Buffer for receiving UDP data
     let mut buf = [0; config::UDP_BUFFER];
     let mut read_wv: Vec<u8> = Vec::new();
     
-    let mut message: Cow<'_, str> = std::borrow::Cow::Borrowed("a");
+    // Placeholder for received message
+    let mut message: Cow<'_, str>;
 
+    // Start the timer for 1-second listening duration
     let time_start = Instant::now();
     let duration = Duration::from_secs(1);
 
     while Instant::now().duration_since(time_start) < duration {
+        // Attempt to receive a UDP packet within the timeout duration
         let recv_result = timeout(duration, socket.recv_from(&mut buf)).await;
 
         match recv_result {
             Ok(Ok((len, _))) => {
+                // Convert the received bytes into a string
                 message = String::from_utf8_lossy(&buf[..len]).into_owned().into();
             }
             Ok(Err(e)) => {
-                utils::print_err(format!("udp_broadcast.rs, udp_listener(): {}", e));
+                // Log errors if receiving fails
+                utils::print_err(format!("init.rs, udp_listener(): {}", e));
                 continue;
             }
             Err(_) => {
-                // Timeout skjedde – stopp løkka
-                utils::print_warn("Timeout – ingen data mottatt innen 1 sekund.".to_string());
+                // Timeout occurred – no data received within 1 second
+                utils::print_warn("Timeout - no data received within 1 second.".to_string());
                 break;
             }
         }
 
-        // verifiser at UDPen er fra 'oss'
+        // Verify that the UDP message is from our expected network
         if &message[1..config::KEY_STR.len() + 1] == config::KEY_STR {
-            let clean_message = &message[config::KEY_STR.len() + 3..message.len() - 1]; // Fjerner `"`
-            read_wv = clean_message
-                .split(", ") // Del opp på ", "
-                .filter_map(|s| s.parse::<u8>().ok()) // Konverter til u8, ignorer feil
-                .collect(); // Samle i Vec<u8>
+            // Extract and clean the message by removing the key and surrounding characters
+            let clean_message = &message[config::KEY_STR.len() + 3..message.len() - 1];
 
-            break;
+            // Parse the message as a comma-separated list of u8 values
+            read_wv = clean_message
+                .split(", ") // Split on ", "
+                .filter_map(|s| s.parse::<u8>().ok()) // Convert to u8, ignore errors
+                .collect(); // Collect into a Vec<u8>
+
+            break; // Exit loop as a valid message was received
         }
     }
+
+    // Drop the socket to free resources
     drop(socket);
+
+    // Return the parsed UDP message data
     read_wv
 }
 
 
-/// ### Leser argumenter på cargo run
+/// ### Reads arguments from `cargo run`
 /// 
-/// Brukes for å endre hva som printes i runtime. Valgmuligheter:
+/// Used to modify what is printed during runtime. Available options:
 /// 
-/// `print_wv::(true/false)` &rarr; Printer worldview 2 ganger i sekundet  
-/// `print_err::(ture/false)` &rarr; Printer error meldinger  
-/// `print_wrn::(true/false)` &rarr; Printer warning meldinger   
-/// `print_ok::(true/false)` &rarr; Printer ok meldinger   
-/// `print_info::(true/false)` &rarr; Printer info meldinger   
-/// `print_else::(true/false` &rarr; Printer andre meldinger, bla. master, slave, color meldinger   
-/// `debug::` &rarr; Skrur av alle prints andre enn error meldinger   
-/// `help` &rarr; Skriver ut alle mulige argumenter uten å starte programmet
+/// `print_wv::(true/false)` &rarr; Prints the worldview twice per second  
+/// `print_err::(true/false)` &rarr; Prints error messages  
+/// `print_wrn::(true/false)` &rarr; Prints warning messages  
+/// `print_ok::(true/false)` &rarr; Prints OK messages  
+/// `print_info::(true/false)` &rarr; Prints informational messages  
+/// `print_else::(true/false)` &rarr; Prints other messages, including master, slave, and color messages  
+/// `debug::` &rarr; Disables all prints except error messages  
+/// `help` &rarr; Displays all possible arguments without starting the program  
 /// 
-/// Alle prints er på om ingen argumnter er gitt
+/// If no arguments are provided, all prints are enabled by default.
 pub fn parse_args() {
     let args: Vec<String> = env::args().collect();
     

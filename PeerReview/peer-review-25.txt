@@ -1,0 +1,40 @@
+dbca849d
+7
+- The project's concurrency structure using `crossbeam_channel` is functional and straightforward, but the decision not to use an asynchronous runtime like Tokio is a significant missed opportunity. Using Tokio’s asynchronous runtime would considerably improve scalability, CPU utilization, and responsiveness, especially if the project grows in complexity or elevator count.
+- The FSM implementation (`fsm.rs`) shows good use of Rust enums and state management patterns, though some logic is duplicated or verbose, such as repeated match patterns, indicating possibilities for simplification through more abstraction or helper methods.
+- Overall, the system's concurrency model with threads and channels is clear, but the use of synchronous `std::thread::sleep()` for timing (`alarm.rs`, `fsm.rs`) limits scalability. Transitioning to asynchronous timers would greatly improve responsiveness and resource usage.
+- Error handling is inconsistent and somewhat unsafe; several `.unwrap()` statements in critical network operations (e.g., in `sender.rs`, `receiver.rs`, and `network.rs`) risk panics without proper context or recovery strategies, reducing reliability significantly.
+- The project structure is clear, and code modularity is good (`manager.rs`, `controller.rs`, etc.), facilitating ease of navigation and maintainability. However, some critical functionality (e.g., handling network state synchronization) lacks sufficient explanatory comments, hindering quick understanding of intent or reasoning.
+- Good adherence to Rust conventions overall, but better encapsulation and stricter management of shared state could improve maintainability. For example, mutable shared state (like the elevator `WorldView` structure) could be better protected or refactored to reduce potential race conditions or complexity.
+- Magic numbers are partly mitigated through a centralized configuration file (`config.rs`), yet certain timeouts or configuration parameters scattered in multiple modules remain hard-coded and should be consolidated to improve maintainability and clarity.
+
+3701d923
+9
+- Good use of asynchronous programming patterns with `tokio`, which supports concurrent handling of tasks clearly and efficiently.
+- Effective use of `Arc`, `RwLock`, and `Mutex` demonstrates thoughtful consideration of thread safety and concurrent data management, though extensive use of locks might lead to performance bottlenecks or potential deadlocks in more complex scenarios.
+- Consistent application of Rust features such as `Lazy` initialization (`once_cell`) and environment variable handling enhances flexibility, but the extensive reliance on environment variables could complicate debugging or setup for new users.
+- Code readability is generally good due to meaningful naming conventions; however, certain function names or module paths (`data`, `utils`) remain vague and could be improved for quicker understanding.
+- Comments are present but overly informal at times, mixing humorous or casual language (e.g., "Killing myself... ReeeEEEEeeee!") with technical explanations. More professional and concise commenting could enhance clarity(JK).
+- The handling of network disconnection (`network_status`) is clear, yet abruptly terminating the application (`std::process::exit(1)`) might not be ideal for robustness or recovery in real-world scenarios.
+- Configuration handling via environment variables (`ELEVATOR_NETWORK_ID`, `NUMBER_FLOORS`) is functional but lacks clear error-handling or informative fallback procedures for incorrect inputs or missing configurations, potentially causing runtime errors.
+- NØØØØØØØØØØØØØØØØØØØØØØØØØØØRRRRDSSSSS
+
+975af7d1
+8
+- Good modular structure, clear separation of responsibilities across modules (`networking`, `single_elevator`, etc.), which helps readability and maintainability.
+- The FSM logic (`single_elevator/fsm.rs`) is generally understandable but contains repeated code segments, suggesting potential improvements by abstracting into helper functions.
+- The project does not utilize asynchronous Rust frameworks such as Tokio. Incorporating async/await patterns could significantly improve scalability and better utilize CPU resources, especially if the system is expanded to handle more elevators or higher message throughput.
+- Error handling usually follows Rust idioms (`Result`, `Option`), yet several `.unwrap()` calls appear without clear justification or handling, increasing the risk of unexpected panics at runtime.
+- Documentation within modules is inconsistent; critical functionality, particularly within network handling (`networking.rs`) and FSM logic, lacks sufficient explanation or clear reasoning behind design choices.
+- Configuration parameters such as `NUM_BUTTONS` and other constants are spread across different files, which complicates maintainability; centralizing these constants would simplify updates and adjustments.
+- The networking implementation (`networking.rs`) is functional but relies on abrupt termination (`process::exit(1)`) upon encountering errors. More robust error handling or recovery strategies would greatly improve reliability in practical deployments.
+
+0c25976e
+8
+- Excellent use of Tokio and asynchronous Rust features, significantly improving potential scalability and concurrency compared to synchronous threading approaches.
+- The code has a clear modular structure with clearly defined modules (`network`, `world_view`, `elevator_logic`, `utils`, etc.), aiding readability and maintainability.
+- Initialization logic (`init.rs`) is well-documented and clear, but the panic on network failure ("No internet connection on start-up will result in a panic!") could instead return an error and handle it gracefully to improve robustness.
+- Good use of Rust idioms (`Option`, `Result`, `Atomic`) throughout, but there is excessive usage of unsafe global mutable state (`config.rs`), creating risks for potential data races and making debugging more challenging.
+- Utility functions in `utils.rs` provide helpful abstraction and error logging; however, the presence of informal or overly playful comments (e.g., "Cosmic rays flipped a bit!") slightly undermines code professionalism and readability.
+- The FSM and task allocation logic (`task_allocater.rs`) is clean and structured but contains incomplete implementations and placeholder comments (e.g., "Denne delen av prosjektet er 'ikke påbegynt'"), indicating the codebase needs further development for reliability.
+- Networking logic (`udp_broadcast.rs`, `tcp_network.rs`) appears robust, with clear message handling and task spawning. Yet, abrupt termination or panic in scenarios such as network failures should be replaced with proper error propagation and recovery logic to increase resilience in real-world deployments.

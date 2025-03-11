@@ -4,37 +4,58 @@ use std::sync::Arc;
 use crate::world_view::world_view::Task;
 
 
+/// Represents different types of elevator messages.
 #[derive(Debug)]
 pub enum ElevMsgType {
+    /// Call button press event.
     CBTN,
+    /// Floor sensor event.
     FSENS,
+    /// Stop button press event.
     SBTN,
+    /// Obstruction detected event.
     OBSTRX,
 }
 
+/// Represents a message related to elevator events.
 #[derive(Debug)]
 pub struct ElevMessage {
+    /// The type of elevator message.
     pub msg_type: ElevMsgType,
+    /// Optional call button information, if applicable.
     pub call_button: Option<CallButton>,
+    /// Optional floor sensor reading, indicating the current floor.
     pub floor_sensor: Option<u8>,
+    /// Optional stop button state (`true` if pressed).
     pub stop_button: Option<bool>,
+    /// Optional obstruction status (`true` if obstruction detected).
     pub obstruction: Option<bool>,
 }
 
 
+
 // --- MPSC-KANALAR ---
-
+/// Struct containing multiple MPSC (multi-producer, single-consumer) sender channels.
+/// These channels are primarely used to send data to the task updating the local worldview.
+#[allow(missing_docs)]
 pub struct MpscTxs {
+    /// Sends a UDP worldview packet.
     pub udp_wv: mpsc::Sender<Vec<u8>>,
+    /// Notifies if the TCP connection to the master has failed.
     pub tcp_to_master_failed: mpsc::Sender<bool>,
+    /// Sends elevator containers recieved from slaves on TCP.
     pub container: mpsc::Sender<Vec<u8>>,
+    /// Requests the removal of a container by ID.
     pub remove_container: mpsc::Sender<u8>,
+    /// Sends messages from the local elevator.
     pub local_elev: mpsc::Sender<ElevMessage>,
+    /// Sends a TCP container message that has been transmitted to the master.
     pub sent_tcp_container: mpsc::Sender<Vec<u8>>,
-
-    // 10 nye buffer-kanalar
+    /// Sends a new task along with associated data.
     pub new_task: mpsc::Sender<(Task, u8, CallButton)>,
+    /// Updates the status of a task.
     pub update_task_status: mpsc::Sender<(u16, TaskStatus)>,
+    /// Additional buffered channels for various data streams.
     pub mpsc_buffer_ch2: mpsc::Sender<Vec<u8>>,
     pub mpsc_buffer_ch3: mpsc::Sender<Vec<u8>>,
     pub mpsc_buffer_ch4: mpsc::Sender<Vec<u8>>,
@@ -45,17 +66,27 @@ pub struct MpscTxs {
     pub mpsc_buffer_ch9: mpsc::Sender<Vec<u8>>,
 }
 
+/// Struct containing multiple MPSC (multi-producer, single-consumer) receiver channels.
+/// These channels are used to receive data from different parts of the system.
+#[allow(missing_docs)]
 pub struct MpscRxs {
+    /// Receives a UDP worldview packet.
     pub udp_wv: mpsc::Receiver<Vec<u8>>,
+    /// Receives a notification if the TCP connection to the master has failed.
     pub tcp_to_master_failed: mpsc::Receiver<bool>,
+    /// Receives elevator containers recieved from slaves on TCP.
     pub container: mpsc::Receiver<Vec<u8>>,
+    /// Receives requests to remove a container by ID.
     pub remove_container: mpsc::Receiver<u8>,
+    /// Receives messages from the local elevator.
     pub local_elev: mpsc::Receiver<ElevMessage>,
+    /// Receives TCP container messages that have been transmitted.
     pub sent_tcp_container: mpsc::Receiver<Vec<u8>>,
-
-    // 10 nye buffer-kanalar
+    /// Receives new tasks along with associated data.
     pub new_task: mpsc::Receiver<(Task, u8, CallButton)>,
+    /// Receives updates for the status of a task.
     pub update_task_status: mpsc::Receiver<(u16, TaskStatus)>,
+    /// Additional buffered channels for various data streams.
     pub mpsc_buffer_ch2: mpsc::Receiver<Vec<u8>>,
     pub mpsc_buffer_ch3: mpsc::Receiver<Vec<u8>>,
     pub mpsc_buffer_ch4: mpsc::Receiver<Vec<u8>>,
@@ -91,12 +122,16 @@ impl Clone for MpscTxs {
     }
 }
 
+/// Struct that combines MPSC senders and receivers into a single entity.
 pub struct Mpscs {
+    /// Contains all sender channels.
     pub txs: MpscTxs,
+    /// Contains all receiver channels.
     pub rxs: MpscRxs,
 }
 
 impl Mpscs {
+    /// Creates a new `Mpscs` instance with initialized channels.
     pub fn new() -> Self {
         let (tx_udp, rx_udp) = mpsc::channel(300);
         let (tx1, rx1) = mpsc::channel(300);
@@ -212,21 +247,35 @@ impl Clone for Mpscs {
 
 // --- BROADCAST-KANALAR ---
 
+/// Contains broadcast senders for various events and channels.
 pub struct BroadcastTxs {
+    /// Sender for signaling system shutdown.
     pub shutdown: broadcast::Sender<()>,
+    /// Sender for broadcasting messages on buffer channel 1.
     pub broadcast_buffer_ch1: broadcast::Sender<bool>,
+    /// Sender for broadcasting messages on buffer channel 2.
     pub broadcast_buffer_ch2: broadcast::Sender<bool>,
+    /// Sender for broadcasting messages on buffer channel 3.
     pub broadcast_buffer_ch3: broadcast::Sender<bool>,
+    /// Sender for broadcasting messages on buffer channel 4.
     pub broadcast_buffer_ch4: broadcast::Sender<bool>,
+    /// Sender for broadcasting messages on buffer channel 5.
     pub broadcast_buffer_ch5: broadcast::Sender<bool>,
 }
 
+/// Contains broadcast receivers for various events and channels.
 pub struct BroadcastRxs {
+    /// Receiver for system shutdown signals.
     pub shutdown: broadcast::Receiver<()>,
+    /// Receiver for messages on buffer channel 1.
     pub broadcast_buffer_ch1: broadcast::Receiver<bool>,
+    /// Receiver for messages on buffer channel 2.
     pub broadcast_buffer_ch2: broadcast::Receiver<bool>,
+    /// Receiver for messages on buffer channel 3.
     pub broadcast_buffer_ch3: broadcast::Receiver<bool>,
+    /// Receiver for messages on buffer channel 4.
     pub broadcast_buffer_ch4: broadcast::Receiver<bool>,
+    /// Receiver for messages on buffer channel 5.
     pub broadcast_buffer_ch5: broadcast::Receiver<bool>,
 }
 
@@ -244,6 +293,10 @@ impl Clone for BroadcastTxs {
 }
 
 impl BroadcastTxs {
+    /// Creates a new set of receivers (`BroadcastRxs`) subscribing to the current senders.
+    ///
+    /// # Returns
+    /// A `BroadcastRxs` instance that listens to all broadcast channels.
     pub fn subscribe(&self) -> BroadcastRxs {
         BroadcastRxs {
             shutdown: self.shutdown.subscribe(),
@@ -257,6 +310,10 @@ impl BroadcastTxs {
 }
 
 impl BroadcastRxs {
+    /// Resubscribes to all broadcast channels, creating new receivers.
+    ///
+    /// # Returns
+    /// A fresh `BroadcastRxs` instance with new subscriptions.
     pub fn resubscribe(&self) -> BroadcastRxs {
         BroadcastRxs {
             shutdown: self.shutdown.resubscribe(),
@@ -269,24 +326,20 @@ impl BroadcastRxs {
     }
 }
 
-/// ## Structen inneholder alle Broadcast kanalene
-/// 
-/// Navn på kanalene er matchende for `txs` og `rxs`:
-///
-/// | Variabel  | Beskrivelse  |
-/// |-----------|-------------|
-/// | **shutdown**  | Signaliserer til alle tråder at de skal avslutte |
-/// | **update_task_status**  | Buffer til fremtidig bruk |
-/// | **mpsc_buffer_ch2**  | Buffer til fremtidig bruk |
-/// | **mpsc_buffer_ch3**  | Buffer til fremtidig bruk |
-/// | **local_elev**  | Buffer til fremtidig bruk |
-/// | **sent_tcp_container**  | Buffer til fremtidig bruk |
+
+/// Encapsulates both broadcast senders (`BroadcastTxs`) and receivers (`BroadcastRxs`).
 pub struct Broadcasts {
+    /// Transmitters for broadcasting messages.
     pub txs: BroadcastTxs,
+    /// Receivers for listening to broadcasted messages.
     pub rxs: BroadcastRxs,
 }
 
 impl Broadcasts {
+    /// Creates a new `Broadcasts` instance with initialized channels.
+    ///
+    /// # Returns
+    /// A `Broadcasts` instance containing senders and receivers.
     pub fn new() -> Self {
         let (shutdown_tx, shutdown_rx) = broadcast::channel(1);
         let (tx1, rx1) = broadcast::channel(1);
@@ -315,6 +368,10 @@ impl Broadcasts {
         }
     }
 
+    /// Subscribes to all broadcast channels.
+    ///
+    /// # Returns
+    /// A new `BroadcastRxs` instance listening to all channels.
     pub fn subscribe(&self) -> BroadcastRxs {
         self.txs.subscribe()
     }
@@ -330,16 +387,24 @@ impl Clone for Broadcasts {
 }
 
 // --- WATCH-KANALER ---
+/// Struct containing watch senders for broadcasting state updates.
 pub struct WatchTxs {
+    /// Sender for the `wv` channel, transmitting a vector of bytes.
     pub wv: watch::Sender<Vec<u8>>,
+    /// Sender for the `elev_task` channel, transmitting a list of tasks.
     pub elev_task: watch::Sender<Vec<Task>>,
+    /// Boolean sender for `watch_buffer_ch2`.
     pub watch_buffer_ch2: watch::Sender<bool>,
+    /// Boolean sender for `watch_buffer_ch3`.
     pub watch_buffer_ch3: watch::Sender<bool>,
+    /// Boolean sender for `watch_buffer_ch4`.
     pub watch_buffer_ch4: watch::Sender<bool>,
+    /// Boolean sender for `watch_buffer_ch5`.
     pub watch_buffer_ch5: watch::Sender<bool>,
 }
 
 impl Clone for WatchTxs {
+    /// Clones the `WatchTxs` instance, creating new handles to the same watch channels.
     fn clone(&self) -> WatchTxs {
         WatchTxs {
             wv: self.wv.clone(),
@@ -352,16 +417,24 @@ impl Clone for WatchTxs {
     }
 }
 
+/// Struct containing watch receivers for listening to state updates.
 pub struct WatchRxs {
+    /// Receiver for the `wv` channel, listening to a vector of bytes.
     pub wv: watch::Receiver<Vec<u8>>,
+    /// Receiver for the `elev_task` channel, listening to a list of tasks.
     pub elev_task: watch::Receiver<Vec<Task>>,
+    /// Boolean receiver for `watch_buffer_ch2`.
     pub watch_buffer_ch2: watch::Receiver<bool>,
+    /// Boolean receiver for `watch_buffer_ch3`.
     pub watch_buffer_ch3: watch::Receiver<bool>,
+    /// Boolean receiver for `watch_buffer_ch4`.
     pub watch_buffer_ch4: watch::Receiver<bool>,
+    /// Boolean receiver for `watch_buffer_ch5`.
     pub watch_buffer_ch5: watch::Receiver<bool>,
 }
 
 impl Clone for WatchRxs {
+    /// Clones the `WatchRxs` instance, creating new handles to the same watch channels.
     fn clone(&self) -> WatchRxs {
         WatchRxs {
             wv: self.wv.clone(),
@@ -374,24 +447,17 @@ impl Clone for WatchRxs {
     }
 }
 
-/// ## Structen inneholder alle Watch kanalene
-/// 
-/// Navn på kanalene er matchende for `txs` og `rxs`:
-///
-/// | Variabel  | Beskrivelse  |
-/// |-----------|-------------|
-/// | **wv**  | wv oppdateres av ´world_view_handler´ og leses av i ´get_wv´ |
-/// | **update_task_status**  | Buffer til fremtidig bruk |
-/// | **mpsc_buffer_ch2**  | Buffer til fremtidig bruk |
-/// | **mpsc_buffer_ch3**  | Buffer til fremtidig bruk |
-/// | **local_elev**  | Buffer til fremtidig bruk |
-/// | **sent_tcp_container**  | Buffer til fremtidig bruk |
+
+/// Struct encapsulating both watch senders (`WatchTxs`) and receivers (`WatchRxs`).
 pub struct Watches {
+    /// Transmitters for watch channels.
     pub txs: WatchTxs,
+    /// Receivers for watch channels.
     pub rxs: WatchRxs,
 }
 
 impl Clone for Watches {
+    /// Clones the `Watches` instance, ensuring the new instance subscribes to the channels.
     fn clone(&self) -> Watches {
         Watches {
             txs: self.txs.clone(),
@@ -401,6 +467,10 @@ impl Clone for Watches {
 }
 
 impl Watches {
+    /// Creates a new `Watches` instance with initialized watch channels.
+    ///
+    /// # Returns
+    /// A `Watches` instance containing both senders and receivers.
     pub fn new() -> Self {
         let (wv_tx, wv_rx) = watch::channel(Vec::<u8>::new());
         let (tx1, rx1) = watch::channel(Vec::new());
@@ -431,7 +501,6 @@ impl Watches {
 }
 
 // --- SEMAPHORE-KANALAR ---
-
 pub struct Semaphores {
     pub tcp_sent: Arc<Semaphore>,
     pub sem_buffer: Arc<Semaphore>,
@@ -459,17 +528,23 @@ impl Clone for Semaphores {
 // --- OVERKLASSE FOR ALLE KANALAR ---
 
 
-/// ## Overklasse for alle interne kanaler
-/// 
-/// Inneholder `MPSC`, `Broadcast` og `Watch` kanaler
+/// Struct containing various communication mechanisms for local inter-thread messaging.
 pub struct LocalChannels {
+    /// Multi-producer, single-consumer channels.
     pub mpscs: Mpscs,
+    /// Broadcast channels for multi-receiver communication.
     pub broadcasts: Broadcasts,
+    /// Watch channels for state tracking.
     pub watches: Watches,
+    /// Semaphores for synchronization.
     pub semaphores: Semaphores,
 }
 
 impl LocalChannels {
+    /// Creates a new instance of `LocalChannels` with all channels initialized.
+    ///
+    /// # Returns
+    /// A `LocalChannels` instance with `Mpscs`, `Broadcasts`, `Watches`, and `Semaphores`.
     pub fn new() -> Self {
         LocalChannels {
             mpscs: Mpscs::new(),
@@ -479,10 +554,16 @@ impl LocalChannels {
         }
     }
 
+    /// Subscribes to the broadcast channels, updating the receiver set.
+    ///
+    /// This function should be called when a new receiver needs to listen to broadcasts.
     pub fn subscribe_broadcast(&mut self) {
         self.broadcasts.rxs = self.broadcasts.subscribe();
     }
 
+    /// Resubscribes to the broadcast channels, refreshing the receiver set.
+    ///
+    /// This function should be called when existing broadcast receivers need to be updated.
     pub fn resubscribe_broadcast(&mut self) {
         self.broadcasts.rxs = self.broadcasts.rxs.resubscribe();
     }

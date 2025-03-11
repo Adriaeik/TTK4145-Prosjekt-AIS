@@ -1,12 +1,18 @@
 [package]
-name = "elevator_pro"
-version = "0.1.0"
+name = "elevatorpro" #navn til crate to crates.io
+version = "0.0.4" #version nummer, må endres hver gang man oppdaterer docs og kode. Pass på å kjøre cargo doc og cargo update før cargo publish
 edition = "2021"
+authors = ["Ravn Erik Budde", "Adrian Valaker Eikeland"]
+readme = "README.md"
+documentation = "https://docs.rs/elevatorpro"
+description = "TTK4145 Real-time Programming elevator project, Group 25, spring 2025"
+repository = "https://github.com/Adriaeik/TTK4145-Prosjekt-AIS"
+license-file = "LICENSE.txt"
 
 [dependencies]
 crossbeam-channel = "0.5" #ikkje gløym denne
-tokio = {version = "1", features = ["full"]}
-serde = { version = "1.0", features = ["derive"] }
+tokio = {version = "1", features = ["full"]} #bytt denne til det vi faktisk bruker så doc ikke blir mega
+serde = { version = "1.0", features = ["derive"] } #samme her, sikkert på samtlige nedover her og
 serde_json = "1.0"
 socket2 = "0.5.8"
 local-ip-address = "0.6.3"
