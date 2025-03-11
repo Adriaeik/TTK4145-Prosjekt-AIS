@@ -63,8 +63,10 @@ pub async fn delegate_tasks(chs: LocalChannels, mut container_ch: mpsc::Receiver
                     let mut tasks_to_remove = Vec::new();
                     for (_, elev) in elevators_unlocked.iter_mut().filter(|(_, e)| e.state == ElevatorStatus::IDLE) {
                         if let Some(task) = elev.current_task.clone() {
-                            tasks_to_remove.push(task);
-                            let _ = chs_clone.mpscs.txs.new_task.send((elev.id, None)).await;
+                            if task.call.floor == elev.floor {
+                                tasks_to_remove.push(task);
+                                let _ = chs_clone.mpscs.txs.new_task.send((elev.id, None)).await;
+                            }
                         }
                     }
 
