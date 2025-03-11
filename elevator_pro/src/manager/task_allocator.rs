@@ -133,7 +133,7 @@ fn update_elevator(elevators: &mut HashMap<u8, ElevatorState>, elevator_containe
 
     let mut new_tasks = Vec::new();
     for call in elevator_container.calls {
-        *task_id = ((*task_id % u16::MAX) - u8::MAX as u16) + 1;
+        *task_id = (*task_id % (u16::MAX - u8::MAX as u16)) + 1;
         // print!("Knapp: {:?}", call);
         let task = Task { id: *task_id, call: call};
         new_tasks.push(task.clone());
