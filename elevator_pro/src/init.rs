@@ -197,46 +197,55 @@ pub async fn check_for_udp() -> Vec<u8> {
 /// `help` &rarr; Displays all possible arguments without starting the program  
 /// 
 /// If no arguments are provided, all prints are enabled by default.
-pub fn parse_args() {
+pub fn parse_args() -> bool {
     let args: Vec<String> = env::args().collect();
-    
-    if args.len() > 1 {
-        for arg in &args[1..] {
-            let parts: Vec<&str> = arg.split("::").collect();
-            if parts.len() == 2 {
-                let key = parts[0].to_lowercase();
-                let value = parts[1].to_lowercase();
-                let is_true = value == "true";
 
-                unsafe {
-                    match key.as_str() {
-                        "print_wv" => config::PRINT_WV_ON = is_true,
-                        "print_err" => config::PRINT_ERR_ON = is_true,
-                        "print_warn" => config::PRINT_WARN_ON = is_true,
-                        "print_ok" => config::PRINT_OK_ON = is_true,
-                        "print_info" => config::PRINT_INFO_ON = is_true,
-                        "print_else" => config::PRINT_ELSE_ON = is_true,
-                        "debug" => { // Debug modus: Kun error-meldingar
-                            config::PRINT_WV_ON = false;
-                            config::PRINT_WARN_ON = false;
-                            config::PRINT_OK_ON = false;
-                            config::PRINT_INFO_ON = false;
-                            config::PRINT_ELSE_ON = false;
-                        }
-                        _ => {}
+    // Hvis det ikke finnes argumenter, returner false
+    if args.len() <= 0 {
+        return false;
+    }
+
+    for arg in &args[1..] {
+        let parts: Vec<&str> = arg.split("::").collect();
+        if parts.len() == 2 {
+            let key = parts[0].to_lowercase();
+            let value = parts[1].to_lowercase();
+            let is_true = value == "true";
+
+            unsafe {
+                match key.as_str() {
+                    "print_wv" => config::PRINT_WV_ON = is_true,
+                    "print_err" => config::PRINT_ERR_ON = is_true,
+                    "print_warn" => config::PRINT_WARN_ON = is_true,
+                    "print_ok" => config::PRINT_OK_ON = is_true,
+                    "print_info" => config::PRINT_INFO_ON = is_true,
+                    "print_else" => config::PRINT_ELSE_ON = is_true,
+                    "debug" => { // Debug modus: Kun error-meldingar
+                        config::PRINT_WV_ON = false;
+                        config::PRINT_WARN_ON = false;
+                        config::PRINT_OK_ON = false;
+                        config::PRINT_INFO_ON = false;
+                        config::PRINT_ELSE_ON = false;
                     }
+                    _ => {}
                 }
-            } else if arg.to_lowercase() == "help" {
-                println!("Tilgjengelige argument:");
-                println!("  print_wv::true/false");
-                println!("  print_err::true/false");
-                println!("  print_warn::true/false");
-                println!("  print_ok::true/false");
-                println!("  print_info::true/false");
-                println!("  print_else::true/false");
-                println!("  debug (kun error-meldingar vises)");
-                std::process::exit(0);
             }
+        } else if arg.to_lowercase() == "help" {
+            println!("Tilgjengelige argument:");
+            println!("  print_wv::true/false");
+            println!("  print_err::true/false");
+            println!("  print_warn::true/false");
+            println!("  print_ok::true/false");
+            println!("  print_info::true/false");
+            println!("  print_else::true/false");
+            println!("  debug (kun error-meldingar vises)");
+            println!("  backup (starter backup-prosess)");
+            std::process::exit(0);
+        } else if arg.to_lowercase() == "backup" {
+            return true;
         }
     }
+
+    // Hvis ingen av argumentene matcher "backup", returner false
+    false
 }

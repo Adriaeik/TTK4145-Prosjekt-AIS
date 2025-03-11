@@ -46,6 +46,12 @@ pub const TCP_PERIOD: Duration = Duration::from_millis(TCP_PER_U64);
 /// Timeout duration of slave-nodes
 pub const SLAVE_TIMEOUT: Duration = Duration::from_millis(100);
 
+/// Timeout duration of master-nodes
+pub const MASTER_TIMEOUT: Duration = Duration::from_secs(5); // 5 sekunder før failover
+
+/// Timeout duration of backup-nodes
+pub const BACKUP_TIMEOUT: Duration = Duration::from_secs(5); // 5 sekunder før failover
+
 /// Size used for buffer when reading UDP broadcasts
 pub const UDP_BUFFER: usize = u16::MAX as usize;
 

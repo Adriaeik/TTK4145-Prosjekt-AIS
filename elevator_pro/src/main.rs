@@ -3,7 +3,16 @@ use tokio::sync::mpsc;
 use tokio::net::TcpStream;
 use std::net::SocketAddr;
 
-use elevatorpro::{elevator_logic::master::task_allocater, network::{local_network, tcp_network, tcp_self_elevator, udp_broadcast}, utils, world_view::{world_view, world_view_ch, world_view_update}};
+use std::sync::Arc;
+use tokio::sync::Mutex;
+use tokio::task;
+use tokio::time::sleep;
+
+use elevatorpro::{elevator_logic::master::task_allocater, 
+                network::{local_network, tcp_network, tcp_self_elevator, udp_broadcast}, 
+                utils, 
+                world_view::{world_view, world_view_ch, world_view_update},
+                backup::backup};
 use elevatorpro::init;
 
 
@@ -11,8 +20,41 @@ use elevatorpro::init;
 
 #[tokio::main]
 async fn main() {
-    // Oppdater config-verdier basert på argumenter
-    init::parse_args();
+    // Sjekk om programmet startes som backup, retunerer true visst den blei det
+    // vi starter i bacup med å skrive "cargo r -- backup"
+    let mut is_backup = init::parse_args();
+    
+
+    if is_backup {
+        println!("Starter backup-prosess...");
+        backup::run_as_backup().await;
+
+        is_backup = false;
+        //TODO: Visst vi er backup. så skal vi subscribe på TCP porten til år hovukode og den sender oss wv over TCP. 
+        //TODO: vi skal så monitore connection, og printe WV med 
+        /*
+                 //Task som printer worldview
+                let _print_task = tokio::spawn(async move {
+                    let mut wv = utils::get_wv(chs_print.clone());
+                    loop {
+                        let chs_clone = chs_print.clone();
+                        if utils::update_wv(chs_clone, &mut wv).await {
+                            world_view::print_wv(wv.clone());
+                            tokio::time::sleep(Duration::from_millis(500)).await;
+                        }
+                    }
+                });
+
+         */
+        //TODO: (*TIL slutt*) Dersom vi tapar connection til master skal vi ta vare på ferdige oppgåver og starte med desse i WV slik at dei ikkje går tapt
+        // Når det er fullført så brytes denne løkka og vi vil automatisk 
+    }
+
+    // 🚀 Hvis vi ikke er backup, starter vi som master!
+
+
+    // Vanlig hovedprosess starter her:
+    utils::print_info("Starter hovedprosess...".to_string());
 
 /* START ----------- Task for å overvake Nettverksstatus ---------------------- */
     /* oppdaterer ein atomicbool der true er online, false er då offline */
@@ -26,6 +68,7 @@ async fn main() {
 
 /*Skaper oss eit verdensbildet ved fødselen, vi tar vår første pust */
     let worldview_serialised = init::initialize_worldview().await;
+
     
 /* START ----------- Init av lokale channels ---------------------- */
     //Kun bruk mpsc-rxene fra main_local_chs
@@ -44,6 +87,7 @@ async fn main() {
     let chs_listener = main_local_chs.clone();
     let chs_local_elev = main_local_chs.clone();
     let chs_task_allocater = main_local_chs.clone();
+    let chs_backup = main_local_chs.clone();
     let mut chs_loop = main_local_chs.clone();
     let (socket_tx, socket_rx) = mpsc::channel::<(TcpStream, SocketAddr)>(100);
 /* SLUTT ----------- Kloning av lokale channels til Tokio Tasks ---------------------- */                                                     
@@ -61,7 +105,9 @@ async fn main() {
     });
 /* SLUTT ----------- Starte kritiske tasks ----------- */
 
-
+    // Start backup server i en egen task
+    tokio::spawn(backup::start_backup_server(/*subscribe på wv chanel */chs_backup ));
+        
 /* START ----------- Starte Eksterne Nettverkstasks ---------------------- */
     //Task som hører etter UDP-broadcasts
     let _listen_task = tokio::spawn(async move {
@@ -111,7 +157,5 @@ async fn main() {
     //Vent med å avslutte programmet
     let _ = chs_loop.broadcasts.rxs.shutdown.recv().await;
 }
-
-
 
 
