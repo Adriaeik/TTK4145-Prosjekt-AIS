@@ -10,6 +10,8 @@ use std::collections::HashSet;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::OnceLock;
 
+use super::world_view::ElevatorStatus;
+
 
 static ONLINE: OnceLock<AtomicBool> = OnceLock::new(); 
 
@@ -368,25 +370,18 @@ pub fn clear_from_sent_tcp(wv: &mut Vec<u8>, tcp_container: Vec<u8>) -> bool {
 //     false
 // }
 
-/// ### Oppdaterer status til `new_status` til task med `id` i egen heis_container.tasks_status
-// pub fn update_task_status(wv: &mut Vec<u8>, task_id: u16, new_status: TaskStatus) -> bool {
-//     let mut wv_deser = world_view::deserialize_worldview(&wv);
-//     let self_idx = world_view::get_index_to_container(utils::SELF_ID.load(Ordering::SeqCst), wv.clone());
+// / ### Oppdaterer status til `new_status` til task med `id` i egen heis_container.tasks_status
+pub fn update_elev_state(wv: &mut Vec<u8>, status: ElevatorStatus) -> bool {
+    let mut wv_deser = world_view::deserialize_worldview(&wv);
+    let self_idx = world_view::get_index_to_container(utils::SELF_ID.load(Ordering::SeqCst), wv.clone());
 
-//     if let Some(i) = self_idx {
-//         // Finner `task` i tasks_status og setter status til `new_status`
-//         if let Some(task) = wv_deser.elevator_containers[i]
-//             .tasks_status
-//             .iter_mut()
-//             .find(|t| t.id == task_id) 
-//             {
-//                 task.status = new_status.clone();
-//             }
-//     }
-//     // println!("Satt {:?} på id: {}", new_status, task_id);
-//     *wv = world_view::serialize_worldview(&wv_deser);
-//     true
-// }
+    if let Some(i) = self_idx {
+        wv_deser.elevator_containers[i].status = status;
+    }
+    // println!("Satt {:?} på id: {}", new_status, task_id);
+    *wv = world_view::serialize_worldview(&wv_deser);
+    true
+}
 
 /// Monitors the Ethernet connection status asynchronously.
 ///
