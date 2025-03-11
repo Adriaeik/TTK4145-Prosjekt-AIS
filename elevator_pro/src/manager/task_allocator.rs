@@ -43,19 +43,34 @@ pub async fn delegate_tasks(chs: LocalChannels, mut container_ch: mpsc::Receiver
     
     let tasks_clone = tasks.clone(); 
     let elevator_clone = elevators.clone();
+
+    // Lager egen task å lese container-meldinger, så den leser fort nok (cost fcn tar litt tid)
     tokio::spawn(async move {
+        let mut task_id: u16 = 0;
         loop {
             sleep(Duration::from_millis(1));
-            println!("Meldinger i kø: {}", container_ch.len());
+            // println!("Meldinger i kø: {}", container_ch.len());
             match container_ch.try_recv() {
                 Ok(cont_ser) => {
                     // println!("Fikk melding fra slave heis");
                     let mut elevators_unlocked = elevator_clone.write().await;
-                    let mut new_tasks = update_elevator(&mut elevators_unlocked, deserialize_elev_container(&cont_ser)); // Oppdater states
+                    let mut new_tasks = update_elevator(&mut elevators_unlocked, deserialize_elev_container(&cont_ser), &mut task_id); // Oppdater states
+                    
+                    // Gå gjennom elevators. hvis de er idle, fjern tasken dems fra tasks
+                    // Gå gjennom heiser. Hvis de er IDLE, fjern deres `current_task`
+                    let mut tasks_to_remove = Vec::new();
+                    for (_, elev) in elevators_unlocked.iter_mut().filter(|(_, e)| e.state == ElevatorStatus::IDLE) {
+                        if let Some(task) = elev.current_task.clone() {
+                            tasks_to_remove.push(task);
+                        }
+                    }
+
+                    
                     // Sjekk for heisar som har "timea ut" og samle opp oppgåver dei har
                     let mut dead_tasks = detect_dead_elevators(&mut elevators_unlocked, config::TASK_TIMEOUT);
                     new_tasks.append(&mut dead_tasks);
                     let mut tasks_locked = tasks_clone.lock().await;
+                    tasks_locked.retain(|t| !tasks_to_remove.iter().any(|ot| ot.id == t.id));
                     tasks_locked.append(&mut new_tasks);
                 },
                 Err(_) => {},
@@ -72,7 +87,6 @@ pub async fn delegate_tasks(chs: LocalChannels, mut container_ch: mpsc::Receiver
         }
         {
             elevator_copy = elevators.read().await.clone();
-
         }
 
 
@@ -80,7 +94,6 @@ pub async fn delegate_tasks(chs: LocalChannels, mut container_ch: mpsc::Receiver
         update_cost_map(&mut cost_map, elevator_copy.clone(), tasks_vec_copy.clone());
         // For kvar heis, finn oppgåva med lågast kostnad og deleger den
         for (id, elevator) in elevator_copy.iter_mut() {
-            
             if let Some(task_costs) = cost_map.get(id) {
                 if let Some((best_task, _best_cost)) = task_costs.iter().min_by(|a, b| {
                     a.1.cmp(&b.1)
@@ -90,7 +103,7 @@ pub async fn delegate_tasks(chs: LocalChannels, mut container_ch: mpsc::Receiver
                     // send_task_to_elevator(*id, best_task.clone());
                     elevator.current_task = Some(best_task.clone());
                     // println!("Best task for ID {} is {:?}", *id, best_task.clone());
-                    
+                    let _ = chs.mpscs.txs.new_task.send((*id, Some(best_task.clone()))).await;
                     // Viss nødvendig: Fjern oppgåva frå den globale lista for å unngå at den vert delegert fleire gonger.
                 }
             }
@@ -101,7 +114,7 @@ pub async fn delegate_tasks(chs: LocalChannels, mut container_ch: mpsc::Receiver
 
 /// Får inn hashmap med alle elevatorstates, oppdaterer statuser basert på elevcontainer mottat på TCP
 /// Oppdaterer også tiden vi sist hørte fra den
-fn update_elevator(elevators: &mut HashMap<u8, ElevatorState>, elevator_container: ElevatorContainer) -> Vec<Task> {
+fn update_elevator(elevators: &mut HashMap<u8, ElevatorState>, elevator_container: ElevatorContainer, task_id: &mut u16) -> Vec<Task> {
     let entry = elevators.entry(elevator_container.elevator_id).or_insert(ElevatorState {
         id: elevator_container.elevator_id,
         floor: elevator_container.last_floor_sensor,
@@ -120,8 +133,9 @@ fn update_elevator(elevators: &mut HashMap<u8, ElevatorState>, elevator_containe
 
     let mut new_tasks = Vec::new();
     for call in elevator_container.calls {
+        *task_id = ((*task_id % u16::MAX) - u8::MAX as u16) + 1;
         // print!("Knapp: {:?}", call);
-        let task = Task { id: 69, call: call};
+        let task = Task { id: *task_id, call: call};
         new_tasks.push(task.clone());
         // println!("    Tilsvarende task: {:?}", task.clone());
     }

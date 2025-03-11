@@ -53,7 +53,7 @@ pub struct MpscTxs {
     /// Sends a TCP container message that has been transmitted to the master.
     pub sent_tcp_container: mpsc::Sender<Vec<u8>>,
     /// Sends a new task along with associated data.
-    pub new_task: mpsc::Sender<(Task, u8, CallButton)>,
+    pub new_task: mpsc::Sender<(u8, Option<Task>)>,
     /// Updates the status of a task.
     pub update_elev_state: mpsc::Sender<ElevatorStatus>,
     /// Additional buffered channels for various data streams.
@@ -84,7 +84,7 @@ pub struct MpscRxs {
     /// Receives TCP container messages that have been transmitted.
     pub sent_tcp_container: mpsc::Receiver<Vec<u8>>,
     /// Receives new tasks along with associated data.
-    pub new_task: mpsc::Receiver<(Task, u8, CallButton)>,
+    pub new_task: mpsc::Receiver<(u8, Option<Task>)>,
     /// Receives updates for the status of a task.
     pub update_elev_state: mpsc::Receiver<ElevatorStatus>,
     /// Additional buffered channels for various data streams.

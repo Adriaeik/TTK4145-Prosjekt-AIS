@@ -11,7 +11,7 @@ use std::collections::HashSet;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::OnceLock;
 
-use super::world_view::{serialize_elev_container, ElevatorStatus};
+use super::world_view::{get_index_to_container, serialize_elev_container, serialize_worldview, ElevatorStatus};
 
 
 static ONLINE: OnceLock<AtomicBool> = OnceLock::new(); 
@@ -351,28 +351,39 @@ pub fn clear_from_sent_tcp(wv: &mut Vec<u8>, tcp_container: Vec<u8>) -> bool {
 /// ### Gir `task` til slave med `id`
 /// 
 /// Ikke ferdig implementert
-// pub fn push_task(wv: &mut Vec<u8>, task: Task, id: u8, button: CallButton) -> bool {
-//     let mut deser_wv = world_view::deserialize_worldview(&wv);
+pub fn push_task(wv: &mut Vec<u8>, id: u8, some_task: Option<Task>) -> bool {
+    let mut deser_wv = world_view::deserialize_worldview(&wv);
 
-//     // Fjern `button` frå `outside_button` om han finst
-//     if let Some(index) = deser_wv.outside_button.iter().position(|b| *b == button) {
-//         deser_wv.outside_button.swap_remove(index);
-//     }
-    
-//     let self_idx = world_view::get_index_to_container(id, wv.clone());
+    let index = get_index_to_container(id, wv.clone());
+    if let Some(i) = index {
+        deser_wv.elevator_containers[i].task = some_task;
+        *wv = serialize_worldview(&deser_wv);
+        return true
+    } else {
+        return false
+    }
 
-//     if let Some(i) = self_idx {
-//         // **Hindrar duplikatar: sjekk om task.id allereie finst i `tasks`**
-//         // NB: skal i teorien være unødvendig å sjekke dette
-//         if !deser_wv.elevator_containers[i].tasks.iter().any(|t| t.id == task.id) {
-//             deser_wv.elevator_containers[i].tasks.push(task);
-//             *wv = world_view::serialize_worldview(&deser_wv);
-//             return true;
-//         }
-//     }
+
+
+    // Fjern `button` frå `outside_button` om han finst
+    // if let Some(index) = deser_wv.outside_button.iter().position(|b| *b == button) {
+    //     deser_wv.outside_button.swap_remove(index);
+    // }
     
-//     false
-// }
+    // let self_idx = world_view::get_index_to_container(id, wv.clone());
+
+    // if let Some(i) = self_idx {
+    //     // **Hindrar duplikatar: sjekk om task.id allereie finst i `tasks`**
+    //     // NB: skal i teorien være unødvendig å sjekke dette
+    //     if !deser_wv.elevator_containers[i].tasks.iter().any(|t| t.id == task.id) {
+    //         deser_wv.elevator_containers[i].tasks.push(task);
+    //         *wv = world_view::serialize_worldview(&deser_wv);
+    //         return true;
+    //     }
+    // }
+    
+    // false
+}
 
 // / ### Oppdaterer status til `new_status` til task med `id` i egen heis_container.tasks_status
 pub fn update_elev_state(wv: &mut Vec<u8>, status: ElevatorStatus) -> bool {
