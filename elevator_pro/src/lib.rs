@@ -60,8 +60,6 @@ pub mod elevator_logic {
     pub mod master {
         /// Handles world view data from slave elevators.
         pub mod wv_from_slaves;
-        /// Allocates tasks to elevators.
-        pub mod task_allocater;
     }
 }
 

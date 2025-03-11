@@ -37,18 +37,18 @@ pub async fn execute_tasks(chs: local_network::LocalChannels, elevator: elev::El
             //utils::print_err(format!("TODO: {}, last_floor: {}", 0, container.last_floor_sensor));
             if task.call.floor < container.last_floor_sensor {
                 elevator.motor_direction(elev::DIRN_DOWN);
-                let _ = chs.mpscs.txs.update_elev_state.send(ElevatorStatus::Down);
+                let _ = chs.mpscs.txs.update_elev_state.send(ElevatorStatus::DOWN);
             }
             else if task.call.floor > container.last_floor_sensor {
                 elevator.motor_direction(elev::DIRN_UP);
-                let _ = chs.mpscs.txs.update_elev_state.send(ElevatorStatus::Up);
+                let _ = chs.mpscs.txs.update_elev_state.send(ElevatorStatus::UP);
             }
             else {
                 elevator.motor_direction(elev::DIRN_STOP);
-                let _ = chs.mpscs.txs.update_elev_state.send(ElevatorStatus::DoorOpen);
+                let _ = chs.mpscs.txs.update_elev_state.send(ElevatorStatus::DOOR_OPEN);
                 // open_door_protocol().await;
                 sleep(Duration::from_millis(3000));
-                let _ = chs.mpscs.txs.update_elev_state.send(ElevatorStatus::Idle);
+                let _ = chs.mpscs.txs.update_elev_state.send(ElevatorStatus::IDLE);
             }
         }
     }
