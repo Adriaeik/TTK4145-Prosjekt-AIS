@@ -106,11 +106,11 @@ pub async fn delegate_tasks(chs: LocalChannels, mut container_ch: mpsc::Receiver
         for (id, elevator) in elevator_copy.iter_mut() {
             if let Some(task_costs) = cost_map.get(id) {
                 if let Some((best_task, _best_cost)) = task_costs.iter()
-                /*/.filter(|(task, _)| {
+                .filter(|(task, _)| {
                         // Behold task hvis den ikke er i active_task_ids,
                         // eller task.id er lik den nåværende heisens id
                         !active_task_ids.values().any(|assigned_task_id| *assigned_task_id == task.id) || active_task_ids.get(id) == Some(&task.id)
-                })*/
+                })
                 .min_by(|a, b| {
                     a.1.cmp(&b.1)
                 }) {
@@ -120,7 +120,7 @@ pub async fn delegate_tasks(chs: LocalChannels, mut container_ch: mpsc::Receiver
                     elevator.current_task = Some(best_task.clone());
                     // println!("Best task for ID {} is {:?}", *id, best_task.clone());
                     let _ = chs.mpscs.txs.new_task.send((*id, Some(best_task.clone()))).await;
-                    //active_task_ids.insert(*id, best_task.clone().id);
+                    active_task_ids.insert(*id, best_task.clone().id);
                         
                     // Viss nødvendig: Fjern oppgåva frå den globale lista for å unngå at den vert delegert fleire gonger.
                 }
