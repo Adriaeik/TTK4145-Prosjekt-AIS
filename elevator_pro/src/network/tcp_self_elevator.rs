@@ -137,7 +137,7 @@ pub async fn run_local_elevator(chs: local_network::LocalChannels) -> std::io::R
         let _handle_task = tokio::spawn(async move {
             let _ = task_handler::execute_tasks(chs_clone, elevator).await;
         });
-        // tokio::task::yield_now().await;
+        tokio::task::yield_now().await;
     }  
     
 

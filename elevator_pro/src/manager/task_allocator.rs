@@ -65,7 +65,7 @@ pub async fn delegate_tasks(chs: LocalChannels, mut container_ch: mpsc::Receiver
                     // Eksempel:
                     // send_task_to_elevator(*id, best_task.clone());
                     elevator.current_task = Some(best_task.clone());
-                    // println!("Best task for ID {} is {:?}", *id, best_task.clone());
+                    println!("Best task for ID {} is {:?}", *id, best_task.clone());
                     
                     // Viss nødvendig: Fjern oppgåva frå den globale lista for å unngå at den vert delegert fleire gonger.
                 }
@@ -172,7 +172,7 @@ fn compute_cost(elevator: &ElevatorState, task: &Task) -> u32 {
             cost += config::WRONG_DIRECTION_PENALTY; // Straff for feil retning
         }
     }
-    
+    // println!("{}", cost);
     cost
 }
 
@@ -181,7 +181,7 @@ fn compute_cost(elevator: &ElevatorState, task: &Task) -> u32 {
 /// - For heisar på veg nedover, bør kalla ligge same eller under heisens etasje.
 /// - Heisar i IDLE- eller DOOR_OPEN-status blir rekna som at dei kan endre retning utan ekstra straff.
 fn is_moving_toward(elevator: &ElevatorState, call: &CallButton) -> bool {
-    println!("Status: {:?}", elevator.state);
+    // println!("Status: {:?}", elevator.state);
     match elevator.state {
         ElevatorStatus::UP    => call.floor > elevator.floor,
         ElevatorStatus::DOWN  => call.floor < elevator.floor,
