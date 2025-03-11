@@ -2,7 +2,7 @@ use std::thread::sleep;
 use std::time::Duration;
 
 use crate::network::local_network;
-use crate::utils::update_wv;
+use crate::utils::{print_err, update_wv};
 use crate::world_view::world_view::{ElevatorContainer, TaskStatus};
 use crate::elevio::elev;
 use crate::{utils, world_view::world_view};
@@ -28,7 +28,10 @@ pub async fn execute_tasks(chs: local_network::LocalChannels, elevator: elev::El
         update_wv(chs.clone(), &mut wv).await;
         container = utils::extract_self_elevator_container(wv.clone());
         let tasks_from_udp = container.tasks;
+
         // utils::print_err(format!("last_floor: {}", container.last_floor_sensor));
+        // sleep(Duration::from_millis(50));
+        
         if !tasks_from_udp.is_empty() {
             //utils::print_err(format!("TODO: {}, last_floor: {}", 0, container.last_floor_sensor));
             if tasks_from_udp[0].to_do < container.last_floor_sensor {

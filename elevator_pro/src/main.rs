@@ -106,7 +106,11 @@ async fn main() {
 /* SLUTT ----------- Starte kritiske tasks ----------- */
 
     // Start backup server i en egen task
-    tokio::spawn(backup::start_backup_server(/*subscribe på wv chanel */chs_backup ));
+    
+    // let _backup_task = tokio::spawn(async move {
+    //     utils::print_info("Starter backup".to_string());
+    //     tokio::spawn(backup::start_backup_server(/*subscribe på wv chanel */chs_backup ));
+    // });
         
 /* START ----------- Starte Eksterne Nettverkstasks ---------------------- */
     //Task som hører etter UDP-broadcasts

@@ -1,3 +1,6 @@
+use std::thread::sleep;
+use std::time::Duration;
+
 use crate::world_view::world_view_update::{ join_wv_from_udp, 
                                             abort_network, 
                                             join_wv_from_tcp_container, 
@@ -8,6 +11,8 @@ use crate::world_view::world_view_update::{ join_wv_from_udp,
                                             update_task_status
                                         };
 use crate::network::local_network::LocalChannels;
+use crate::utils::{self, extract_self_elevator_container};
+use crate::world_view::world_view;
 
 
 
@@ -58,7 +63,7 @@ use crate::network::local_network::LocalChannels;
 //         /* Hvis worldview er oppdatert, send til andre */
 //         if wv_edited {
 //             let _ = main_local_chs.watches.txs.wv.send(worldview_serialised.clone());
-//             wv_edited = false;
+//             wv_edited = false;msg
 //         }
 //     }
 // }
@@ -73,6 +78,7 @@ pub async fn update_wv(mut main_local_chs: LocalChannels, mut worldview_serialis
     let _ = main_local_chs.watches.txs.wv.send(worldview_serialised.clone());
     
     let mut wv_edited_I = false;
+    let mut master_container_updated_I = false;
     loop {
         //OBS: Error kommer når kanal er tom. ikke print der uten å eksplisitt eksludere channel_empty error type
 
@@ -126,13 +132,6 @@ pub async fn update_wv(mut main_local_chs: LocalChannels, mut worldview_serialis
 
 
 /* KANALER MASTER OG SLAVE MOTTAR PÅ */
-        /*_____Knapper trykket på lokal heis_____ */
-        match main_local_chs.mpscs.rxs.local_elev.try_recv() {
-            Ok(msg) => {
-                wv_edited_I = recieve_local_elevator_msg(&mut worldview_serialised, msg).await;
-            },
-            Err(_) => {},
-        }
         /*____Får signal når en task er ferdig_____ */
         match main_local_chs.mpscs.rxs.update_task_status.try_recv() {
             Ok((id, status)) => {
@@ -141,12 +140,28 @@ pub async fn update_wv(mut main_local_chs: LocalChannels, mut worldview_serialis
             },
             Err(_) => {},
         }
-
+        /*_____Knapper trykket på lokal heis_____ */
+        match main_local_chs.mpscs.rxs.local_elev.try_recv() {
+            Ok(msg) => {
+                wv_edited_I = recieve_local_elevator_msg(&mut worldview_serialised, msg).await;
+                master_container_updated_I = utils::is_master(worldview_serialised.clone());
+                
+            },
+            Err(_) => {},
+        }
         
-
-/* KANALER ALLE SENDER LOKAL WV PÅ */
+        
+        
+        /* KANALER ALLE SENDER LOKAL WV PÅ */
         /*_____Hvis worldview er endra, oppdater kanalen_____ */
+        if master_container_updated_I {
+            let container = extract_self_elevator_container(worldview_serialised.clone());
+            let _ = main_local_chs.mpscs.txs.container.send(world_view::serialize_elev_container(&container)).await;
+            master_container_updated_I = false;
+        }
+
         if wv_edited_I {
+
             let _ = main_local_chs.watches.txs.wv.send(worldview_serialised.clone());
             // println!("Sendte worldview lokalt {}", worldview_serialised[1]);
     
