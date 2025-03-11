@@ -11,7 +11,7 @@ use crate::network::local_network::{LocalChannels};
 use crate::world_view::world_view::{deserialize_elev_container, ElevatorContainer, ElevatorStatus};
 use serde::{Deserialize, Serialize};
 use tokio::sync::{mpsc, RwLock};
-use crate::config;
+use crate::{config, utils};
 use crate::elevio::poll::CallType;
 use tokio::sync::Mutex;
 use std::sync::Arc;
@@ -45,7 +45,9 @@ pub async fn delegate_tasks(chs: LocalChannels, mut container_ch: mpsc::Receiver
     let elevator_clone = elevators.clone();
 
     // Lager egen task å lese container-meldinger, så den leser fort nok (cost fcn tar litt tid)
+    let chs_clone = chs.clone();
     tokio::spawn(async move {
+        let mut wv = utils::get_wv(chs_clone.clone());
         let mut task_id: u16 = 0;
         loop {
             sleep(Duration::from_millis(1));
@@ -62,6 +64,7 @@ pub async fn delegate_tasks(chs: LocalChannels, mut container_ch: mpsc::Receiver
                     for (_, elev) in elevators_unlocked.iter_mut().filter(|(_, e)| e.state == ElevatorStatus::IDLE) {
                         if let Some(task) = elev.current_task.clone() {
                             tasks_to_remove.push(task);
+                            let _ = chs_clone.mpscs.txs.new_task.send((elev.id, None)).await;
                         }
                     }
 
@@ -72,6 +75,12 @@ pub async fn delegate_tasks(chs: LocalChannels, mut container_ch: mpsc::Receiver
                     let mut tasks_locked = tasks_clone.lock().await;
                     tasks_locked.retain(|t| !tasks_to_remove.iter().any(|ot| ot.id == t.id));
                     tasks_locked.append(&mut new_tasks);
+
+                    //Hvis vi er master, send tasks til worldview
+                    utils::update_wv(chs_clone.clone(), &mut wv).await;
+                    if utils::is_master(wv.clone()) {
+                        let _ = chs_clone.mpscs.txs.pending_tasks.send(tasks_locked.clone()).await;
+                    }
                 },
                 Err(_) => {},
             }

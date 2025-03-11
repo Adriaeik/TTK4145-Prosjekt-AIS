@@ -57,7 +57,7 @@ pub struct MpscTxs {
     /// Updates the status of a task.
     pub update_elev_state: mpsc::Sender<ElevatorStatus>,
     /// Additional buffered channels for various data streams.
-    pub mpsc_buffer_ch2: mpsc::Sender<Vec<u8>>,
+    pub pending_tasks: mpsc::Sender<Vec<Task>>,
     pub mpsc_buffer_ch3: mpsc::Sender<Vec<u8>>,
     pub mpsc_buffer_ch4: mpsc::Sender<Vec<u8>>,
     pub mpsc_buffer_ch5: mpsc::Sender<Vec<u8>>,
@@ -88,7 +88,7 @@ pub struct MpscRxs {
     /// Receives updates for the status of a task.
     pub update_elev_state: mpsc::Receiver<ElevatorStatus>,
     /// Additional buffered channels for various data streams.
-    pub mpsc_buffer_ch2: mpsc::Receiver<Vec<u8>>,
+    pub pending_tasks: mpsc::Receiver<Vec<Task>>,
     pub mpsc_buffer_ch3: mpsc::Receiver<Vec<u8>>,
     pub mpsc_buffer_ch4: mpsc::Receiver<Vec<u8>>,
     pub mpsc_buffer_ch5: mpsc::Receiver<Vec<u8>>,
@@ -111,7 +111,7 @@ impl Clone for MpscTxs {
             // Klonar buffer-kanalane
             new_task: self.new_task.clone(),
             update_elev_state: self.update_elev_state.clone(),
-            mpsc_buffer_ch2: self.mpsc_buffer_ch2.clone(),
+            pending_tasks: self.pending_tasks.clone(),
             mpsc_buffer_ch3: self.mpsc_buffer_ch3.clone(),
             mpsc_buffer_ch4: self.mpsc_buffer_ch4.clone(),
             mpsc_buffer_ch5: self.mpsc_buffer_ch5.clone(),
@@ -165,7 +165,7 @@ impl Mpscs {
                 // Legg til dei nye buffer-kanalane
                 new_task: tx_buf0,
                 update_elev_state: tx_buf1,
-                mpsc_buffer_ch2: tx_buf2,
+                pending_tasks: tx_buf2,
                 mpsc_buffer_ch3: tx_buf3,
                 mpsc_buffer_ch4: tx_buf4,
                 mpsc_buffer_ch5: tx_buf5,
@@ -185,7 +185,7 @@ impl Mpscs {
                 // Legg til dei nye buffer-kanalane
                 new_task: rx_buf0,
                 update_elev_state: rx_buf1,
-                mpsc_buffer_ch2: rx_buf2,
+                pending_tasks: rx_buf2,
                 mpsc_buffer_ch3: rx_buf3,
                 mpsc_buffer_ch4: rx_buf4,
                 mpsc_buffer_ch5: rx_buf5,
@@ -232,7 +232,7 @@ impl Clone for Mpscs {
                 // Klonar buffer-kanalane
                 new_task: rx_buf0,
                 update_elev_state: rx_buf1,
-                mpsc_buffer_ch2: rx_buf2,
+                pending_tasks: rx_buf2,
                 mpsc_buffer_ch3: rx_buf3,
                 mpsc_buffer_ch4: rx_buf4,
                 mpsc_buffer_ch5: rx_buf5,

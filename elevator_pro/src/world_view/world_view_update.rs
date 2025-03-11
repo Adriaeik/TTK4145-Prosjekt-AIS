@@ -1,4 +1,4 @@
-use crate::elevator_logic::master::wv_from_slaves::update_call_buttons;
+// use crate::elevator_logic::master::wv_from_slaves::update_call_buttons;
 use crate::world_view::world_view;
 use crate::{config, utils::{self, print_info}};
 use crate::elevator_logic::master;
@@ -11,7 +11,7 @@ use std::collections::HashSet;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::OnceLock;
 
-use super::world_view::{get_index_to_container, serialize_elev_container, serialize_worldview, ElevatorStatus};
+use super::world_view::{deserialize_worldview, get_index_to_container, serialize_elev_container, serialize_worldview, ElevatorStatus};
 
 
 static ONLINE: OnceLock<AtomicBool> = OnceLock::new(); 
@@ -267,7 +267,7 @@ pub async fn recieve_local_elevator_msg(chs: LocalChannels, wv: &mut Vec<u8>, ms
                 if is_master {
                     let container = deserialized_wv.elevator_containers[i].clone();
                     
-                    update_call_buttons(&mut deserialized_wv, &container, i).await;
+                    // update_call_buttons(&mut deserialized_wv, &container, i).await;
                     let _ = chs.mpscs.txs.container.send(serialize_elev_container(&container)).await;
 
                     deserialized_wv.elevator_containers[i].calls.clear();
@@ -454,5 +454,11 @@ pub async fn watch_ethernet() {
     }
 }
 
+pub fn publish_tasks(wv: &mut Vec<u8>, tasks: Vec<Task>) -> bool {
+    let mut wv_deser = deserialize_worldview(&wv);
 
+    wv_deser.pending_tasks = tasks;
+    *wv = serialize_worldview(&wv_deser);
+    true
+}
 

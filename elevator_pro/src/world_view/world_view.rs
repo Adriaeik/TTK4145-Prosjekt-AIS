@@ -4,7 +4,7 @@ use serde::{Serialize, Deserialize};
 use crate::config;
 use crate::utils;
 use crate::elevio::poll::CallType;
-use ansi_term::Colour::{Blue, Green, Red, Yellow, Purple};
+use ansi_term::Colour::{Blue, Green, Red, Yellow, Purple, Fixed};
 use prettytable::{Table, Row, Cell, format, Attr, color};
 use crate::elevio::poll::CallButton;
 use crate::manager::task_allocator::Task;
@@ -87,8 +87,8 @@ pub struct WorldView {
     n: u8, 
     /// - `master_id`: The ID of the master elevator.
     pub master_id: u8, 
-    /// - `outside_button`: A list of call buttons pressed outside elevators.
-    pub outside_button: Vec<CallButton>, 
+    /// - `pending_tasks`: A list of call buttons pressed outside elevators.
+    pub pending_tasks: Vec<Task>, 
     /// - `elevator_containers`: A list of `ElevatorContainer` structures containing
     ///   individual elevator information.
     pub elevator_containers: Vec<ElevatorContainer>,  
@@ -101,7 +101,7 @@ impl Default for WorldView {
         Self {
             n: 0,
             master_id: config::ERROR_ID,
-            outside_button: Vec::new(),
+            pending_tasks: Vec::new(),
             elevator_containers: Vec::new(),
         }
     }
@@ -308,15 +308,15 @@ pub fn print_wv(worldview: Vec<u8>) {
     gen_table.add_row(Row::new(vec![
         Cell::new("Num heiser").with_style(Attr::ForegroundColor(color::BRIGHT_BLUE)),
         Cell::new("MasterID").with_style(Attr::ForegroundColor(color::BRIGHT_BLUE)),
-        Cell::new("Outside Buttons").with_style(Attr::ForegroundColor(color::BRIGHT_BLUE)),
+        Cell::new("Pending tasks").with_style(Attr::ForegroundColor(color::BRIGHT_BLUE)),
     ]));
 
     let n_text = format!("{}", wv_deser.get_num_elev()); // Fjern ANSI og bruk prettytable farge
     let m_id_text = format!("{}", wv_deser.master_id);
-    let button_list = wv_deser.outside_button.iter()
-    .map(|c| match c.call_type {
-        CallType::INSIDE => format!("{}:{:?}({})", c.floor, c.call_type, c.elev_id),
-        _ => format!("{}:{:?}:PUBLIC", c.floor, c.call_type),
+    let task_list = wv_deser.pending_tasks.iter()
+    .map(|c| match c.call.call_type {
+        CallType::INSIDE => format!("{}:{}({})", c.id, c.call.floor, c.call.elev_id),
+        _ => format!("{}:{}({:?})", c.id, c.call.floor, c.call.call_type),
     })
     .collect::<Vec<String>>()
     .join(", ");
@@ -324,7 +324,7 @@ pub fn print_wv(worldview: Vec<u8>) {
     gen_table.add_row(Row::new(vec![
         Cell::new(&n_text).with_style(Attr::ForegroundColor(color::BRIGHT_YELLOW)),
         Cell::new(&m_id_text).with_style(Attr::ForegroundColor(color::BRIGHT_YELLOW)),
-        Cell::new(&button_list),
+        Cell::new(&task_list),
     ]));
 
     gen_table.printstd();
@@ -337,11 +337,10 @@ pub fn print_wv(worldview: Vec<u8>) {
         Cell::new(&Blue.bold().paint("ID").to_string()),
         Cell::new(&Blue.bold().paint("Dør").to_string()),
         Cell::new(&Blue.bold().paint("Obstruksjon").to_string()),
-        Cell::new(&Blue.bold().paint("Motor Retning").to_string()),
+        Cell::new(&Blue.bold().paint("Tasks").to_string()),
         Cell::new(&Blue.bold().paint("Siste etasje").to_string()),
-        Cell::new(&Blue.bold().paint("Task").to_string()),
         Cell::new(&Blue.bold().paint("Calls (Etg:Call)").to_string()),
-        Cell::new(&Blue.bold().paint("Tasks_status (ToDo:Status)").to_string()),
+        Cell::new(&Blue.bold().paint("Elev status").to_string()),
     ]));
 
     // Iterer over alle heisane
@@ -364,11 +363,13 @@ pub fn print_wv(worldview: Vec<u8>) {
 
         
         // Farge basert på `to_do`
-        let task_list = if elev.task.is_some() {
-            Yellow.paint(format!("{:?}", elev.task)).to_string()
+        let task_list = if let Some(task) = elev.task {
+            Yellow.paint(format!("{:?}", task.call.floor)).to_string()
         } else {
             Green.paint("None").to_string()
         };
+
+        let last_floor = Fixed(69).paint(format!("{}", elev.last_floor_sensor));
             
 
         // Vanleg utskrift av calls
@@ -399,8 +400,8 @@ pub fn print_wv(worldview: Vec<u8>) {
             Cell::new(&id_text),
             Cell::new(&door_status),
             Cell::new(&obstruction_status),
-            Cell::new(&format!("{}", elev.last_floor_sensor)),
             Cell::new(&task_list),
+            Cell::new(&last_floor),
             Cell::new(&call_list),
             Cell::new(&task_stat_list),
         ]));

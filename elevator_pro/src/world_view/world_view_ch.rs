@@ -12,6 +12,7 @@ use crate::world_view::world_view_update::{ join_wv_from_udp,
                                             clear_from_sent_tcp,
                                             update_elev_state,
                                             push_task,
+                                            publish_tasks,
                                         };
 use crate::network::local_network::LocalChannels;
 use crate::utils::{self, extract_self_elevator_container, print_err, print_warn};
@@ -90,6 +91,12 @@ pub async fn update_wv(mut main_local_chs: LocalChannels, mut worldview_serialis
             Ok((id, sometask)) => {
                 // utils::print_master(format!("Fikk task: {:?}", task));
                 wv_edited_I = push_task(&mut worldview_serialised, id, sometask);
+            },
+            Err(_) => {},
+        }
+        match main_local_chs.mpscs.rxs.pending_tasks.try_recv() {
+            Ok(tasks) => {
+                wv_edited_I = publish_tasks(&mut worldview_serialised, tasks);
             },
             Err(_) => {},
         }
