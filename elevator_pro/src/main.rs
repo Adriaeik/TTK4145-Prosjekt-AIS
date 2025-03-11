@@ -105,10 +105,10 @@ async fn main() {
     let _local_elev_task = tokio::spawn(async move {
         let _ = tcp_self_elevator::run_local_elevator(chs_local_elev).await;
     });
-    let _task_allocater_task = tokio::spawn(async move {
-        utils::print_info("Staring task delegator".to_string());
-        let _ = manager::task_allocator::delegate_tasks(chs_task_dellecator, task_dellecator_rx).await;
-    });
+    // let _task_allocater_task = tokio::spawn(async move {
+    //     utils::print_info("Staring task delegator".to_string());
+    //     let _ = manager::task_allocator::delegate_tasks(chs_task_dellecator, task_dellecator_rx).await;
+    // });
 /* SLUTT ----------- Starte kritiske tasks ----------- */
 
     // Start backup server i en egen task
