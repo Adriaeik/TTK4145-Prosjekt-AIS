@@ -42,7 +42,7 @@ pub async fn delegate_tasks(chs: LocalChannels, mut container_ch: mpsc::Receiver
     loop {
         match container_ch.try_recv() {
             Ok(cont_ser) => {
-                println!("Fikk melding fra slave heis");
+                // println!("Fikk melding fra slave heis");
                 let mut new_tasks = update_elevator(&mut elevators, deserialize_elev_container(&cont_ser)); // Oppdater states
                 tasks.append(&mut new_tasks);
             },
@@ -54,7 +54,7 @@ pub async fn delegate_tasks(chs: LocalChannels, mut container_ch: mpsc::Receiver
 
          // Oppdater kostkartet med den noverande tilstanden til heisar og udelegerte oppgåver
         update_cost_map(&mut cost_map, elevators.clone(), tasks.clone());
-        // println!("Tasks i tasks {:?}", tasks);
+        println!("Tasks i tasks {:?}", tasks);
         // For kvar heis, finn oppgåva med lågast kostnad og deleger den
         for (id, elevator) in elevators.iter_mut() {
             
