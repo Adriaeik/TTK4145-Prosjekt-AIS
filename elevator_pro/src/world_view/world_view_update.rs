@@ -1,7 +1,8 @@
+use crate::elevator_logic::master::wv_from_slaves::update_call_buttons;
 use crate::world_view::world_view;
 use crate::{config, utils::{self, print_info}};
 use crate::elevator_logic::master;
-use crate::network::local_network::{self, ElevMessage};
+use crate::network::local_network::{self, ElevMessage, LocalChannels};
 use crate::world_view::world_view::TaskStatus;
 use crate::elevio::poll::CallButton;
 use crate::manager::task_allocator::Task;
@@ -10,7 +11,7 @@ use std::collections::HashSet;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::OnceLock;
 
-use super::world_view::ElevatorStatus;
+use super::world_view::{serialize_elev_container, ElevatorStatus};
 
 
 static ONLINE: OnceLock<AtomicBool> = OnceLock::new(); 
@@ -249,7 +250,7 @@ pub fn remove_container(wv: &mut Vec<u8>, id: u8) -> bool {
 /// let msg = ElevMessage { msg_type: ElevMsgType::CBTN, /* other fields */ };
 /// recieve_local_elevator_msg(&mut worldview, msg).await;
 /// ```
-pub async fn recieve_local_elevator_msg(wv: &mut Vec<u8>, msg: ElevMessage) -> bool {
+pub async fn recieve_local_elevator_msg(chs: LocalChannels, wv: &mut Vec<u8>, msg: ElevMessage) -> bool {
     let is_master = utils::is_master(wv.clone());
     let mut deserialized_wv = world_view::deserialize_worldview(&wv);
     let self_idx = world_view::get_index_to_container(utils::SELF_ID.load(Ordering::SeqCst) , wv.clone());
@@ -265,7 +266,10 @@ pub async fn recieve_local_elevator_msg(wv: &mut Vec<u8>, msg: ElevMessage) -> b
                 //Om du er master i nettverket, oppdater call_buttons (Samme funksjon som kjøres i join_wv_from_tcp_container(). Behandler altså egen heis som en slave i nettverket) 
                 if is_master {
                     let container = deserialized_wv.elevator_containers[i].clone();
-                    master::wv_from_slaves::update_call_buttons(&mut deserialized_wv, &container, i).await;
+                    
+                    update_call_buttons(&mut deserialized_wv, &container, i).await;
+                    let _ = chs.mpscs.txs.container.send(serialize_elev_container(&container)).await;
+
                     deserialized_wv.elevator_containers[i].calls.clear();
                 }
             }

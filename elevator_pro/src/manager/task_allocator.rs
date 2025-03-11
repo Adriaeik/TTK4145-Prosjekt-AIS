@@ -54,7 +54,6 @@ pub async fn delegate_tasks(chs: LocalChannels, mut container_ch: mpsc::Receiver
 
          // Oppdater kostkartet med den noverande tilstanden til heisar og udelegerte oppgåver
         update_cost_map(&mut cost_map, elevators.clone(), tasks.clone());
-        println!("Tasks i tasks {:?}", tasks);
         // For kvar heis, finn oppgåva med lågast kostnad og deleger den
         for (id, elevator) in elevators.iter_mut() {
             
@@ -66,6 +65,7 @@ pub async fn delegate_tasks(chs: LocalChannels, mut container_ch: mpsc::Receiver
                     // Eksempel:
                     // send_task_to_elevator(*id, best_task.clone());
                     elevator.current_task = Some(best_task.clone());
+                    // println!("Best task for ID {} is {:?}", *id, best_task.clone());
                     
                     // Viss nødvendig: Fjern oppgåva frå den globale lista for å unngå at den vert delegert fleire gonger.
                 }
@@ -96,10 +96,10 @@ fn update_elevator(elevators: &mut HashMap<u8, ElevatorState>, elevator_containe
 
     let mut new_tasks = Vec::new();
     for call in elevator_container.calls {
-        print!("Knapp: {:?}", call);
+        // print!("Knapp: {:?}", call);
         let task = Task { id: 69, call: call};
         new_tasks.push(task.clone());
-        println!("    Tilsvarende task: {:?}", task.clone());
+        // println!("    Tilsvarende task: {:?}", task.clone());
     }
     new_tasks
 }
@@ -181,9 +181,10 @@ fn compute_cost(elevator: &ElevatorState, task: &Task) -> u32 {
 /// - For heisar på veg nedover, bør kalla ligge same eller under heisens etasje.
 /// - Heisar i IDLE- eller DOOR_OPEN-status blir rekna som at dei kan endre retning utan ekstra straff.
 fn is_moving_toward(elevator: &ElevatorState, call: &CallButton) -> bool {
+    println!("Status: {:?}", elevator.state);
     match elevator.state {
-        ElevatorStatus::UP    => call.floor >= elevator.floor,
-        ElevatorStatus::DOWN  => call.floor <= elevator.floor,
+        ElevatorStatus::UP    => call.floor > elevator.floor,
+        ElevatorStatus::DOWN  => call.floor < elevator.floor,
         ElevatorStatus::IDLE | ElevatorStatus::DOOR_OPEN => true,
         ElevatorStatus::ERROR => false,
         // Eventuelle andre statusar: vi tek ein konservativ tilnærming.

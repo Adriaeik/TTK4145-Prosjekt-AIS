@@ -2,6 +2,7 @@ use std::thread::sleep;
 use std::time::Duration;
 
 use tokio::sync::mpsc;
+use std::sync::atomic::Ordering;
 
 use crate::world_view::world_view_update::{ join_wv_from_udp, 
                                             abort_network, 
@@ -13,7 +14,7 @@ use crate::world_view::world_view_update::{ join_wv_from_udp,
                                         };
 use crate::network::local_network::LocalChannels;
 use crate::utils::{self, extract_self_elevator_container};
-use crate::world_view::world_view;
+use crate::world_view::world_view::{self, deserialize_worldview, serialize_worldview};
 
 
 /// ### Oppdatering av lokal worldview
@@ -91,9 +92,8 @@ pub async fn update_wv(mut main_local_chs: LocalChannels, mut worldview_serialis
         /*_____Knapper trykket på lokal heis_____ */
         match main_local_chs.mpscs.rxs.local_elev.try_recv() {
             Ok(msg) => {
-                wv_edited_I = recieve_local_elevator_msg(&mut worldview_serialised, msg).await;
+                wv_edited_I = recieve_local_elevator_msg(main_local_chs.clone(), &mut worldview_serialised, msg).await;
                 master_container_updated_I = utils::is_master(worldview_serialised.clone());
-                
             },
             Err(_) => {},
         }
