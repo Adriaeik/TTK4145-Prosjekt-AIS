@@ -8,11 +8,7 @@ use tokio::sync::Mutex;
 use tokio::task;
 use tokio::time::sleep;
 
-use elevatorpro::{elevator_logic::master::task_allocater, 
-                network::{local_network, tcp_network, tcp_self_elevator, udp_broadcast}, 
-                utils, 
-                world_view::{world_view, world_view_ch, world_view_update},
-                backup::backup};
+use elevatorpro::{backup::backup, elevator_logic::master::task_allocater, manager, network::{local_network, tcp_network, tcp_self_elevator, udp_broadcast}, utils, world_view::{world_view, world_view_ch, world_view_update}};
 use elevatorpro::init;
 
 
@@ -76,6 +72,11 @@ async fn main() {
     let _ = main_local_chs.watches.txs.wv.send(worldview_serialised.clone());
 /* SLUTT ----------- Init av lokale channels ---------------------- */
 
+/* START ----------- Init av diverse channels ---------------------- */
+    //Kun bruk mpsc-rxene fra main_local_chs
+    let (mut task_dellecator_tx, mut task_dellecator_rx) = mpsc::channel::<Vec<u8>>(100);
+/* SLUTT ----------- Init av diverse channels ---------------------- */
+
 
 
 /* START ----------- Kloning av lokale channels til Tokio Tasks ---------------------- */
@@ -88,6 +89,7 @@ async fn main() {
     let chs_local_elev = main_local_chs.clone();
     let chs_task_allocater = main_local_chs.clone();
     let chs_backup = main_local_chs.clone();
+    let chs_task_dellecator = main_local_chs.clone();
     let mut chs_loop = main_local_chs.clone();
     let (socket_tx, socket_rx) = mpsc::channel::<(TcpStream, SocketAddr)>(100);
 /* SLUTT ----------- Kloning av lokale channels til Tokio Tasks ---------------------- */                                                     
@@ -96,12 +98,16 @@ async fn main() {
     //Task som kontinuerlig oppdaterer lokale worldview
     let _update_wv_task = tokio::spawn(async move {
         utils::print_info("Starter å oppdatere wv".to_string());
-        let _ = world_view_ch::update_wv(main_local_chs, worldview_serialised).await;
+        let _ = world_view_ch::update_wv(main_local_chs, worldview_serialised, task_dellecator_tx).await;
     });
     //Task som håndterer den lokale heisen
     //TODO: Få den til å signalisere at vi er i known state.
-    let _local_elev_task = tokio::spawn(async {
+    let _local_elev_task = tokio::spawn(async move {
         let _ = tcp_self_elevator::run_local_elevator(chs_local_elev).await;
+    });
+    let _task_allocater_task = tokio::spawn(async move {
+        utils::print_info("Staring task delegator".to_string());
+        let _ = manager::task_allocator::delegate_tasks(chs_task_dellecator, task_dellecator_rx).await;
     });
 /* SLUTT ----------- Starte kritiske tasks ----------- */
 
@@ -137,11 +143,6 @@ async fn main() {
     let _listener_handle = tokio::spawn(async move {
         utils::print_info("Starter tcp listener".to_string());
         let _ = tcp_network::listener_task(chs_listener, socket_tx).await;
-    });
-    //Task som fordeler heis-tasks
-    let _allocater_handle = tokio::spawn(async move {
-        utils::print_info("Starter task allocater listener".to_string());
-        let _ = task_allocater::distribute_task(chs_task_allocater).await;
     });
     // Lag prat med egen heis thread her 
 /* SLUTT ----------- Starte Eksterne Nettverkstasks ---------------------- */

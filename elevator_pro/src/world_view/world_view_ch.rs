@@ -1,6 +1,8 @@
 use std::thread::sleep;
 use std::time::Duration;
 
+use tokio::sync::mpsc;
+
 use crate::world_view::world_view_update::{ join_wv_from_udp, 
                                             abort_network, 
                                             join_wv_from_tcp_container, 
@@ -13,65 +15,11 @@ use crate::utils::{self, extract_self_elevator_container};
 use crate::world_view::world_view;
 
 
-
-// TODO: prøv å bruk tokio::select! istedenfor lang match for mer optimal cpu-bruk: eks fra chat:
-// pub async fn update_wv(mut main_local_chs: local_network::LocalChannels, mut worldview_serialised: Vec<u8>) {
-//     println!("Starter update_wv");
-//     let _ = main_local_chs.watches.txs.wv.send(worldview_serialised.clone());
-
-//     let mut wv_edited = false;
-
-//     loop {
-//         select! {
-//             /* KANALER SLAVE MOTTAR PÅ */
-//             Some(msg) = main_local_chs.mpscs.rxs.sent_tcp_container.recv() => {
-//                 wv_edited = clear_from_sent_tcp(&mut worldview_serialised, msg);
-//             }
-//             Some(master_wv) = main_local_chs.mpscs.rxs.udp_wv.recv() => {
-//                 wv_edited = join_wv_from_udp(&mut worldview_serialised, master_wv);
-//             }
-//             Some(_) = main_local_chs.mpscs.rxs.tcp_to_master_failed.recv() => {
-//                 wv_edited = abort_network(&mut worldview_serialised);
-//             }
-
-//             /* KANALER MASTER MOTTAR PÅ */
-//             Some(container) = main_local_chs.mpscs.rxs.container.recv() => {
-//                 wv_edited = join_wv_from_tcp_container(&mut worldview_serialised, container).await;
-//             }
-//             Some(id) = main_local_chs.mpscs.rxs.remove_container.recv() => {
-//                 wv_edited = remove_container(&mut worldview_serialised, id);
-//             }
-//             Some((task, id, button)) = main_local_chs.mpscs.rxs.new_task.recv() => {
-//                 wv_edited = push_task(&mut worldview_serialised, task, id, button);
-//             }
-
-//             /* KANALER MASTER OG SLAVE MOTTAR PÅ */
-//             Some(msg) = main_local_chs.mpscs.rxs.local_elev.recv() => {
-//                 wv_edited = recieve_local_elevator_msg(&mut worldview_serialised, msg).await;
-//             }
-//             Some((id, status)) = main_local_chs.mpscs.rxs.update_task_status.recv() => {
-//                 println!("Skal sette status {:?} på task id: {}", status, id);
-//                 wv_edited = update_task_status(&mut worldview_serialised, id, status);
-//             }
-
-//             /* Timeout for å unngå 100% CPU-bruk */
-//             _ = sleep(Duration::from_millis(1)) => {}
-//         }
-
-//         /* Hvis worldview er oppdatert, send til andre */
-//         if wv_edited {
-//             let _ = main_local_chs.watches.txs.wv.send(worldview_serialised.clone());
-//             wv_edited = false;msg
-//         }
-//     }
-// }
-
-
 /// ### Oppdatering av lokal worldview
 /// 
 /// Funksjonen leser nye meldinger fra andre tasks som indikerer endring i systemet, og endrer og oppdaterer det lokale worldviewen basert på dette.
 #[allow(non_snake_case)]
-pub async fn update_wv(mut main_local_chs: LocalChannels, mut worldview_serialised: Vec<u8>) {
+pub async fn update_wv(mut main_local_chs: LocalChannels, mut worldview_serialised: Vec<u8>, to_task_alloc_tx: mpsc::Sender<Vec<u8>>) {
     println!("Starter update_wv");
     let _ = main_local_chs.watches.txs.wv.send(worldview_serialised.clone());
     
@@ -108,7 +56,8 @@ pub async fn update_wv(mut main_local_chs: LocalChannels, mut worldview_serialis
         /*_____Melding til master fra slaven (elevator-containeren til slaven)_____*/
         match main_local_chs.mpscs.rxs.container.try_recv() {
             Ok(container) => {
-                wv_edited_I = join_wv_from_tcp_container(&mut worldview_serialised, container).await;
+                wv_edited_I = join_wv_from_tcp_container(&mut worldview_serialised, container.clone()).await;
+                to_task_alloc_tx.send(container.clone()).await;
             },
             Err(_) => {},
         }

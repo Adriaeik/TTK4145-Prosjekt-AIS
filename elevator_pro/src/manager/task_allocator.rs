@@ -32,7 +32,7 @@ type CostMap = HashMap<u8, Vec<(Task, u32)>>; // ElevatorID -> List of (Task, Co
 
 
 
-pub fn delegate_tasks(chs: LocalChannels, mut container_ch: mpsc::Receiver::<Vec<u8>>) {
+pub async fn delegate_tasks(chs: LocalChannels, mut container_ch: mpsc::Receiver::<Vec<u8>>) {
     let mut elevators: HashMap<u8, ElevatorState> = HashMap::new();
     let mut tasks: Vec<Task> = Vec::new();
     let mut cost_map: CostMap = CostMap::new();
