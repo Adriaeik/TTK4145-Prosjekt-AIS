@@ -4,7 +4,7 @@ use std::{sync::atomic::Ordering, net::SocketAddr, time::Duration, borrow::Cow, 
 use tokio::{time::{Instant, timeout}, net::UdpSocket};
 use socket2::{Domain, Socket, Type};
 use local_ip_address::local_ip;
-use crate::{world_view::world_view::{self, serialize_worldview, ElevatorContainer, WorldView, Task, TaskStatus}, utils::{self, ip2id, print_err}, config};
+use crate::{config, elevio::poll::{CallButton, CallType}, manager::task_allocator::Task, utils::{self, ip2id, print_err, SELF_ID}, world_view::world_view::{self, serialize_worldview, ElevatorContainer, TaskStatus, WorldView}};
 
 
 /// ### Initializes the worldview on startup
@@ -43,12 +43,9 @@ pub async fn initialize_worldview(self_container : Option< world_view::ElevatorC
         let mut container = ElevatorContainer::default();
         let init_task = Task {
             id: 69,
-            to_do: 0,
-            status: TaskStatus::PENDING,
-            is_inside: true,
+            call: CallButton{floor: 0, call: CallType::INSIDE, elev_id: SELF_ID.load(Ordering::SeqCst)},
         };
-        container.tasks.push(init_task.clone());
-        container.tasks_status.push(init_task);
+        container.task = Some(init_task.clone());
         container
     };
 

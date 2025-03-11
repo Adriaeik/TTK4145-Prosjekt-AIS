@@ -71,6 +71,6 @@ pub mod backup {
 
 
 
-// pub mod manager {
-//     pub mod task_allocator;
-// }
+pub mod manager {
+    pub mod task_allocator;
+}

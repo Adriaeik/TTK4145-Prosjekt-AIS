@@ -5,6 +5,7 @@ use std::time;
 use serde::{Serialize, Deserialize};
 use std::hash::{Hash, Hasher};
 
+use crate::config;
 use crate::utils;
 
 use super::elev::{self/*, DIRN_STOP, DIRN_DOWN, DIRN_UP*/};
@@ -78,6 +79,11 @@ pub struct CallButton {
 
     /// The ID of the elevator making the call (only relevant for `INSIDE` calls).
     pub elev_id: u8,
+}
+impl Default for CallButton {
+    fn default() -> Self {
+        CallButton{floor: 1, call: CallType::INSIDE, elev_id: config::ERROR_ID}
+    }
 }
 
 

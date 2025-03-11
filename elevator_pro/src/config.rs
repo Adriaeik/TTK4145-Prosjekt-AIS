@@ -55,6 +55,9 @@ pub const BACKUP_TIMEOUT: Duration = Duration::from_secs(5); // 5 sekunder før 
 /// Size used for buffer when reading UDP broadcasts
 pub const UDP_BUFFER: usize = u16::MAX as usize;
 
+/// Time in seconds an elevator has to complete a task before its considered failed by master
+pub const TASK_TIMEOUT: u64 = 10;
+
 
 /// Bool to determine if program should print worldview
 pub static mut PRINT_WV_ON: bool = true;

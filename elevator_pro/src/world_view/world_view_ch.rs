@@ -6,9 +6,7 @@ use crate::world_view::world_view_update::{ join_wv_from_udp,
                                             join_wv_from_tcp_container, 
                                             remove_container, 
                                             recieve_local_elevator_msg, 
-                                            clear_from_sent_tcp, 
-                                            push_task, 
-                                            update_task_status
+                                            clear_from_sent_tcp,
                                         };
 use crate::network::local_network::LocalChannels;
 use crate::utils::{self, extract_self_elevator_container};
@@ -121,25 +119,25 @@ pub async fn update_wv(mut main_local_chs: LocalChannels, mut worldview_serialis
             },
             Err(_) => {},
         }
-        match main_local_chs.mpscs.rxs.new_task.try_recv() {
-            Ok((task ,id, button)) => {
-                // utils::print_master(format!("Fikk task: {:?}", task));
-                wv_edited_I = push_task(&mut worldview_serialised, task, id, button);
-            },
-            Err(_) => {},
-        }
+        // match main_local_chs.mpscs.rxs.new_task.try_recv() {
+        //     Ok((task ,id, button)) => {
+        //         // utils::print_master(format!("Fikk task: {:?}", task));
+        //         wv_edited_I = push_task(&mut worldview_serialised, task, id, button);
+        //     },
+        //     Err(_) => {},
+        // }
         
 
 
 /* KANALER MASTER OG SLAVE MOTTAR PÅ */
         /*____Får signal når en task er ferdig_____ */
-        match main_local_chs.mpscs.rxs.update_task_status.try_recv() {
-            Ok((id, status)) => {
-                println!("Skal sette status {:?} på task id: {}", status, id);
-                wv_edited_I = update_task_status(&mut worldview_serialised, id, status);
-            },
-            Err(_) => {},
-        }
+        // match main_local_chs.mpscs.rxs.update_task_status.try_recv() {
+        //     Ok((id, status)) => {
+        //         println!("Skal sette status {:?} på task id: {}", status, id);
+        //         wv_edited_I = update_task_status(&mut worldview_serialised, id, status);
+        //     },
+        //     Err(_) => {},
+        // }
         /*_____Knapper trykket på lokal heis_____ */
         match main_local_chs.mpscs.rxs.local_elev.try_recv() {
             Ok(msg) => {

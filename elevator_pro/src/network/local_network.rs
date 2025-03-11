@@ -1,7 +1,7 @@
 use crate::{elevio::poll::CallButton, world_view::world_view::TaskStatus};
 use tokio::sync::{mpsc, broadcast, watch, Semaphore};
 use std::sync::Arc;
-use crate::world_view::world_view::Task;
+use crate::manager::task_allocator::Task;
 
 
 /// Represents different types of elevator messages.

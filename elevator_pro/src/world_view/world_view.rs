@@ -1,3 +1,5 @@
+use std::fmt::format;
+
 use serde::{Serialize, Deserialize};
 use crate::config;
 use crate::utils;
@@ -5,23 +7,8 @@ use crate::elevio::poll::CallType;
 use ansi_term::Colour::{Blue, Green, Red, Yellow, Purple};
 use prettytable::{Table, Row, Cell, format, Attr, color};
 use crate::elevio::poll::CallButton;
+use crate::manager::task_allocator::Task;
 
-
-/// Represents a task assigned to an elevator, including its ID, status, and type.
-#[derive(Serialize, Deserialize, Debug, Default, Clone, Hash)]
-pub struct Task {
-    /// Unique identifier for the task.
-    pub id: u16,
-
-    /// The specific action to be performed (e.g., which floor to go to).
-    pub to_do: u8, // Default: 0
-
-    /// The status of the task (e.g., pending, done, started, or needs reassignment).
-    pub status: TaskStatus, // 2: started, 1: done, 0: to_do, 255: be master, delegate this again
-
-    /// Whether the task originates from inside the elevator (as opposed to an external call).
-    pub is_inside: bool,
-}
 
 /// Represents the status of a task within the system.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Hash)]
@@ -44,29 +31,32 @@ impl Default for TaskStatus {
     }
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
+pub enum ElevatorStatus {
+    Up,
+    Down,
+    Idle,
+    DoorOpen,
+    Error,
+}
 /// Represents the state of an elevator, including tasks, status indicators, and movement.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ElevatorContainer {
     /// Unique identifier for the elevator.
     pub elevator_id: u8, // Default: ERROR_ID
 
+    pub num_floors: u8,
+
     /// List of external call requests.
     pub calls: Vec<CallButton>, // Default: empty vector
 
     /// List of assigned tasks for the elevator.
-    pub tasks: Vec<Task>, // Default: empty vector
+    pub task: Option<Task>, // Default: empty vector
 
-    /// Status of tasks, written by the slave and read by the master.
-    pub tasks_status: Vec<Task>, // Default: empty vector
-
-    /// Indicates whether the elevator door is open.
-    pub door_open: bool, // Default: false
+    pub status: ElevatorStatus,
 
     /// Indicates whether the elevator detects an obstruction.
     pub obstruction: bool, // Default: false
-
-    /// The current movement direction of the elevator (e.g., stationary, up, or down).
-    pub motor_dir: u8, // Default: 0
 
     /// The last detected floor sensor position.
     pub last_floor_sensor: u8, // Default: 255 (undefined)
@@ -76,12 +66,11 @@ impl Default for ElevatorContainer {
     fn default() -> Self {
         Self {
             elevator_id: config::ERROR_ID,
+            num_floors: config::DEFAULT_NUM_FLOORS,
             calls: Vec::new(),
-            tasks: Vec::new(),
-            tasks_status: Vec::new(),
-            door_open: false,
+            task: None,
+            status: ElevatorStatus::Idle,
             obstruction: false,
-            motor_dir: 0,
             last_floor_sensor: 255, // Spesifikk verdi for sensor
         }
     }
@@ -350,7 +339,7 @@ pub fn print_wv(worldview: Vec<u8>) {
         Cell::new(&Blue.bold().paint("Obstruksjon").to_string()),
         Cell::new(&Blue.bold().paint("Motor Retning").to_string()),
         Cell::new(&Blue.bold().paint("Siste etasje").to_string()),
-        Cell::new(&Blue.bold().paint("Tasks (ToDo:Status)").to_string()),
+        Cell::new(&Blue.bold().paint("Task").to_string()),
         Cell::new(&Blue.bold().paint("Calls (Etg:Call)").to_string()),
         Cell::new(&Blue.bold().paint("Tasks_status (ToDo:Status)").to_string()),
     ]));
@@ -361,7 +350,7 @@ pub fn print_wv(worldview: Vec<u8>) {
         let id_text = Yellow.bold().paint(format!("{}", elev.elevator_id)).to_string();
 
         // Door og obstruction i grøn/raud
-        let door_status = if elev.door_open {
+        let door_status = if elev.status == ElevatorStatus::DoorOpen {
             Yellow.paint("Åpen").to_string()
         } else {
             Green.paint("Lukket").to_string()
@@ -373,22 +362,14 @@ pub fn print_wv(worldview: Vec<u8>) {
             Green.paint("Nei").to_string()
         };
 
-        let task_color = match elev.tasks.len() {
-            0..=1 => Green,  // Få oppgåver
-            2..=4 => Yellow, // Middels mange oppgåver
-            _ => Red, // Mange oppgåver
-        };
+        
         // Farge basert på `to_do`
-        let task_list = elev.tasks.iter()
-            .map(|t| {
-                format!("{}:{}:{}",
-                task_color.paint(t.id.to_string()),
-                task_color.paint(t.to_do.to_string()),
-                    task_color.paint(format!("{:?}", t.status))
-                )
-            })
-            .collect::<Vec<String>>()
-            .join(", ");
+        let task_list = if elev.task.is_some() {
+            Yellow.paint(format!("{:?}", elev.task)).to_string()
+        } else {
+            Green.paint("None").to_string()
+        };
+            
 
         // Vanleg utskrift av calls
         let call_list = elev.calls.iter()
@@ -396,22 +377,28 @@ pub fn print_wv(worldview: Vec<u8>) {
             .collect::<Vec<String>>()
             .join(", ");
 
-        let task_stat_list = elev.tasks_status.iter()
-            .map(|t| {
-                format!("{}:{}:{}",
-                task_color.paint(t.id.to_string()),
-                task_color.paint(t.to_do.to_string()),
-                    task_color.paint(format!("{:?}", t.status))
-                )
-            })
-            .collect::<Vec<String>>()
-            .join(", ");
+        let task_stat_list = match elev.status {
+            ElevatorStatus::DoorOpen => {
+                Yellow.paint(format!("{:?}", elev.status))
+            },
+            ElevatorStatus::Down => {
+                Blue.paint(format!("{:?}", elev.status))
+            },
+            ElevatorStatus::Error => {
+                Red.paint(format!("{:?}", elev.status))
+            },
+            ElevatorStatus::Idle => {
+                Green.paint(format!("{:?}", elev.status))
+            },
+            ElevatorStatus::Up => {
+                Blue.paint(format!("{:?}", elev.status))
+            },
+        };
 
         table.add_row(Row::new(vec![
             Cell::new(&id_text),
             Cell::new(&door_status),
             Cell::new(&obstruction_status),
-            Cell::new(&format!("{}", elev.motor_dir)),
             Cell::new(&format!("{}", elev.last_floor_sensor)),
             Cell::new(&task_list),
             Cell::new(&call_list),

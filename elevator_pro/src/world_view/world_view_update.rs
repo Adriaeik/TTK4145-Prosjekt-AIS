@@ -4,7 +4,7 @@ use crate::elevator_logic::master;
 use crate::network::local_network::{self, ElevMessage};
 use crate::world_view::world_view::TaskStatus;
 use crate::elevio::poll::CallButton;
-use super::world_view::Task;
+use crate::manager::task_allocator::Task;
 
 use std::collections::HashSet;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -68,27 +68,25 @@ pub fn join_wv(mut my_wv: Vec<u8>, master_wv: Vec<u8>) -> Vec<u8> {
         let master_view = &mut master_wv_deserialised.elevator_containers[i_new];
 
         // Synchronize elevator status
-        master_view.door_open = my_view.door_open;
+        master_view.status = my_view.status;
         master_view.obstruction = my_view.obstruction;
         master_view.last_floor_sensor = my_view.last_floor_sensor;
-        master_view.motor_dir = my_view.motor_dir;
 
         // Update call buttons and task statuses
         master_view.calls = my_view.calls.clone();
-        master_view.tasks_status = my_view.tasks_status.clone();
 
         /* Update task statuses */
-        let new_ids: HashSet<u16> = master_view.tasks.iter().map(|t| t.id).collect();
-        let old_ids: HashSet<u16> = master_view.tasks_status.iter().map(|t| t.id).collect();
+        // let new_ids: HashSet<u16> = master_view.tasks.iter().map(|t| t.id).collect();
+        // let old_ids: HashSet<u16> = master_view.tasks_status.iter().map(|t| t.id).collect();
 
-        // Add missing tasks from master's task list
-        for task in master_view.tasks.clone().iter() {
-            if !old_ids.contains(&task.id) {
-                master_view.tasks_status.push(task.clone());
-            }
-        }
-        // Remove outdated tasks from task_status
-        master_view.tasks_status.retain(|t| new_ids.contains(&t.id));
+        // // Add missing tasks from master's task list
+        // for task in master_view.tasks.clone().iter() {
+        //     if !old_ids.contains(&task.id) {
+        //         master_view.tasks_status.push(task.clone());
+        //     }
+        // }
+        // // Remove outdated tasks from task_status
+        // master_view.tasks_status.retain(|t| new_ids.contains(&t.id));
 
         // Call buttons synchronization is handled through TCP reliability
 
@@ -318,15 +316,15 @@ pub fn clear_from_sent_tcp(wv: &mut Vec<u8>, tcp_container: Vec<u8>) -> bool {
     let tcp_container_des = world_view::deserialize_elev_container(&tcp_container);
 
     // Lagre task-IDen til alle sendte tasks. 
-    let tasks_ids: HashSet<u16> = tcp_container_des
-        .tasks_status
-        .iter()
-        .map(|t| t.id)
-        .collect();
+    // let tasks_ids: HashSet<u16> = tcp_container_des
+    //     .tasks_status
+    //     .iter()
+    //     .map(|t| t.id)
+    //     .collect();
     
     if let Some(i) = self_idx {
         /*_____ Fjern Tasks som master har oppdatert _____ */
-        deserialized_wv.elevator_containers[i].tasks_status.retain(|t| tasks_ids.contains(&t.id));
+        // deserialized_wv.elevator_containers[i].tasks_status.retain(|t| tasks_ids.contains(&t.id));
         /*_____ Fjern sendte CallButtons _____ */
         deserialized_wv.elevator_containers[i].calls.retain(|call| !tcp_container_des.calls.contains(call));
         *wv = world_view::serialize_worldview(&deserialized_wv);
@@ -340,48 +338,48 @@ pub fn clear_from_sent_tcp(wv: &mut Vec<u8>, tcp_container: Vec<u8>) -> bool {
 /// ### Gir `task` til slave med `id`
 /// 
 /// Ikke ferdig implementert
-pub fn push_task(wv: &mut Vec<u8>, task: Task, id: u8, button: CallButton) -> bool {
-    let mut deser_wv = world_view::deserialize_worldview(&wv);
+// pub fn push_task(wv: &mut Vec<u8>, task: Task, id: u8, button: CallButton) -> bool {
+//     let mut deser_wv = world_view::deserialize_worldview(&wv);
 
-    // Fjern `button` frå `outside_button` om han finst
-    if let Some(index) = deser_wv.outside_button.iter().position(|b| *b == button) {
-        deser_wv.outside_button.swap_remove(index);
-    }
+//     // Fjern `button` frå `outside_button` om han finst
+//     if let Some(index) = deser_wv.outside_button.iter().position(|b| *b == button) {
+//         deser_wv.outside_button.swap_remove(index);
+//     }
     
-    let self_idx = world_view::get_index_to_container(id, wv.clone());
+//     let self_idx = world_view::get_index_to_container(id, wv.clone());
 
-    if let Some(i) = self_idx {
-        // **Hindrar duplikatar: sjekk om task.id allereie finst i `tasks`**
-        // NB: skal i teorien være unødvendig å sjekke dette
-        if !deser_wv.elevator_containers[i].tasks.iter().any(|t| t.id == task.id) {
-            deser_wv.elevator_containers[i].tasks.push(task);
-            *wv = world_view::serialize_worldview(&deser_wv);
-            return true;
-        }
-    }
+//     if let Some(i) = self_idx {
+//         // **Hindrar duplikatar: sjekk om task.id allereie finst i `tasks`**
+//         // NB: skal i teorien være unødvendig å sjekke dette
+//         if !deser_wv.elevator_containers[i].tasks.iter().any(|t| t.id == task.id) {
+//             deser_wv.elevator_containers[i].tasks.push(task);
+//             *wv = world_view::serialize_worldview(&deser_wv);
+//             return true;
+//         }
+//     }
     
-    false
-}
+//     false
+// }
 
 /// ### Oppdaterer status til `new_status` til task med `id` i egen heis_container.tasks_status
-pub fn update_task_status(wv: &mut Vec<u8>, task_id: u16, new_status: TaskStatus) -> bool {
-    let mut wv_deser = world_view::deserialize_worldview(&wv);
-    let self_idx = world_view::get_index_to_container(utils::SELF_ID.load(Ordering::SeqCst), wv.clone());
+// pub fn update_task_status(wv: &mut Vec<u8>, task_id: u16, new_status: TaskStatus) -> bool {
+//     let mut wv_deser = world_view::deserialize_worldview(&wv);
+//     let self_idx = world_view::get_index_to_container(utils::SELF_ID.load(Ordering::SeqCst), wv.clone());
 
-    if let Some(i) = self_idx {
-        // Finner `task` i tasks_status og setter status til `new_status`
-        if let Some(task) = wv_deser.elevator_containers[i]
-            .tasks_status
-            .iter_mut()
-            .find(|t| t.id == task_id) 
-            {
-                task.status = new_status.clone();
-            }
-    }
-    // println!("Satt {:?} på id: {}", new_status, task_id);
-    *wv = world_view::serialize_worldview(&wv_deser);
-    true
-}
+//     if let Some(i) = self_idx {
+//         // Finner `task` i tasks_status og setter status til `new_status`
+//         if let Some(task) = wv_deser.elevator_containers[i]
+//             .tasks_status
+//             .iter_mut()
+//             .find(|t| t.id == task_id) 
+//             {
+//                 task.status = new_status.clone();
+//             }
+//     }
+//     // println!("Satt {:?} på id: {}", new_status, task_id);
+//     *wv = world_view::serialize_worldview(&wv_deser);
+//     true
+// }
 
 /// Monitors the Ethernet connection status asynchronously.
 ///
