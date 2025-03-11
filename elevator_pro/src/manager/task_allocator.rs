@@ -90,6 +90,7 @@ pub async fn delegate_tasks(chs: LocalChannels, mut container_ch: mpsc::Receiver
 
     let mut tasks_vec_copy: Vec<Task>;
     let mut elevator_copy: HashMap<u8, ElevatorState>;
+    let mut active_task_ids: HashMap<u8, u16> = HashMap::new();
     loop {
         {
             tasks_vec_copy = tasks.lock().await.clone();
@@ -104,7 +105,13 @@ pub async fn delegate_tasks(chs: LocalChannels, mut container_ch: mpsc::Receiver
         // For kvar heis, finn oppgåva med lågast kostnad og deleger den
         for (id, elevator) in elevator_copy.iter_mut() {
             if let Some(task_costs) = cost_map.get(id) {
-                if let Some((best_task, _best_cost)) = task_costs.iter().min_by(|a, b| {
+                if let Some((best_task, _best_cost)) = task_costs.iter()
+                .filter(|(task, _)| {
+                        // Behold task hvis den ikke er i active_task_ids,
+                        // eller task.id er lik den nåværende heisens id
+                        !active_task_ids.values().any(|assigned_task_id| *assigned_task_id == task.id) || active_task_ids.get(id) == Some(&task.id)
+                })
+                .min_by(|a, b| {
                     a.1.cmp(&b.1)
                 }) {
                     // Her kan du sende oppgåva til heisa via ein kanal.
@@ -113,6 +120,8 @@ pub async fn delegate_tasks(chs: LocalChannels, mut container_ch: mpsc::Receiver
                     elevator.current_task = Some(best_task.clone());
                     // println!("Best task for ID {} is {:?}", *id, best_task.clone());
                     let _ = chs.mpscs.txs.new_task.send((*id, Some(best_task.clone()))).await;
+                    active_task_ids.insert(*id, best_task.clone().id);
+                        
                     // Viss nødvendig: Fjern oppgåva frå den globale lista for å unngå at den vert delegert fleire gonger.
                 }
             }

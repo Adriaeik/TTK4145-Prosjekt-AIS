@@ -167,7 +167,7 @@ pub fn floor_sensor(elev: elev::Elevator, ch: cbc::Sender<u8>, period: time::Dur
 pub fn stop_button(elev: elev::Elevator, ch: cbc::Sender<bool>, period: time::Duration) {
     let mut prev = false;
     loop {
-        let v = elev.stop_button();
+        let v = elev.obstruction();
         if prev != v {
             ch.send(v).unwrap();
             prev = v;
@@ -180,7 +180,7 @@ pub fn stop_button(elev: elev::Elevator, ch: cbc::Sender<bool>, period: time::Du
 pub fn obstruction(elev: elev::Elevator, ch: cbc::Sender<bool>, period: time::Duration) {
     let mut prev = false;
     loop {
-        let v = elev.obstruction();
+        let v = elev.stop_button();
         if prev != v {
             ch.send(v).unwrap();
             prev = v;
