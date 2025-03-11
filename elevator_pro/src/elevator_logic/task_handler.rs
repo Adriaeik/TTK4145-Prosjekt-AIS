@@ -1,9 +1,10 @@
 use std::thread::sleep;
 use std::time::Duration;
 
+use crate::manager::task_allocator::ElevatorState;
 use crate::network::local_network;
 use crate::utils::{print_err, update_wv};
-use crate::world_view::world_view::{ElevatorContainer, TaskStatus};
+use crate::world_view::world_view::{ElevatorContainer, ElevatorStatus, TaskStatus};
 use crate::elevio::elev;
 use crate::{utils, world_view::world_view};
 
@@ -27,25 +28,27 @@ pub async fn execute_tasks(chs: local_network::LocalChannels, elevator: elev::El
         // let tasks_from_udp = utils::get_elev_tasks(chs.clone());
         update_wv(chs.clone(), &mut wv).await;
         container = utils::extract_self_elevator_container(wv.clone());
-        let tasks_from_udp = container.tasks;
+        let tasks_from_udp = container.task;
 
         // utils::print_err(format!("last_floor: {}", container.last_floor_sensor));
         // sleep(Duration::from_millis(50));
         
-        if !tasks_from_udp.is_empty() {
+        if let Some(task) = tasks_from_udp {
             //utils::print_err(format!("TODO: {}, last_floor: {}", 0, container.last_floor_sensor));
-            if tasks_from_udp[0].to_do < container.last_floor_sensor {
+            if task.call.floor < container.last_floor_sensor {
                 elevator.motor_direction(elev::DIRN_DOWN);
+                let _ = chs.mpscs.txs.update_elev_state.send(ElevatorStatus::Down);
             }
-            else if tasks_from_udp[0].to_do > container.last_floor_sensor {
+            else if task.call.floor > container.last_floor_sensor {
                 elevator.motor_direction(elev::DIRN_UP);
+                let _ = chs.mpscs.txs.update_elev_state.send(ElevatorStatus::Up);
             }
             else {
                 elevator.motor_direction(elev::DIRN_STOP);
-                // Si fra at første task er ferdig
-                let _ = chs.mpscs.txs.update_task_status.send((tasks_from_udp[0].id, TaskStatus::DONE)).await;
+                let _ = chs.mpscs.txs.update_elev_state.send(ElevatorStatus::DoorOpen);
                 // open_door_protocol().await;
                 sleep(Duration::from_millis(3000));
+                let _ = chs.mpscs.txs.update_elev_state.send(ElevatorStatus::Idle);
             }
         }
     }

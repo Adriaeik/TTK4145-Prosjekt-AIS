@@ -167,7 +167,14 @@ pub async fn join_wv_from_tcp_container(wv: &mut Vec<u8>, container: Vec<u8>) ->
     
     if let Some(i) = self_idx {
         //Oppdater statuser + fjerner tasks som er TaskStatus::DONE
-        master::wv_from_slaves::update_statuses(&mut deserialized_wv, &deser_container, i).await;
+        deserialized_wv.elevator_containers[i].calls = deser_container.calls.clone();
+        deserialized_wv.elevator_containers[i].elevator_id = deser_container.elevator_id;
+        deserialized_wv.elevator_containers[i].last_floor_sensor = deser_container.last_floor_sensor;
+        deserialized_wv.elevator_containers[i].num_floors = deser_container.num_floors;
+        deserialized_wv.elevator_containers[i].obstruction = deser_container.obstruction;
+        deserialized_wv.elevator_containers[i].status = deser_container.status;
+        // Master styrer task, ikke overskriv det med slaven sitt forrige WV
+
         //Oppdater call_buttons
         master::wv_from_slaves::update_call_buttons(&mut deserialized_wv, &deser_container, i).await;
         *wv = world_view::serialize_worldview(&deserialized_wv);
