@@ -49,9 +49,10 @@ pub async fn delegate_tasks(chs: LocalChannels, mut container_ch: mpsc::Receiver
     tokio::spawn(async move {
         let mut wv = utils::get_wv(chs_clone.clone());
         let mut task_id: u16 = 0;
+        let mut read_slave = false;
         loop {
             utils::update_wv(chs_clone.clone(), &mut wv).await;
-            if utils::is_master(wv.clone()) {
+            if utils::is_master(wv.clone()) && read_slave {
                 sleep(Duration::from_millis(1));
             // println!("Meldinger i kø: {}", container_ch.len());
                 match container_ch.try_recv() {
@@ -88,6 +89,7 @@ pub async fn delegate_tasks(chs: LocalChannels, mut container_ch: mpsc::Receiver
                 let wv_deser = deserialize_worldview(&wv.clone());
                 let mut tasks_locked = tasks_clone.lock().await;
                 *tasks_locked = wv_deser.pending_tasks;
+                read_slave = true;
             }
         }
     });
