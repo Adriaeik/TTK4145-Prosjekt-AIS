@@ -108,11 +108,11 @@ pub async fn delegate_tasks(chs: LocalChannels, mut container_ch: mpsc::Receiver
         for (id, elevator) in elevator_copy.iter_mut() {
             if let Some(task_costs) = cost_map.get(id) {
                 if let Some((best_task, _best_cost)) = task_costs.iter()
-                /*.filter(|(task, _)| {
+                .filter(|(task, _)| {
                         // Behold task hvis den ikke er i active_task_ids,
                         // eller task.id er lik den nåværende heisens id
                         !active_task_ids.values().any(|assigned_task_id| *assigned_task_id == task.id) || active_task_ids.get(id) == Some(&task.id)
-                })*/
+                })
                 .min_by(|a, b| {
                     a.1.cmp(&b.1)
                 }) {
