@@ -8,14 +8,14 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::sync::watch;
 use tokio::time::{sleep, Duration, timeout};
 
-// Tilpass desse importane til ditt prosjekt:
+// Tilpass desse importane til prosjektet ditt:
 use crate::{config, init, utils, world_view::world_view::print_wv};
 use crate::network::local_network;
 
 // Global variabel for å sjå om backup-terminalen allereie er starta
 static BACKUP_STARTED: AtomicBool = AtomicBool::new(false);
 
-/// Opprett ein gjennbrukbar TcpListener med socket2 og reuse_address aktivert.
+/// Opprett ein gjennbrukbar TcpListener med reuse_address aktivert.
 pub fn create_reusable_listener(port: u16) -> TcpListener {
     let addr: SocketAddr = format!("0.0.0.0:{}", port)
         .parse()
@@ -36,7 +36,7 @@ pub fn create_reusable_listener(port: u16) -> TcpListener {
 fn start_backup_terminal() {
     if !BACKUP_STARTED.load(Ordering::SeqCst) {
         let current_exe = env::current_exe().expect("Klarte ikkje hente ut den kjørbare fila");
-        // Her nyttar vi gnome-terminal med --geometry for å spesifisere vindaugets storleik.
+        // Eksempel med gnome-terminal og --geometry for å spesifisere vindaugets storleik.
         let _child = Command::new("gnome-terminal")
             .arg("--geometry=400x24")
             .arg("--")
@@ -48,11 +48,27 @@ fn start_backup_terminal() {
     }
 }
 
+/// Handterar backup-klientar: Sender ut worldview kontinuerleg.
+async fn handle_backup_client(mut stream: TcpStream, rx: watch::Receiver<Vec<u8>>) {
+    loop {
+        let wv = rx.borrow().clone();
+        if let Err(e) = stream.write_all(&wv).await {
+            eprintln!("Backup send error: {}", e);
+            // Set BACKUP_STARTED til false, slik at ein ny backup-terminal kan startast
+            BACKUP_STARTED.store(false, Ordering::SeqCst);
+            start_backup_terminal();
+            // Avslutt løkka for denne klienten for å unngå evig loop.
+            break;
+        }
+        sleep(Duration::from_secs(1)).await;
+    }
+}
+
 /// Backup-serveren: Lytter på tilkoplingar frå backup-klientar og sender ut den nyaste worldview.
 pub async fn start_backup_server(chs: local_network::LocalChannels) {
     println!("Backup-serveren startar...");
     
-    // Bruk den gjennbrukbare listeneren.
+    // Bruk ein gjennbrukbar listener.
     let listener = create_reusable_listener(config::BCU_PORT);
     let wv = utils::get_wv(chs.clone());
     let (tx, rx) = watch::channel(wv.clone());
@@ -75,23 +91,6 @@ pub async fn start_backup_server(chs: local_network::LocalChannels) {
     loop {
         let new_wv = utils::get_wv(chs.clone());
         tx.send(new_wv).expect("Klarte ikkje sende til backup-klientane");
-        sleep(Duration::from_secs(1)).await;
-    }
-}
-
-/// Handterar backup-klientar: Sender ut worldview kontinuerleg.
-async fn handle_backup_client(mut stream: TcpStream, rx: watch::Receiver<Vec<u8>>) {
-    loop {
-        let wv = rx.borrow().clone();
-        if let Err(e) = stream.write_all(&wv).await {
-            eprintln!("Backup send error: {}", e);
-            // Start backup-terminalen berre dersom han ikkje allereie er starta.
-            if !BACKUP_STARTED.load(Ordering::SeqCst) {
-                start_backup_terminal();
-            }
-            // Avslutt løkka for denne klienten for å unngå evig loop.
-            break;
-        }
         sleep(Duration::from_secs(1)).await;
     }
 }
@@ -134,7 +133,7 @@ pub async fn run_as_backup() {
                 eprintln!("Kunne ikkje koble til master, retry {}.", retries);
                 if retries > 3 {
                     eprintln!("Master feila, promoterer backup til master!");
-                    // Her kan failover-logikken køyre, t.d. starte master-logikken.
+                    // Her kan failover-logikken setjast i gang, t.d. køyre master-logikken.
                     return;
                 }
             }
