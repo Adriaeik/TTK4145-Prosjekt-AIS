@@ -123,24 +123,21 @@ pub async fn run_local_elevator(chs: local_network::LocalChannels) -> std::io::R
             elevio::poll::obstruction(elevator, local_elev_channels.txs.stop_button, config::ELEV_POLL)
         });
     }
- 
     //Start en task som viderefører meldinger fra heisen til update_worldview 
     {
         let chs_clone = chs.clone();
         let _listen_task = tokio::spawn(async move {
             let _ = read_from_local_elevator(local_elev_channels.rxs, chs_clone).await;
         });
-    }
-
+    } 
     // Task som utfører deligerte tasks (ikke implementert korrekt enda)
     {
         let chs_clone = chs.clone();
         let _handle_task = tokio::spawn(async move {
             let _ = task_handler::execute_tasks(chs_clone, elevator).await;
         });
-        tokio::task::yield_now().await;
-    }
- 
+        // tokio::task::yield_now().await;
+    }  
     // Loop som sender egen container på kanalen som motar slave-kontainere hvis man er master
     let mut wv = utils::get_wv(chs.clone());
     loop {
