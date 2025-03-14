@@ -1,5 +1,3 @@
-//! Module to calculate cost based on elevator-states, and delegate task to available elevator with lowest cost
-
 
 // Regn med vi får inn array med (ID, State, Floor, Task), og et array med udelegerte tasks, `ID`: elevID, `State`: UP/DOWN/IDLE/DOOR_OPEN/ERROR, `Floor`: Floor, `Task`: Some(Task). Bør vite hvor mange etasjer heisen kan gå til. 
 
@@ -7,7 +5,7 @@ use std::collections::HashMap;
 use std::thread::sleep;
 use std::time::{Duration, Instant};
 use crate::elevio::poll::CallButton;
-use crate::network::local_network::{LocalChannels};
+use crate::network::local_network::LocalChannels;
 use crate::world_view::world_view::{deserialize_elev_container, deserialize_worldview, ElevatorContainer, ElevatorStatus};
 use serde::{Deserialize, Serialize};
 use tokio::sync::{mpsc, RwLock};
@@ -17,22 +15,38 @@ use tokio::sync::Mutex;
 use std::sync::Arc;
 
 #[derive(Debug, Clone)]
+/// Represents an elevators and its state in the allocator
 pub struct ElevatorState {
+    /// The elevators ID
     id: u8,
+
+    /// The last floor the elevator was at
     floor: u8,
+
+    /// The highest floor the elevator can go to
     max_floors: u8,
+
+    /// The state the elevator can be in, see [ElevatorStatus]
     state: ElevatorStatus,
+
+    /// Option of the current task the elevator is handling. None if the elevator is idle
     current_task: Option<Task>,
+
+    /// Last instant the elevators task was updated. Used to detect timeouts 
     last_updated: Instant,
 }
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone, Hash)]
+/// The struct for a task
 pub struct Task {
+    /// The ID of the task
     pub id: u16,
+    /// The call leading to the task, see [CallButton]
     pub call: CallButton,
 }
 
-type CostMap = HashMap<u8, Vec<(Task, u32)>>; // ElevatorID -> List of (Task, Cost)
+/// Mapping of an elevator ID to a vector of tasks and their cost value
+type CostMap = HashMap<u8, Vec<(Task, u32)>>; 
 
 
 
@@ -137,8 +151,23 @@ pub async fn delegate_tasks(chs: LocalChannels, mut container_ch: mpsc::Receiver
     }
 }
 
-/// Får inn hashmap med alle elevatorstates, oppdaterer statuser basert på elevcontainer mottat på TCP
-/// Oppdaterer også tiden vi sist hørte fra den
+
+/// **Updates the elevator states in the allocator based on an elevator container**
+/// 
+/// ## Parameters:
+/// `elevators`: Mutable reference to the hashmap of <elevator IDs, ElevatorStates>  
+/// `elevator_container`: The new elevator container recieved (from slave on TCP)  
+/// `task_id`: Mutable reference to the last used task_id, used to generate a unique task ID for any new tasks generated
+/// 
+/// ## Steps:
+/// - Looks for any elevator in the hashmap with matching ID to the elevator container, if none is found, it inserts a new one
+/// - Update floor, state and current task of the elevator
+/// - **TODO:** Updates time if the task has changed
+/// - Generates new tasks based on buttoncalls in the elevator container
+/// 
+/// ## Returns:
+/// - A vector of any generated tasks 
+/// 
 fn update_elevator(elevators: &mut HashMap<u8, ElevatorState>, elevator_container: ElevatorContainer, task_id: &mut u16) -> Vec<Task> {
     let entry = elevators.entry(elevator_container.elevator_id).or_insert(ElevatorState {
         id: elevator_container.elevator_id,
@@ -168,6 +197,20 @@ fn update_elevator(elevators: &mut HashMap<u8, ElevatorState>, elevator_containe
 }
 
 
+/// **Detects 'dead' elevators and returns their current Task**
+/// 
+/// ## Parameters:
+/// `elevators`: Mutable reference to the hashmap of <elevator IDs, ElevatorStates>
+/// `timeout`: An u64 representing the duration before timeout in seconds
+/// 
+/// ## Steps:
+/// - Iterates through elevators in the hashmap
+/// - If any elevator has reached a timeout, push its current_task to a new vector of tasks which is returned after all elevators has been itered
+/// - Removes any elevators wich reached timeout from the hashmap
+/// 
+/// ## Returns:
+/// - A vector containing the ongoing tasks of 'dead' elevators
+///   
 fn detect_dead_elevators(elevators: &mut HashMap<u8, ElevatorState>, timeout: u64) -> Vec<Task> {
     let now = Instant::now();
     let mut to_reassign: Vec<Task> = Vec::new();
@@ -175,7 +218,7 @@ fn detect_dead_elevators(elevators: &mut HashMap<u8, ElevatorState>, timeout: u6
     for (&id, elevator) in &*elevators {
         // Hvis det er timeout siden forrige oppdatering: Anse tasken som feila, legg den til i tasks som skal omdirigeres
         if now.duration_since(elevator.last_updated).as_secs() > timeout {
-            println!("⚠️ Heis {} anses som død. Omfordeler oppgaver!", id);
+            utils::print_warn(format!("Elevator {} took too long, reallocating its task!", id));
             if let Some(task) = &elevator.current_task {
                 to_reassign.push(task.clone());
             }
@@ -189,7 +232,17 @@ fn detect_dead_elevators(elevators: &mut HashMap<u8, ElevatorState>, timeout: u6
 }
 
 
-/// Oppdaterer kostkartet med kostnader for kvar kombinasjon av heis og oppgåve.
+/// Updates the costmap with costs for every combination of elevator and task
+/// 
+/// ## Parameters:
+/// `cost_map`: A mutable reference to the costmap to be updated  
+/// `elevators`: Mutable reference to the hashmap of <elevator IDs, ElevatorStates>  
+/// `tasks`: Vector of pending tasks in the system
+/// 
+/// ## Steps:
+/// - Clear the cost_map
+/// - Iterate through every elevator
+/// - For each elevator, iterate through every task, calculate its cost and insert it in the costmap
 fn update_cost_map(cost_map: &mut CostMap, elevators: HashMap<u8, ElevatorState>, tasks: Vec<Task>) {
     cost_map.clear();
     for (id, elevator) in elevators.iter() {
@@ -239,12 +292,23 @@ fn compute_cost(elevator: &ElevatorState, task: &Task) -> u32 {
     cost
 }
 
-/// Hjelpefunksjon som avgjer om heisa er på veg mot kalla si etasje.
-/// - For heisar som er på veg oppover, bør kalla ligge same eller over heisens etasje.
-/// - For heisar på veg nedover, bør kalla ligge same eller under heisens etasje.
-/// - Heisar i IDLE- eller DOOR_OPEN-status blir rekna som at dei kan endre retning utan ekstra straff.
+
+/// **Help function to decide if an elevator is moving towards a call's floor**
+/// - For elevators going upwards, the call should be abowe the elevators last floor.
+/// - For elevators going downwards, the call should be bellow the elevators last floor.
+/// - Elevators in IDLE- or DOOR_OPEN-status returns true: could go any direction without extra cost
+/// 
+/// ## Parameters:
+/// `elevator`: A reference to an [ElevatorState]  
+/// `call`: A reference to a [CallButton]
+/// 
+/// ## Steps:
+/// - match the elevators [ElevatorStatus]
+/// - decide if the elevator is moving towards the call (see source code for clearer documentation) 
+/// 
+/// ## Returns:
+/// A bool. True if the elevator is moving towards the call, false otherwise 
 fn is_moving_toward(elevator: &ElevatorState, call: &CallButton) -> bool {
-    // println!("Status: {:?}", elevator.state);
     match elevator.state {
         ElevatorStatus::UP    => call.floor > elevator.floor,
         ElevatorStatus::DOWN  => call.floor < elevator.floor,

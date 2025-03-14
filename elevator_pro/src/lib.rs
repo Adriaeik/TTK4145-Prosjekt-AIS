@@ -68,7 +68,8 @@ pub mod backup {
 }
 
 
-
+/// Task distributer module
 pub mod manager {
+    /// Module to calculate cost based on elevator-states, and delegate task to available elevator with lowest cost
     pub mod task_allocator;
 }
