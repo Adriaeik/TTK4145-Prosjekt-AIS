@@ -8,7 +8,7 @@ use tokio::sync::Mutex;
 use tokio::task;
 use tokio::time::sleep;
 
-use elevatorpro::{backup, manager, network::{local_network, tcp_network, tcp_self_elevator, udp_broadcast}, ip_help_functions, world_view::{self, world_view_ch, world_view_update}};
+use elevatorpro::{backup, manager, network::{local_network, tcp_network, tcp_self_elevator, udp_broadcast}, ip_help_functions, world_view::{self, world_view_update}};
 use elevatorpro::init;
 use elevatorpro::print;
 
@@ -101,7 +101,7 @@ async fn main() {
     //Task som kontinuerlig oppdaterer lokale worldview
     let _update_wv_task = tokio::spawn(async move {
         print::info("Starter å oppdatere wv".to_string());
-        let _ = world_view_ch::update_wv(main_local_chs, worldview_serialised, task_dellecator_tx).await;
+        let _ = local_network::update_wv_watch(main_local_chs, worldview_serialised, task_dellecator_tx).await;
     });
     //Task som håndterer den lokale heisen
     //TODO: Få den til å signalisere at vi er i known state.
