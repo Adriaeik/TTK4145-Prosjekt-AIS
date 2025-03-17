@@ -40,13 +40,7 @@ pub mod network {
 pub mod world_view;
 
 /// Interface for elevator input/output. Only changes are documented here. For source code see: [https://github.com/TTK4145/driver-rust/tree/master/src/elevio]
-pub mod elevio {
-    /// Controls the elevator.
-    #[doc(hidden)]
-    pub mod elev;
-    /// Listens for events from the elevator.
-    pub mod poll;
-}
+pub mod elevio;
 
 /// Elevator control logic and task handling.
 pub mod elevator_logic {

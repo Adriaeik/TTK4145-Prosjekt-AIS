@@ -1,7 +1,7 @@
 use std::io::Write;
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 use crate::{config, world_view::{ElevatorStatus, serial}};
-use crate::elevio::poll::CallType;
+use crate::elevio;
 use ansi_term::Colour::{Blue, Green, Red, Yellow, Purple, Fixed};
 use prettytable::{Table, Row, Cell, format, Attr, color};
 
@@ -308,7 +308,7 @@ pub fn worldview(worldview: Vec<u8>) {
     let m_id_text = format!("{}", wv_deser.master_id);
     let task_list = wv_deser.pending_tasks.iter()
     .map(|c| match c.call.call_type {
-        CallType::INSIDE => format!("{}:{}({})", c.id, c.call.floor, c.call.elev_id),
+        elevio::CallType::INSIDE => format!("{}:{}({})", c.id, c.call.floor, c.call.elev_id),
         _ => format!("{}:{}({:?})", c.id, c.call.floor, c.call.call_type),
     })
     .collect::<Vec<String>>()

@@ -2,7 +2,6 @@
 
 use crate::config;
 use crate::print;
-use crate::ip_help_functions;
 use crate::world_view;
 use super::local_network;
 

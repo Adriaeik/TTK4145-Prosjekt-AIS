@@ -1,14 +1,8 @@
-use std::time::Duration;
 use tokio::sync::mpsc;
 use tokio::net::TcpStream;
 use std::net::SocketAddr;
 
-use std::sync::Arc;
-use tokio::sync::Mutex;
-use tokio::task;
-use tokio::time::sleep;
-
-use elevatorpro::{backup, manager, network::{local_network, tcp_network, tcp_self_elevator, udp_broadcast}, ip_help_functions, world_view::{self, world_view_update}};
+use elevatorpro::{backup, manager, network::{local_network, tcp_network, tcp_self_elevator, udp_broadcast}, world_view::{self, world_view_update}};
 use elevatorpro::init;
 use elevatorpro::print;
 
@@ -78,7 +72,7 @@ async fn main() {
 
 /* START ----------- Init av diverse channels ---------------------- */
     //Kun bruk mpsc-rxene fra main_local_chs
-    let (mut task_dellecator_tx, mut task_dellecator_rx) = mpsc::channel::<Vec<u8>>(1000);
+    let (task_dellecator_tx, task_dellecator_rx) = mpsc::channel::<Vec<u8>>(1000);
     let (socket_tx, socket_rx) = mpsc::channel::<(TcpStream, SocketAddr)>(100);
     let mpsc_rxs = main_mpscs.rxs;
     let wv_watch_tx = watches.txs.wv;

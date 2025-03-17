@@ -4,12 +4,11 @@
 use std::collections::HashMap;
 use std::thread::sleep;
 use std::time::{Duration, Instant};
-use crate::elevio::poll::CallButton;
+use crate::elevio::{CallButton, CallType};
 use crate::world_view::{self, serial, ElevatorContainer, ElevatorStatus};
 use serde::{Deserialize, Serialize};
 use tokio::sync::{mpsc, watch, RwLock};
 use crate::{config, print, ip_help_functions};
-use crate::elevio::poll::CallType;
 use tokio::sync::Mutex;
 use std::sync::Arc;
 

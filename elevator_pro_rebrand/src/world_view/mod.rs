@@ -7,7 +7,7 @@ use std::sync::atomic::Ordering;
 use crate::config;
 use crate::print;
 use crate::network::local_network;
-use crate::elevio::poll::CallButton;
+use crate::elevio;
 use crate::manager::task_allocator::Task;
 
 
@@ -49,7 +49,7 @@ pub struct ElevatorContainer {
     pub num_floors: u8,
 
     /// List of external call requests.
-    pub calls: Vec<CallButton>, // Default: empty vector
+    pub calls: Vec<elevio::CallButton>, // Default: empty vector
 
     /// List of assigned tasks for the elevator.
     pub task: Option<Task>, // Default: empty vector

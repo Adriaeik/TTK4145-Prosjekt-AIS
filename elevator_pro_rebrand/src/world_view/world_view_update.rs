@@ -3,13 +3,11 @@
 // use crate::elevator_logic::master::wv_from_slaves::update_call_buttons;
 use crate::world_view;
 use crate::{config, print, ip_help_functions::{self}};
-use crate::elevator_logic::master;
-use crate::network::local_network::{self, ElevMessage};
-use crate::world_view::TaskStatus;
-use crate::elevio::poll::CallButton;
+use crate::network::local_network;
+use crate::elevio;
 use crate::manager::task_allocator::Task;
 
-use tokio::sync::{mpsc, watch};
+use tokio::sync::mpsc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::OnceLock;
 
@@ -252,7 +250,7 @@ pub fn remove_container(wv: &mut Vec<u8>, id: u8) -> bool {
 /// let msg = ElevMessage { msg_type: ElevMsgType::CBTN, /* other fields */ };
 /// recieve_local_elevator_msg(&mut worldview, msg).await;
 /// ```
-pub async fn recieve_local_elevator_msg(master_container_tx: mpsc::Sender<Vec<u8>>, wv: &mut Vec<u8>, msg: ElevMessage) -> bool {
+pub async fn recieve_local_elevator_msg(master_container_tx: mpsc::Sender<Vec<u8>>, wv: &mut Vec<u8>, msg: elevio::ElevMessage) -> bool {
     let is_master = world_view::is_master(wv.clone());
     let mut deserialized_wv = serial::deserialize_worldview(&wv);
     let self_idx = world_view::get_index_to_container(local_network::SELF_ID.load(Ordering::SeqCst) , wv.clone());
@@ -260,7 +258,7 @@ pub async fn recieve_local_elevator_msg(master_container_tx: mpsc::Sender<Vec<u8
     // Matcher hvilken knapp-type som er mottat
     match msg.msg_type {
         // Callbutton -> Legg den til i calls under egen heis-container
-        local_network::ElevMsgType::CALLBTN => {
+        elevio::ElevMsgType::CALLBTN => {
             print::info(format!("Callbutton: {:?}", msg.call_button));
             if let (Some(i), Some(call_btn)) = (self_idx, msg.call_button) {
                 deserialized_wv.elevator_containers[i].calls.push(call_btn); 
@@ -278,7 +276,7 @@ pub async fn recieve_local_elevator_msg(master_container_tx: mpsc::Sender<Vec<u8
         }
 
         // Floor_sensor -> oppdater last_floor_sensor i egen heis-container
-        local_network::ElevMsgType::FLOORSENS => {
+        elevio::ElevMsgType::FLOORSENS => {
             print::info(format!("Floor: {:?}", msg.floor_sensor));
             if let (Some(i), Some(floor)) = (self_idx, msg.floor_sensor) {
                 deserialized_wv.elevator_containers[i].last_floor_sensor = floor;
@@ -287,13 +285,13 @@ pub async fn recieve_local_elevator_msg(master_container_tx: mpsc::Sender<Vec<u8
         }
 
         // Stop_button -> funksjon kommer
-        local_network::ElevMsgType::STOPBTN => {
+        elevio::ElevMsgType::STOPBTN => {
             print::info(format!("Stop button: {:?}", msg.stop_button));
             
         }
 
         // Obstruction -> Sett obstruction lik melding fra heis i egen heis-container
-        local_network::ElevMsgType::OBSTRX => {
+        elevio::ElevMsgType::OBSTRX => {
             print::info(format!("Obstruction: {:?}", msg.obstruction));
             if let (Some(i), Some(obs)) = (self_idx, msg.obstruction) {
                 deserialized_wv.elevator_containers[i].obstruction = obs;

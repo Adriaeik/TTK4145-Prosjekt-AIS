@@ -7,21 +7,21 @@ use tokio::sync::{mpsc, watch};
 
 use crate::elevator_logic::task_handler;
 use crate::world_view::ElevatorStatus;
-use crate::{config, print, ip_help_functions::{self}, elevio, elevio::poll::CallButton, elevio::elev as e};
+use crate::{config, elevio, elevio::elev as e};
 
 use super::local_network;
 
 
 
 struct LocalElevTxs {
-    call_button: cbc::Sender<CallButton>,
+    call_button: cbc::Sender<elevio::CallButton>,
     floor_sensor: cbc::Sender<u8>,
     stop_button: cbc::Sender<bool>,
     obstruction: cbc::Sender<bool>,
 }
 
 struct LocalElevRxs {
-    call_button: cbc::Receiver<CallButton>,
+    call_button: cbc::Receiver<elevio::CallButton>,
     floor_sensor: cbc::Receiver<u8>,
     stop_button: cbc::Receiver<bool>,
     obstruction: cbc::Receiver<bool>,
@@ -34,7 +34,7 @@ struct LocalElevChannels {
 
 impl LocalElevChannels {
     pub fn new() -> Self {
-        let (call_button_tx, call_button_rx) = cbc::unbounded::<elevio::poll::CallButton>();
+        let (call_button_tx, call_button_rx) = cbc::unbounded::<elevio::CallButton>();
         let (floor_sensor_tx, floor_sensor_rx) = cbc::unbounded::<u8>();
         let (stop_button_tx, stop_button_rx) = cbc::unbounded::<bool>();
         let (obstruction_tx, obstruction_rx) = cbc::unbounded::<bool>();
@@ -92,7 +92,7 @@ async fn start_elevator_server() {
 }
 
 /// ### Kjører den lokale heisen
-pub async fn run_local_elevator(wv_watch_rx: watch::Receiver<Vec<u8>>, update_elev_state_tx: mpsc::Sender<ElevatorStatus> , local_elev_tx: mpsc::Sender<local_network::ElevMessage>) -> std::io::Result<()> {
+pub async fn run_local_elevator(wv_watch_rx: watch::Receiver<Vec<u8>>, update_elev_state_tx: mpsc::Sender<ElevatorStatus> , local_elev_tx: mpsc::Sender<elevio::ElevMessage>) -> std::io::Result<()> {
     // Start elevator-serveren
     start_elevator_server().await;
     let local_elev_channels: LocalElevChannels = LocalElevChannels::new();
@@ -145,13 +145,13 @@ pub async fn run_local_elevator(wv_watch_rx: watch::Receiver<Vec<u8>>, update_el
 }
 
 /// ### Videresender melding fra egen heis til update_wv
-async fn read_from_local_elevator(rxs: LocalElevRxs, local_elev_tx: mpsc::Sender<local_network::ElevMessage>) -> std::io::Result<()> {
+async fn read_from_local_elevator(rxs: LocalElevRxs, local_elev_tx: mpsc::Sender<elevio::ElevMessage>) -> std::io::Result<()> {
     loop {
         // Sjekker hver kanal med `try_recv()`
         if let Ok(call_button) = rxs.call_button.try_recv() {
             //println!("CB: {:#?}", call_button);
-            let msg = local_network::ElevMessage {
-                msg_type: local_network::ElevMsgType::CALLBTN,
+            let msg = elevio::ElevMessage {
+                msg_type: elevio::ElevMsgType::CALLBTN,
                 call_button: Some(call_button),
                 floor_sensor: None,
                 stop_button: None,
@@ -162,8 +162,8 @@ async fn read_from_local_elevator(rxs: LocalElevRxs, local_elev_tx: mpsc::Sender
 
         if let Ok(floor) = rxs.floor_sensor.try_recv() {
             //println!("Floor: {:#?}", floor);
-            let msg = local_network::ElevMessage {
-                msg_type: local_network::ElevMsgType::FLOORSENS,
+            let msg = elevio::ElevMessage {
+                msg_type: elevio::ElevMsgType::FLOORSENS,
                 call_button: None,
                 floor_sensor: Some(floor),
                 stop_button: None,
@@ -174,8 +174,8 @@ async fn read_from_local_elevator(rxs: LocalElevRxs, local_elev_tx: mpsc::Sender
 
         if let Ok(stop) = rxs.stop_button.try_recv() {
             //println!("Stop button: {:#?}", stop);
-            let msg = local_network::ElevMessage {
-                msg_type: local_network::ElevMsgType::STOPBTN,
+            let msg = elevio::ElevMessage {
+                msg_type: elevio::ElevMsgType::STOPBTN,
                 call_button: None,
                 floor_sensor: None,
                 stop_button: Some(stop),
@@ -186,8 +186,8 @@ async fn read_from_local_elevator(rxs: LocalElevRxs, local_elev_tx: mpsc::Sender
 
         if let Ok(obstr) = rxs.obstruction.try_recv() {
             //println!("Obstruction: {:#?}", obstr);
-            let msg = local_network::ElevMessage {
-                msg_type: local_network::ElevMsgType::OBSTRX,
+            let msg = elevio::ElevMessage {
+                msg_type: elevio::ElevMsgType::OBSTRX,
                 call_button: None,
                 floor_sensor: None,
                 stop_button: None,

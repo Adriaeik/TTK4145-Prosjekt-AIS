@@ -1,6 +1,6 @@
 //! Handles messages on internal channels regarding changes in worldview
 
-use crate::{elevio::poll::CallButton, world_view::ElevatorStatus};
+use crate::{elevio::ElevMessage, world_view::ElevatorStatus};
 use crate::print;
 use crate::config;
 use crate::manager::task_allocator::Task;
@@ -188,33 +188,7 @@ pub async fn update_wv_watch(mut mpsc_rxs: MpscRxs, worldview_watch_tx: watch::S
 
 
 
-/// Represents different types of elevator messages.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum ElevMsgType {
-    /// Call button press event.
-    CALLBTN,
-    /// Floor sensor event.
-    FLOORSENS,
-    /// Stop button press event.
-    STOPBTN,
-    /// Obstruction detected event.
-    OBSTRX,
-}
 
-/// Represents a message related to elevator events.
-#[derive(Debug, Clone)]
-pub struct ElevMessage {
-    /// The type of elevator message.
-    pub msg_type: ElevMsgType,
-    /// Optional call button information, if applicable.
-    pub call_button: Option<CallButton>,
-    /// Optional floor sensor reading, indicating the current floor.
-    pub floor_sensor: Option<u8>,
-    /// Optional stop button state (`true` if pressed).
-    pub stop_button: Option<bool>,
-    /// Optional obstruction status (`true` if obstruction detected).
-    pub obstruction: Option<bool>,
-}
 
 
 
@@ -294,16 +268,14 @@ impl Mpscs {
     /// Creates a new `Mpscs` instance with initialized channels.
     pub fn new() -> Self {
         let (tx_udp, rx_udp) = mpsc::channel(300);
-        let (tx1, rx1) = mpsc::channel(300);
-        let (tx2, rx2) = mpsc::channel(300);
-        let (tx3, rx3) = mpsc::channel(300);
-        let (tx4, rx4) = mpsc::channel(300);
-        let (tx5, rx5) = mpsc::channel(300);
-
-        // Initialisering av 10 nye buffer-kanalar
-        let (tx_buf0, rx_buf0) = mpsc::channel(300);
-        let (tx_buf1, rx_buf1) = mpsc::channel(300);
-        let (tx_buf2, rx_buf2) = mpsc::channel(300);
+        let (tx_tcp_to_master_failed, rx_tcp_to_master_failed) = mpsc::channel(300);
+        let (tx_container, rx_container) = mpsc::channel(300);
+        let (tx_remove_container, rx_remove_container) = mpsc::channel(300);
+        let (tx_local_elev, rx_local_elev) = mpsc::channel(300);
+        let (tx_sent_tcp_container, rx_sent_tcp_container) = mpsc::channel(300);
+        let (tx_new_task, rx_new_task) = mpsc::channel(300);
+        let (tx_update_elev_state, rx_update_elev_state) = mpsc::channel(300);
+        let (tx_pending_tasks, rx_pending_tasks) = mpsc::channel(300);
         let (tx_buf3, rx_buf3) = mpsc::channel(300);
         let (tx_buf4, rx_buf4) = mpsc::channel(300);
         let (tx_buf5, rx_buf5) = mpsc::channel(300);
@@ -315,16 +287,14 @@ impl Mpscs {
         Mpscs {
             txs: MpscTxs {
                 udp_wv: tx_udp,
-                tcp_to_master_failed: tx1,
-                container: tx2,
-                remove_container: tx3,
-                local_elev: tx4,
-                sent_tcp_container: tx5,
-
-                // Legg til dei nye buffer-kanalane
-                new_task: tx_buf0,
-                update_elev_state: tx_buf1,
-                pending_tasks: tx_buf2,
+                tcp_to_master_failed: tx_tcp_to_master_failed,
+                container: tx_container,
+                remove_container: tx_remove_container,
+                local_elev: tx_local_elev,
+                sent_tcp_container: tx_sent_tcp_container,
+                new_task: tx_new_task,
+                update_elev_state: tx_update_elev_state,
+                pending_tasks: tx_pending_tasks,
                 mpsc_buffer_ch3: tx_buf3,
                 mpsc_buffer_ch4: tx_buf4,
                 mpsc_buffer_ch5: tx_buf5,
@@ -335,16 +305,14 @@ impl Mpscs {
             },
             rxs: MpscRxs {
                 udp_wv: rx_udp,
-                tcp_to_master_failed: rx1,
-                container: rx2,
-                remove_container: rx3,
-                local_elev: rx4,
-                sent_tcp_container: rx5,
-
-                // Legg til dei nye buffer-kanalane
-                new_task: rx_buf0,
-                update_elev_state: rx_buf1,
-                pending_tasks: rx_buf2,
+                tcp_to_master_failed: rx_tcp_to_master_failed,
+                container: rx_container,
+                remove_container: rx_remove_container,
+                local_elev: rx_local_elev,
+                sent_tcp_container: rx_sent_tcp_container,
+                new_task: rx_new_task,
+                update_elev_state: rx_update_elev_state,
+                pending_tasks: rx_pending_tasks,
                 mpsc_buffer_ch3: rx_buf3,
                 mpsc_buffer_ch4: rx_buf4,
                 mpsc_buffer_ch5: rx_buf5,
@@ -359,7 +327,7 @@ impl Mpscs {
 
 
 // --- WATCH-KANALER ---
-/// Struct containing watch senders for broadcasting state updates.
+/// Struct containing watch senders for state updates.
 #[derive(Clone)]
 pub struct WatchTxs {
     /// Sender for the `wv` channel, transmitting a vector of bytes.

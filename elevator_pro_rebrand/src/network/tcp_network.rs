@@ -285,14 +285,13 @@ pub async fn send_tcp_message(tcp_to_master_failed_tx: mpsc::Sender<bool>, sent_
     let self_elev_serialized = serial::serialize_elev_container(&self_elev_container);
     let len = (self_elev_serialized.len() as u16).to_be_bytes(); // Konverter lengde til big-endian bytes    
 
-    if let Err(e) = stream.write_all(&len).await {
+    if let Err(_) = stream.write_all(&len).await {
         // utils::print_err(format!("Feil ved sending av data til master: {}", e));
         let _ = tcp_to_master_failed_tx.send(true).await; // Anta at tilkoblingen feila
-    } else if let Err(e) = stream.write_all(&self_elev_serialized).await {
-
+    } else if let Err(_) = stream.write_all(&self_elev_serialized).await {
         // utils::print_err(format!("Feil ved sending av data til master: {}", e));
         let _ = tcp_to_master_failed_tx.send(true).await; // Anta at tilkoblingen feila
-    } else if let Err(e) = stream.flush().await {
+    } else if let Err(_) = stream.flush().await {
         // utils::print_err(format!("Feil ved flushing av stream: {}", e));
         let _ = tcp_to_master_failed_tx.send(true).await; // Anta at tilkoblingen feila
     } else {
