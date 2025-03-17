@@ -6,8 +6,10 @@ use std::net::SocketAddr;
 use crate::{config, print, ip_help_functions::{self}, world_view::{self, serial, world_view_update}};
 use super::local_network;
 
-// Definer ein global `AtomicU8`
-pub static IS_MASTER: AtomicBool = AtomicBool::new(false); // Startverdi 0
+/// AtomicBool representing if you are master on the network. 
+/// 
+/// The value is initialized as false
+pub static IS_MASTER: AtomicBool = AtomicBool::new(false);
 
 /// ### TcpWatchdog
 /// 

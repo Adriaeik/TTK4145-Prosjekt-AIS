@@ -4,9 +4,8 @@ use crate::{elevio::ElevMessage, world_view::ElevatorStatus};
 use crate::print;
 use crate::config;
 use crate::manager::task_allocator::Task;
-use tokio::sync::{mpsc, broadcast, watch, Semaphore};
-use std::sync::Arc;
-use crate::world_view::world_view_update::{ join_wv_from_udp, 
+use crate::world_view::world_view_update::{ 
+    join_wv_from_udp, 
     abort_network, 
     join_wv_from_tcp_container, 
     remove_container, 
@@ -18,6 +17,7 @@ use crate::world_view::world_view_update::{ join_wv_from_udp,
 };
 use crate::world_view::{self, serial};
 
+use tokio::sync::{mpsc, watch};
 use local_ip_address::local_ip;
 use std::net::IpAddr;
 use std::sync::atomic::AtomicU8;

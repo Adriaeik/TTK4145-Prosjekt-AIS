@@ -348,9 +348,11 @@ pub fn clear_from_sent_tcp(wv: &mut Vec<u8>, tcp_container: Vec<u8>) -> bool {
     }
 }
 
-/// ### Gir `task` til slave med `id`
+/// Push `some_task` to elevator with id `id` in `wv`
 /// 
-/// Ikke ferdig implementert
+/// ## Return
+/// `true`: Elevator with `id` was found and given the task  
+/// `false`: Otherwise
 pub fn push_task(wv: &mut Vec<u8>, id: u8, some_task: Option<Task>) -> bool {
     let mut deser_wv = serial::deserialize_worldview(&wv);
 
@@ -386,16 +388,22 @@ pub fn push_task(wv: &mut Vec<u8>, id: u8, some_task: Option<Task>) -> bool {
 }
 
 // / ### Oppdaterer status til `new_status` til task med `id` i egen heis_container.tasks_status
+/// Updates status of elevator with id matching [local_network::SELF_ID] to status in wv
+/// 
+/// ## Returns
+/// `true`: Elevator with SELF_ID was found, and status was updated
+/// `false`: otherwise
 pub fn update_elev_state(wv: &mut Vec<u8>, status: ElevatorStatus) -> bool {
     let mut wv_deser = serial::deserialize_worldview(&wv);
     let self_idx = world_view::get_index_to_container(local_network::SELF_ID.load(Ordering::SeqCst), wv.clone());
 
     if let Some(i) = self_idx {
         wv_deser.elevator_containers[i].status = status;
+        *wv = serial::serialize_worldview(&wv_deser);
+        return true;
     }
     // println!("Satt {:?} på id: {}", new_status, task_id);
-    *wv = serial::serialize_worldview(&wv_deser);
-    true
+    false
 }
 
 /// Monitors the Ethernet connection status asynchronously.
@@ -454,9 +462,12 @@ pub async fn watch_ethernet() {
     }
 }
 
+/// Updates tasks in `wv` to `tasks`
+/// 
+/// ## Returns
+/// `true`: always
 pub fn publish_tasks(wv: &mut Vec<u8>, tasks: Vec<Task>) -> bool {
     let mut wv_deser = serial::deserialize_worldview(&wv);
-
     wv_deser.pending_tasks = tasks;
     *wv = serial::serialize_worldview(&wv_deser);
     true

@@ -17,7 +17,11 @@ use tokio::sync::mpsc;
 use std::borrow::Cow;
 use tokio::sync::watch;
 
-static UDP_TIMEOUT: OnceLock<AtomicBool> = OnceLock::new(); // worldview_channel_request
+static UDP_TIMEOUT: OnceLock<AtomicBool> = OnceLock::new();
+
+/// Returns AtomicBool indicating if UDP has timeout'd. 
+/// 
+/// Initialized as false.
 pub fn get_udp_timeout() -> &'static AtomicBool {
     UDP_TIMEOUT.get_or_init(|| AtomicBool::new(false))
 }
