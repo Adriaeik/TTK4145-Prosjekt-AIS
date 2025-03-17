@@ -4,12 +4,12 @@
 use crate::world_view;
 use crate::{config, print, ip_help_functions::{self}};
 use crate::elevator_logic::master;
-use crate::network::local_network::{self, ElevMessage, LocalChannels};
+use crate::network::local_network::{self, ElevMessage};
 use crate::world_view::TaskStatus;
 use crate::elevio::poll::CallButton;
 use crate::manager::task_allocator::Task;
 
-use std::collections::HashSet;
+use tokio::sync::{mpsc, watch};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::OnceLock;
 
@@ -252,7 +252,7 @@ pub fn remove_container(wv: &mut Vec<u8>, id: u8) -> bool {
 /// let msg = ElevMessage { msg_type: ElevMsgType::CBTN, /* other fields */ };
 /// recieve_local_elevator_msg(&mut worldview, msg).await;
 /// ```
-pub async fn recieve_local_elevator_msg(chs: LocalChannels, wv: &mut Vec<u8>, msg: ElevMessage) -> bool {
+pub async fn recieve_local_elevator_msg(master_container_tx: mpsc::Sender<Vec<u8>>, wv: &mut Vec<u8>, msg: ElevMessage) -> bool {
     let is_master = world_view::is_master(wv.clone());
     let mut deserialized_wv = serial::deserialize_worldview(&wv);
     let self_idx = world_view::get_index_to_container(local_network::SELF_ID.load(Ordering::SeqCst) , wv.clone());
@@ -270,7 +270,7 @@ pub async fn recieve_local_elevator_msg(chs: LocalChannels, wv: &mut Vec<u8>, ms
                     let container = deserialized_wv.elevator_containers[i].clone();
                     
                     // update_call_buttons(&mut deserialized_wv, &container, i).await;
-                    let _ = chs.mpscs.txs.container.send(serial::serialize_elev_container(&container)).await;
+                    let _ = master_container_tx.send(serial::serialize_elev_container(&container)).await;
 
                     deserialized_wv.elevator_containers[i].calls.clear();
                 }

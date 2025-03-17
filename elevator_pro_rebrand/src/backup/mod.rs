@@ -66,12 +66,12 @@ async fn handle_backup_client(mut stream: TcpStream, rx: watch::Receiver<Vec<u8>
 }
 
 /// Backup-serveren: Lytter på tilkoplingar frå backup-klientar og sender ut den nyaste worldview.
-pub async fn start_backup_server(chs: local_network::LocalChannels) {
+pub async fn start_backup_server(wv_watch_rx: watch::Receiver<Vec<u8>>) {
     println!("Backup-serveren startar...");
     
     // Bruk ein gjennbrukbar listener.
     let listener = create_reusable_listener(config::BCU_PORT);
-    let wv = world_view::get_wv(chs.clone());
+    let wv = world_view::get_wv(wv_watch_rx.clone());
     let (tx, rx) = watch::channel(wv.clone());
     
     // Start backup-terminalen éin gong.
@@ -90,7 +90,7 @@ pub async fn start_backup_server(chs: local_network::LocalChannels) {
     
     // Oppdater kontinuerleg worldview til backup-klientane.
     loop {
-        let new_wv = world_view::get_wv(chs.clone());
+        let new_wv = world_view::get_wv(wv_watch_rx.clone());
         tx.send(new_wv).expect("Klarte ikkje sende til backup-klientane");
         sleep(Duration::from_secs(1)).await;
     }

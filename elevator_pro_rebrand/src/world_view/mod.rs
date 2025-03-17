@@ -2,6 +2,7 @@ pub mod world_view_update;
 pub mod serial;
 
 use serde::{Serialize, Deserialize};
+use tokio::sync::watch;
 use std::sync::atomic::Ordering;
 use crate::config;
 use crate::print;
@@ -209,8 +210,8 @@ pub fn get_index_to_container(id: u8, wv: Vec<u8>) -> Option<usize> {
 /// ```
 ///
 /// **Note:** This function clones the current state of `wv`, so any future changes to `wv` will not affect the returned vector.
-pub fn get_wv(chs: local_network::LocalChannels) -> Vec<u8> {
-    chs.watches.rxs.wv.borrow().clone()
+pub fn get_wv(wv_watch_rx: watch::Receiver<Vec<u8>>) -> Vec<u8> {
+    wv_watch_rx.borrow().clone()
 }
 
 /// Asynchronously updates the worldview (wv) in the system.
@@ -251,8 +252,8 @@ pub fn get_wv(chs: local_network::LocalChannels) -> Vec<u8> {
 /// ## Notes
 /// - This function is asynchronous and requires an async runtime, such as Tokio, to execute.
 /// - The `LocalChannels` channels allow for thread-safe communication across threads.
-pub async fn update_wv(chs: local_network::LocalChannels, wv: &mut Vec<u8>) -> bool {
-    let new_wv = chs.watches.rxs.wv.borrow().clone();  // Clone the latest data
+pub async fn update_wv(wv_watch_rx: watch::Receiver<Vec<u8>>, wv: &mut Vec<u8>) -> bool {
+    let new_wv = wv_watch_rx.borrow().clone();  // Clone the latest data
     if new_wv != *wv {  // Check if the data has changed compared to the current state
         *wv = new_wv;  // Update the worldview if it has changed
         return true;
@@ -282,8 +283,8 @@ pub fn is_master(wv: Vec<u8>) -> bool {
 ///
 /// ## Returns
 /// - A `Vec<Task>` containing the current elevator tasks.
-pub fn get_elev_tasks(chs: local_network::LocalChannels) -> Vec<Task> {
-    chs.watches.rxs.elev_task.borrow().clone()
+pub fn get_elev_tasks(elev_task_rx: watch::Receiver<Vec<Task>>) -> Vec<Task> {
+    elev_task_rx.borrow().clone()
 }
 
 /// Retrieves a clone of the `ElevatorContainer` with the specified `id` from the provided worldview.

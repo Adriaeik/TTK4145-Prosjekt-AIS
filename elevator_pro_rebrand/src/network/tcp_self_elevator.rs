@@ -3,8 +3,10 @@ use tokio::time::{sleep, Duration};
 use crossbeam_channel as cbc;
 use tokio::process::Command;
 use std::sync::atomic::Ordering;
+use tokio::sync::{mpsc, watch};
 
 use crate::elevator_logic::task_handler;
+use crate::world_view::ElevatorStatus;
 use crate::{config, print, ip_help_functions::{self}, elevio, elevio::poll::CallButton, elevio::elev as e};
 
 use super::local_network;
@@ -90,7 +92,7 @@ async fn start_elevator_server() {
 }
 
 /// ### Kjører den lokale heisen
-pub async fn run_local_elevator(chs: local_network::LocalChannels) -> std::io::Result<()> {
+pub async fn run_local_elevator(wv_watch_rx: watch::Receiver<Vec<u8>>, update_elev_state_tx: mpsc::Sender<ElevatorStatus> , local_elev_tx: mpsc::Sender<local_network::ElevMessage>) -> std::io::Result<()> {
     // Start elevator-serveren
     start_elevator_server().await;
     let local_elev_channels: LocalElevChannels = LocalElevChannels::new();
@@ -124,16 +126,14 @@ pub async fn run_local_elevator(chs: local_network::LocalChannels) -> std::io::R
     }
     //Start en task som viderefører meldinger fra heisen til update_worldview 
     {
-        let chs_clone = chs.clone();
         let _listen_task = tokio::spawn(async move {
-            let _ = read_from_local_elevator(local_elev_channels.rxs, chs_clone).await;
+            let _ = read_from_local_elevator(local_elev_channels.rxs, local_elev_tx).await;
         });
     } 
     // Task som utfører deligerte tasks (ikke implementert korrekt enda)
     {
-        let chs_clone = chs.clone();
         let _handle_task = tokio::spawn(async move {
-            let _ = task_handler::execute_tasks(chs_clone, elevator).await;
+            let _ = task_handler::execute_tasks(wv_watch_rx, update_elev_state_tx, elevator).await;
         });
         tokio::task::yield_now().await;
     }  
@@ -145,7 +145,7 @@ pub async fn run_local_elevator(chs: local_network::LocalChannels) -> std::io::R
 }
 
 /// ### Videresender melding fra egen heis til update_wv
-async fn read_from_local_elevator(rxs: LocalElevRxs, chs: local_network::LocalChannels) -> std::io::Result<()> {
+async fn read_from_local_elevator(rxs: LocalElevRxs, local_elev_tx: mpsc::Sender<local_network::ElevMessage>) -> std::io::Result<()> {
     loop {
         // Sjekker hver kanal med `try_recv()`
         if let Ok(call_button) = rxs.call_button.try_recv() {
@@ -157,7 +157,7 @@ async fn read_from_local_elevator(rxs: LocalElevRxs, chs: local_network::LocalCh
                 stop_button: None,
                 obstruction: None,
             };
-            let _ = chs.mpscs.txs.local_elev.send(msg).await;
+            let _ = local_elev_tx.send(msg).await;
         }
 
         if let Ok(floor) = rxs.floor_sensor.try_recv() {
@@ -169,7 +169,7 @@ async fn read_from_local_elevator(rxs: LocalElevRxs, chs: local_network::LocalCh
                 stop_button: None,
                 obstruction: None,
             };
-            let _ = chs.mpscs.txs.local_elev.send(msg).await;
+            let _ = local_elev_tx.send(msg).await;
         }
 
         if let Ok(stop) = rxs.stop_button.try_recv() {
@@ -181,7 +181,7 @@ async fn read_from_local_elevator(rxs: LocalElevRxs, chs: local_network::LocalCh
                 stop_button: Some(stop),
                 obstruction: None,
             };
-            let _ = chs.mpscs.txs.local_elev.send(msg).await;
+            let _ = local_elev_tx.send(msg).await;
         }
 
         if let Ok(obstr) = rxs.obstruction.try_recv() {
@@ -193,7 +193,7 @@ async fn read_from_local_elevator(rxs: LocalElevRxs, chs: local_network::LocalCh
                 stop_button: None,
                 obstruction: Some(obstr),
             };
-            let _ = chs.mpscs.txs.local_elev.send(msg).await;
+            let _ = local_elev_tx.send(msg).await;
         }
 
         // Kort pause for å unngå å spinne CPU unødvendig

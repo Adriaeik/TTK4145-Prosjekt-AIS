@@ -14,7 +14,9 @@ use std::thread::sleep;
 use std::time::Duration;
 use tokio::net::UdpSocket;
 use socket2::{Domain, Socket, Type};
+use tokio::sync::mpsc;
 use std::borrow::Cow;
+use tokio::sync::watch;
 
 static UDP_TIMEOUT: OnceLock<AtomicBool> = OnceLock::new(); // worldview_channel_request
 pub fn get_udp_timeout() -> &'static AtomicBool {
@@ -22,9 +24,8 @@ pub fn get_udp_timeout() -> &'static AtomicBool {
 }
 
 /// ### Starter og kjører udp-broadcaster
-pub async fn start_udp_broadcaster(mut chs: local_network::LocalChannels) -> tokio::io::Result<()> {
+pub async fn start_udp_broadcaster(wv_watch_rx: watch::Receiver<Vec<u8>>) -> tokio::io::Result<()> {
     // Sett opp sockets
-    chs.subscribe_broadcast();
     let addr: &str = &format!("{}:{}", config::BC_ADDR, config::DUMMY_PORT);
     let addr2: &str = &format!("{}:0", config::BC_LISTEN_ADDR);
 
@@ -38,10 +39,10 @@ pub async fn start_udp_broadcaster(mut chs: local_network::LocalChannels) -> tok
     socket.bind(&socket_addr.into())?;
     let udp_socket = UdpSocket::from_std(socket.into())?;
 
-    let mut wv = world_view::get_wv(chs.clone());
+    let mut wv = world_view::get_wv(wv_watch_rx.clone());
     loop{
-        let chs_clone = chs.clone();
-        world_view::update_wv(chs_clone, &mut wv).await;
+        let wv_watch_rx_clone = wv_watch_rx.clone();
+        world_view::update_wv(wv_watch_rx_clone, &mut wv).await;
 
         // Hvis du er master, broadcast worldview
         if local_network::SELF_ID.load(Ordering::SeqCst) == wv[config::MASTER_IDX] {
@@ -54,9 +55,8 @@ pub async fn start_udp_broadcaster(mut chs: local_network::LocalChannels) -> tok
 }
 
 /// ### Starter og kjører udp-listener
-pub async fn start_udp_listener(mut chs: local_network::LocalChannels) -> tokio::io::Result<()> {
+pub async fn start_udp_listener(wv_watch_rx: watch::Receiver<Vec<u8>>, udp_wv_tx: mpsc::Sender<Vec<u8>>) -> tokio::io::Result<()> {
     //Sett opp sockets
-    chs.subscribe_broadcast();
     let self_id = local_network::SELF_ID.load(Ordering::SeqCst);
     let broadcast_listen_addr = format!("{}:{}", config::BC_LISTEN_ADDR, config::DUMMY_PORT);
     let socket_addr: SocketAddr = broadcast_listen_addr.parse().expect("Ugyldig adresse");
@@ -71,7 +71,7 @@ pub async fn start_udp_listener(mut chs: local_network::LocalChannels) -> tokio:
     let mut read_wv: Vec<u8> = Vec::new();
     
     let mut message: Cow<'_, str> = std::borrow::Cow::Borrowed("a");
-    let mut my_wv = world_view::get_wv(chs.clone());
+    let mut my_wv = world_view::get_wv(wv_watch_rx.clone());
     // Loop mottar og behandler udp-broadcaster
     loop {
         match socket.recv_from(&mut buf).await {
@@ -93,7 +93,7 @@ pub async fn start_udp_listener(mut chs: local_network::LocalChannels) -> tokio:
             .filter_map(|s| s.parse::<u8>().ok()) // Konverter til u8, ignorer feil
             .collect(); // Samle i Vec<u8>
 
-            world_view::update_wv(chs.clone(), &mut my_wv).await;
+            world_view::update_wv(wv_watch_rx.clone(), &mut my_wv).await;
             if read_wv[config::MASTER_IDX] != my_wv[config::MASTER_IDX] {
                 // mulighet for debug print
             } else {
@@ -107,7 +107,7 @@ pub async fn start_udp_listener(mut chs: local_network::LocalChannels) -> tokio:
                 if !(self_id == read_wv[config::MASTER_IDX]) {
                     //Oppdater egen WV
                     my_wv = read_wv;
-                    let _ = chs.mpscs.txs.udp_wv.send(my_wv.clone()).await;
+                    let _ = udp_wv_tx.send(my_wv.clone()).await;
                 }
             }
             
@@ -117,7 +117,7 @@ pub async fn start_udp_listener(mut chs: local_network::LocalChannels) -> tokio:
 
 
 /// ### jalla udp watchdog
-pub async fn udp_watchdog(chs: local_network::LocalChannels) {
+pub async fn udp_watchdog(tcp_to_master_failed_tx: mpsc::Sender<bool>) {
     loop {
         if get_udp_timeout().load(Ordering::SeqCst) == false {
             get_udp_timeout().store(true, Ordering::SeqCst);
@@ -126,7 +126,7 @@ pub async fn udp_watchdog(chs: local_network::LocalChannels) {
         else {
             get_udp_timeout().store(false, Ordering::SeqCst); //resetter watchdogen
             print::warn("UDP-watchdog: Timeout".to_string());
-            let _ = chs.mpscs.txs.tcp_to_master_failed.send(true).await;
+            let _ = tcp_to_master_failed_tx.send(true).await;
         }
     }
 }

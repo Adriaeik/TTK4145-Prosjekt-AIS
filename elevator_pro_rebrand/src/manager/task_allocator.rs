@@ -5,10 +5,9 @@ use std::collections::HashMap;
 use std::thread::sleep;
 use std::time::{Duration, Instant};
 use crate::elevio::poll::CallButton;
-use crate::network::local_network::LocalChannels;
 use crate::world_view::{self, serial, ElevatorContainer, ElevatorStatus};
 use serde::{Deserialize, Serialize};
-use tokio::sync::{mpsc, RwLock};
+use tokio::sync::{mpsc, watch, RwLock};
 use crate::{config, print, ip_help_functions};
 use crate::elevio::poll::CallType;
 use tokio::sync::Mutex;
@@ -50,7 +49,13 @@ type CostMap = HashMap<u8, Vec<(Task, u32)>>;
 
 
 
-pub async fn delegate_tasks(chs: LocalChannels, mut container_ch: mpsc::Receiver::<Vec<u8>>) {
+pub async fn delegate_tasks(
+                            wv_watch_rx: watch::Receiver<Vec<u8>>, 
+                            mut container_ch: mpsc::Receiver::<Vec<u8>>,
+                            new_task_tx: mpsc::Sender<(u8, Option<Task>)>,
+                            pending_tasks_tx: mpsc::Sender<Vec<Task>>,
+                        ) 
+{
     let elevators: Arc<RwLock<HashMap<u8, ElevatorState>>> = Arc::new(RwLock::new(HashMap::new()));
     let tasks: Arc<Mutex<Vec<Task>>> = Arc::new(Mutex::new(Vec::new()));
     let mut cost_map: CostMap = CostMap::new();
@@ -59,13 +64,13 @@ pub async fn delegate_tasks(chs: LocalChannels, mut container_ch: mpsc::Receiver
     let elevator_clone = elevators.clone();
 
     // Lager egen task å lese container-meldinger, så den leser fort nok (cost fcn tar litt tid)
-    let chs_clone = chs.clone();
+    let new_task_tx_clone = new_task_tx.clone();
     tokio::spawn(async move {
-        let mut wv = world_view::get_wv(chs_clone.clone());
+        let mut wv = world_view::get_wv(wv_watch_rx.clone());
         let mut task_id: u16 = 0;
         let mut read_slave = false;
         loop {
-            world_view::update_wv(chs_clone.clone(), &mut wv).await;
+            world_view::update_wv(wv_watch_rx.clone(), &mut wv).await;
             if world_view::is_master(wv.clone()) && read_slave {
                 sleep(Duration::from_millis(1));
             // println!("Meldinger i kø: {}", container_ch.len());
@@ -82,7 +87,7 @@ pub async fn delegate_tasks(chs: LocalChannels, mut container_ch: mpsc::Receiver
                             if let Some(task) = elev.current_task.clone() {
                                 if task.call.floor == elev.floor {
                                     tasks_to_remove.push(task);
-                                    let _ = chs_clone.mpscs.txs.new_task.send((elev.id, None)).await;
+                                    let _ = new_task_tx_clone.send((elev.id, None)).await;
                                 }
                             }
                         }
@@ -95,7 +100,7 @@ pub async fn delegate_tasks(chs: LocalChannels, mut container_ch: mpsc::Receiver
                         tasks_locked.retain(|t| !tasks_to_remove.iter().any(|ot| ot.id == t.id));
                         tasks_locked.append(&mut new_tasks);
 
-                        let _ = chs_clone.mpscs.txs.pending_tasks.send(tasks_locked.clone()).await;
+                        let _ = pending_tasks_tx.send(tasks_locked.clone()).await;
                     },
                     Err(_) => {},
                 }
@@ -140,7 +145,7 @@ pub async fn delegate_tasks(chs: LocalChannels, mut container_ch: mpsc::Receiver
                     // send_task_to_elevator(*id, best_task.clone());
                     elevator.current_task = Some(best_task.clone());
                     // println!("Best task for ID {} is {:?}", *id, best_task.clone());
-                    let _ = chs.mpscs.txs.new_task.send((*id, Some(best_task.clone()))).await;
+                    let _ = new_task_tx.send((*id, Some(best_task.clone()))).await;
                     active_task_ids.insert(*id, best_task.clone().id);
                         
                     // Viss nødvendig: Fjern oppgåva frå den globale lista for å unngå at den vert delegert fleire gonger.

@@ -69,84 +69,108 @@ async fn main() {
     let worldview_serialised = init::initialize_worldview(self_container).await;
 
     
-/* START ----------- Init av lokale channels ---------------------- */
+/* START ----------- Init av channels brukt til oppdatering av lokal worldview ---------------------- */
     //Kun bruk mpsc-rxene fra main_local_chs
-    let main_local_chs = local_network::LocalChannels::new();
-    let _ = main_local_chs.watches.txs.wv.send(worldview_serialised.clone());
-/* SLUTT ----------- Init av lokale channels ---------------------- */
+    let main_mpscs = local_network::Mpscs::new();
+    let watches = local_network::Watches::new();
+    let _ = watches.txs.wv.send(worldview_serialised.clone());
+/* SLUTT ----------- Init av channels brukt til oppdatering av lokal worldview ---------------------- */
 
 /* START ----------- Init av diverse channels ---------------------- */
     //Kun bruk mpsc-rxene fra main_local_chs
     let (mut task_dellecator_tx, mut task_dellecator_rx) = mpsc::channel::<Vec<u8>>(1000);
+    let (socket_tx, socket_rx) = mpsc::channel::<(TcpStream, SocketAddr)>(100);
+    let mpsc_rxs = main_mpscs.rxs;
+    let wv_watch_tx = watches.txs.wv;
+    let update_elev_state_tx = main_mpscs.txs.update_elev_state;
+    let local_elev_tx = main_mpscs.txs.local_elev;
+    let new_task_tx = main_mpscs.txs.new_task;
+    let pending_tasks_tx = main_mpscs.txs.pending_tasks;
+    let udp_wv_tx = main_mpscs.txs.udp_wv;
+    let remove_container_tx = main_mpscs.txs.remove_container;
+    let container_tx = main_mpscs.txs.container;
+    let tcp_to_master_failed_tx_clone = main_mpscs.txs.tcp_to_master_failed.clone();
+    let sent_tcp_container_tx = main_mpscs.txs.sent_tcp_container;
+    let tcp_to_master_failed_tx = main_mpscs.txs.tcp_to_master_failed;
 /* SLUTT ----------- Init av diverse channels ---------------------- */
 
-
-
-/* START ----------- Kloning av lokale channels til Tokio Tasks ---------------------- */
-    let chs_udp_listen = main_local_chs.clone();
-    let chs_udp_bc = main_local_chs.clone();
-    let chs_tcp = main_local_chs.clone();
-    let chs_udp_wd = main_local_chs.clone();
-    let chs_print = main_local_chs.clone();
-    let chs_listener = main_local_chs.clone();
-    let chs_local_elev = main_local_chs.clone();
-    let chs_task_allocater = main_local_chs.clone();
-    let chs_backup = main_local_chs.clone();
-    let chs_task_dellecator = main_local_chs.clone();
-    let mut chs_loop = main_local_chs.clone();
-    let (socket_tx, socket_rx) = mpsc::channel::<(TcpStream, SocketAddr)>(100);
-/* SLUTT ----------- Kloning av lokale channels til Tokio Tasks ---------------------- */                                                     
-
 /* START ----------- Starte kritiske tasks ----------- */
-    //Task som kontinuerlig oppdaterer lokale worldview
-    let _update_wv_task = tokio::spawn(async move {
-        print::info("Starter å oppdatere wv".to_string());
-        let _ = local_network::update_wv_watch(main_local_chs, worldview_serialised, task_dellecator_tx).await;
-    });
+    {
+        //Task som kontinuerlig oppdaterer lokale worldview
+        let _update_wv_task = tokio::spawn(async move {
+            print::info("Starter å oppdatere wv".to_string());
+            let _ = local_network::update_wv_watch(mpsc_rxs, wv_watch_tx, worldview_serialised, task_dellecator_tx).await;
+        });
+    }
     //Task som håndterer den lokale heisen
     //TODO: Få den til å signalisere at vi er i known state.
-    let _local_elev_task = tokio::spawn(async move {
-        let _ = tcp_self_elevator::run_local_elevator(chs_local_elev).await;
-    });
-    let _task_allocater_task = tokio::spawn(async move {
-        print::info("Staring task delegator".to_string());
-        let _ = manager::task_allocator::delegate_tasks(chs_task_dellecator, task_dellecator_rx).await;
-    });
+    {
+        let wv_watch_rx = watches.rxs.wv.clone();
+        let _local_elev_task = tokio::spawn(async move {
+            let _ = tcp_self_elevator::run_local_elevator(wv_watch_rx, update_elev_state_tx, local_elev_tx).await;
+        });
+    }
+    {
+        let wv_watch_rx = watches.rxs.wv.clone();
+        let _task_allocater_task = tokio::spawn(async move {
+            print::info("Staring task delegator".to_string());
+            let _ = manager::task_allocator::delegate_tasks(wv_watch_rx, task_dellecator_rx, new_task_tx, pending_tasks_tx).await;
+        });
+    }
 /* SLUTT ----------- Starte kritiske tasks ----------- */
 
     // Start backup server i en egen task
-    
-    let _backup_task = tokio::spawn(async move {
-        print::info("Starter backup".to_string());
-        tokio::spawn(backup::start_backup_server(/*subscribe på wv chanel */chs_backup ));
-    });
+    {
+        let wv_watch_rx = watches.rxs.wv.clone();
+        let _backup_task = tokio::spawn(async move {
+            print::info("Starter backup".to_string());
+            tokio::spawn(backup::start_backup_server(wv_watch_rx));
+        });
+    }
         
 /* START ----------- Starte Eksterne Nettverkstasks ---------------------- */
     //Task som hører etter UDP-broadcasts
-    let _listen_task = tokio::spawn(async move {
-        print::info("Starter å høre etter UDP-broadcast".to_string());
-        let _ = udp_broadcast::start_udp_listener(chs_udp_listen).await;
-    });
+    {
+        let wv_watch_rx = watches.rxs.wv.clone();
+        let _listen_task = tokio::spawn(async move {
+            print::info("Starter å høre etter UDP-broadcast".to_string());
+            let _ = udp_broadcast::start_udp_listener(wv_watch_rx, udp_wv_tx).await;
+        });
+    }
+
     //Task som starter egen UDP-broadcaster
-    let _broadcast_task = tokio::spawn(async move {
-        print::info("Starter UDP-broadcaster".to_string());
-        let _ = udp_broadcast::start_udp_broadcaster(chs_udp_bc).await;
-    });
+    {
+        let wv_watch_rx = watches.rxs.wv.clone();
+        let _broadcast_task = tokio::spawn(async move {
+            print::info("Starter UDP-broadcaster".to_string());
+            let _ = udp_broadcast::start_udp_broadcaster(wv_watch_rx).await;
+        });
+    }
+
     //Task som håndterer TCP-koblinger
-    let _tcp_task = tokio::spawn(async move {
-        print::info("Starter å TCPe".to_string());
-        let _ = tcp_network::tcp_handler(chs_tcp, socket_rx).await;
-    });
+    {
+        let wv_watch_rx = watches.rxs.wv.clone();
+        let _tcp_task = tokio::spawn(async move {
+            print::info("Starter å TCPe".to_string());
+            let _ = tcp_network::tcp_handler(wv_watch_rx, remove_container_tx, container_tx, tcp_to_master_failed_tx, sent_tcp_container_tx, socket_rx).await;
+        });
+    }
+
     //UDP Watchdog
-    let _udp_watchdog = tokio::spawn(async move {
-        print::info("Starter udp watchdog".to_string());
-        let _ = udp_broadcast::udp_watchdog(chs_udp_wd).await;
-    });
+    {
+        let _udp_watchdog = tokio::spawn(async move {
+            print::info("Starter udp watchdog".to_string());
+            let _ = udp_broadcast::udp_watchdog(tcp_to_master_failed_tx_clone).await;
+        });
+    }
+
     //Task som starter TCP-listener
-    let _listener_handle = tokio::spawn(async move {
-        print::info("Starter tcp listener".to_string());
-        let _ = tcp_network::listener_task(chs_listener, socket_tx).await;
-    });
+    {
+        let _listener_handle = tokio::spawn(async move {
+            print::info("Starter tcp listener".to_string());
+            let _ = tcp_network::listener_task(socket_tx).await;
+        });
+    }
     // Lag prat med egen heis thread her 
 /* SLUTT ----------- Starte Eksterne Nettverkstasks ---------------------- */
 
@@ -164,7 +188,9 @@ async fn main() {
     });
 */
     //Vent med å avslutte programmet
-    let _ = chs_loop.broadcasts.rxs.shutdown.recv().await;
+    loop{
+        tokio::task::yield_now().await;
+    }
 }
 
 
