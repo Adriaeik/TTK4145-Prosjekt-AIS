@@ -3,7 +3,7 @@
 use std::sync::atomic::{AtomicBool, Ordering};
 use tokio::{io::{AsyncReadExt, AsyncWriteExt}, net::{TcpListener, TcpStream}, task::JoinHandle, sync::mpsc, time::{sleep, Duration, Instant}};
 use std::net::SocketAddr;
-use crate::{config, print, ip_help_functions::{self}, world_view::{world_view_update, world_view}};
+use crate::{config, print, ip_help_functions::{self}, world_view::{self, world_view_update}};
 use super::local_network;
 
 // Definer ein global `AtomicU8`

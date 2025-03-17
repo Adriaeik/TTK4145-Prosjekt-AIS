@@ -151,7 +151,7 @@ async fn read_from_local_elevator(rxs: LocalElevRxs, chs: local_network::LocalCh
         if let Ok(call_button) = rxs.call_button.try_recv() {
             //println!("CB: {:#?}", call_button);
             let msg = local_network::ElevMessage {
-                msg_type: local_network::ElevMsgType::CBTN,
+                msg_type: local_network::ElevMsgType::CALLBTN,
                 call_button: Some(call_button),
                 floor_sensor: None,
                 stop_button: None,
@@ -163,7 +163,7 @@ async fn read_from_local_elevator(rxs: LocalElevRxs, chs: local_network::LocalCh
         if let Ok(floor) = rxs.floor_sensor.try_recv() {
             //println!("Floor: {:#?}", floor);
             let msg = local_network::ElevMessage {
-                msg_type: local_network::ElevMsgType::FSENS,
+                msg_type: local_network::ElevMsgType::FLOORSENS,
                 call_button: None,
                 floor_sensor: Some(floor),
                 stop_button: None,
@@ -175,7 +175,7 @@ async fn read_from_local_elevator(rxs: LocalElevRxs, chs: local_network::LocalCh
         if let Ok(stop) = rxs.stop_button.try_recv() {
             //println!("Stop button: {:#?}", stop);
             let msg = local_network::ElevMessage {
-                msg_type: local_network::ElevMsgType::SBTN,
+                msg_type: local_network::ElevMsgType::STOPBTN,
                 call_button: None,
                 floor_sensor: None,
                 stop_button: Some(stop),

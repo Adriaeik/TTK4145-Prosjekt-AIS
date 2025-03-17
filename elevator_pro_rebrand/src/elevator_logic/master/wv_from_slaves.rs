@@ -1,4 +1,4 @@
-use crate::world_view::world_view::{self, ElevatorContainer};
+use crate::world_view::{self, ElevatorContainer};
 use crate::elevator_logic::master::wv_from_slaves::world_view::TaskStatus;
 use std::collections::HashSet;
 

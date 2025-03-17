@@ -5,7 +5,7 @@ use tokio::net::TcpStream;
 use tokio::io::AsyncWriteExt;
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 use tokio::time::sleep;
-use crate::{config, print, network::local_network, world_view::world_view::{self}, manager::task_allocator::Task};
+use crate::{config, print, network::local_network, world_view, manager::task_allocator::Task};
 
 
 

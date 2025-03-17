@@ -6,7 +6,7 @@ use std::thread::sleep;
 use std::time::{Duration, Instant};
 use crate::elevio::poll::CallButton;
 use crate::network::local_network::LocalChannels;
-use crate::world_view::world_view::{self, deserialize_elev_container, deserialize_worldview, ElevatorContainer, ElevatorStatus};
+use crate::world_view::{self, deserialize_elev_container, deserialize_worldview, ElevatorContainer, ElevatorStatus};
 use serde::{Deserialize, Serialize};
 use tokio::sync::{mpsc, RwLock};
 use crate::{config, print, ip_help_functions};

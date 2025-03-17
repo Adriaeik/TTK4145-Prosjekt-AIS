@@ -37,14 +37,7 @@ pub mod network {
 }
 
 /// Management of the system's world view.
-pub mod world_view {
-    /// Handles messages on internal channels regarding changes in worldview
-    pub mod world_view_ch;
-    /// Help functions to update local worldview
-    pub mod world_view_update;
-    /// The worldview struct, and some help-functions
-    pub mod world_view;
-}
+pub mod world_view;
 
 /// Interface for elevator input/output. Only changes are documented here. For source code see: [https://github.com/TTK4145/driver-rust/tree/master/src/elevio]
 pub mod elevio {
@@ -66,9 +59,7 @@ pub mod elevator_logic {
     }
 }
 
-pub mod backup {
-    pub mod backup;
-}
+pub mod backup;
 
 
 

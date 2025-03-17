@@ -9,7 +9,7 @@ use tokio::sync::watch;
 use tokio::time::{sleep, Duration, timeout};
 
 // Tilpass desse importane til prosjektet ditt:
-use crate::{config, init, ip_help_functions, world_view::world_view};
+use crate::{config, init, ip_help_functions, world_view};
 use crate::print;
 use crate::network::local_network;
 

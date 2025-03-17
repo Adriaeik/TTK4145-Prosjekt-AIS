@@ -4,7 +4,7 @@ use std::{sync::atomic::Ordering, net::SocketAddr, time::Duration, borrow::Cow, 
 use tokio::{time::{Instant, timeout}, net::UdpSocket};
 use socket2::{Domain, Socket, Type};
 use local_ip_address::local_ip;
-use crate::{config, elevio::poll::{CallButton, CallType}, manager::task_allocator::Task, network::local_network, print, ip_help_functions::ip2id, world_view::world_view::{self, serialize_worldview, ElevatorContainer, TaskStatus, WorldView}};
+use crate::{config, elevio::poll::{CallButton, CallType}, manager::task_allocator::Task, network::local_network, print, ip_help_functions::ip2id, world_view::{self, serialize_worldview, ElevatorContainer, TaskStatus, WorldView}};
 
 
 /// ### Initializes the worldview on startup

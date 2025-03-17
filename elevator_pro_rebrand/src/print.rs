@@ -1,6 +1,6 @@
 use std::io::Write;
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
-use crate::{config, world_view::world_view::{ElevatorStatus, deserialize_worldview}};
+use crate::{config, world_view::{ElevatorStatus, deserialize_worldview}};
 use crate::elevio::poll::CallType;
 use ansi_term::Colour::{Blue, Green, Red, Yellow, Purple, Fixed};
 use prettytable::{Table, Row, Cell, format, Attr, color};

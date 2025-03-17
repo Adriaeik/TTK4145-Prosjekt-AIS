@@ -1,9 +1,11 @@
+//! Help functions to update local worldview
+
 // use crate::elevator_logic::master::wv_from_slaves::update_call_buttons;
-use crate::world_view::world_view;
+use crate::world_view;
 use crate::{config, print, ip_help_functions::{self}};
 use crate::elevator_logic::master;
 use crate::network::local_network::{self, ElevMessage, LocalChannels};
-use crate::world_view::world_view::TaskStatus;
+use crate::world_view::TaskStatus;
 use crate::elevio::poll::CallButton;
 use crate::manager::task_allocator::Task;
 
@@ -11,7 +13,7 @@ use std::collections::HashSet;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::OnceLock;
 
-use super::world_view::{deserialize_worldview, get_index_to_container, serialize_elev_container, serialize_worldview, ElevatorStatus};
+use crate::world_view::{deserialize_worldview, get_index_to_container, serialize_elev_container, serialize_worldview, ElevatorStatus};
 
 
 static ONLINE: OnceLock<AtomicBool> = OnceLock::new(); 
@@ -258,7 +260,7 @@ pub async fn recieve_local_elevator_msg(chs: LocalChannels, wv: &mut Vec<u8>, ms
     // Matcher hvilken knapp-type som er mottat
     match msg.msg_type {
         // Callbutton -> Legg den til i calls under egen heis-container
-        local_network::ElevMsgType::CBTN => {
+        local_network::ElevMsgType::CALLBTN => {
             print::info(format!("Callbutton: {:?}", msg.call_button));
             if let (Some(i), Some(call_btn)) = (self_idx, msg.call_button) {
                 deserialized_wv.elevator_containers[i].calls.push(call_btn); 
@@ -276,7 +278,7 @@ pub async fn recieve_local_elevator_msg(chs: LocalChannels, wv: &mut Vec<u8>, ms
         }
 
         // Floor_sensor -> oppdater last_floor_sensor i egen heis-container
-        local_network::ElevMsgType::FSENS => {
+        local_network::ElevMsgType::FLOORSENS => {
             print::info(format!("Floor: {:?}", msg.floor_sensor));
             if let (Some(i), Some(floor)) = (self_idx, msg.floor_sensor) {
                 deserialized_wv.elevator_containers[i].last_floor_sensor = floor;
@@ -285,7 +287,7 @@ pub async fn recieve_local_elevator_msg(chs: LocalChannels, wv: &mut Vec<u8>, ms
         }
 
         // Stop_button -> funksjon kommer
-        local_network::ElevMsgType::SBTN => {
+        local_network::ElevMsgType::STOPBTN => {
             print::info(format!("Stop button: {:?}", msg.stop_button));
             
         }

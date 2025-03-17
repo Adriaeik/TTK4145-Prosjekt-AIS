@@ -1,3 +1,5 @@
+//! Handles messages on internal channels regarding changes in worldview
+
 use std::thread::sleep;
 use std::time::Duration;
 
@@ -16,7 +18,7 @@ use crate::world_view::world_view_update::{ join_wv_from_udp,
                                         };
 use crate::network::local_network::LocalChannels;
 use crate::print;
-use crate::world_view::world_view::{self, deserialize_worldview, serialize_worldview};
+use crate::world_view::{self, deserialize_worldview, serialize_worldview};
 
 
 /// ### Oppdatering av lokal worldview

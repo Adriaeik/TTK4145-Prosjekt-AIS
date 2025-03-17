@@ -3,7 +3,7 @@ use std::time::Duration;
 
 use crate::manager::task_allocator::ElevatorState;
 use crate::network::local_network;
-use crate::world_view::world_view::{self, ElevatorContainer, ElevatorStatus, TaskStatus};
+use crate::world_view::{self, ElevatorContainer, ElevatorStatus, TaskStatus};
 use crate::elevio::elev;
 
 

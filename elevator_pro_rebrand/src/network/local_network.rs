@@ -1,4 +1,4 @@
-use crate::{elevio::poll::CallButton, world_view::world_view::ElevatorStatus};
+use crate::{elevio::poll::CallButton, world_view::ElevatorStatus};
 use crate::print;
 use crate::config;
 use crate::manager::task_allocator::Task;
@@ -44,11 +44,11 @@ pub fn get_self_ip() -> Result<IpAddr, local_ip_address::Error> {
 #[derive(Debug)]
 pub enum ElevMsgType {
     /// Call button press event.
-    CBTN,
+    CALLBTN,
     /// Floor sensor event.
-    FSENS,
+    FLOORSENS,
     /// Stop button press event.
-    SBTN,
+    STOPBTN,
     /// Obstruction detected event.
     OBSTRX,
 }
