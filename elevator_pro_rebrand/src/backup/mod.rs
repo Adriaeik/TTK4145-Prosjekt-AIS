@@ -65,7 +65,19 @@ async fn handle_backup_client(mut stream: TcpStream, rx: watch::Receiver<Vec<u8>
     }
 }
 
-/// Backup-serveren: Lytter på tilkoplingar frå backup-klientar og sender ut den nyaste worldview.
+// Backup-serveren: Lytter på tilkoplingar frå backup-klientar og sender ut den nyaste worldview.
+/// Function to start and maintain connection to the backup-program
+/// 
+/// ## Parameters
+/// `wv_watch_rx`: Rx on watch the worldview is being sent on in the system  
+/// 
+/// ## Behavior
+/// - Sets up a reusable TCP listener and starts a backup program in a new terminal
+/// - Continously sends the latest worldview to the backup asynchronously
+/// - Continously reads the latest worldview shich will be sent
+/// 
+/// ## Note
+/// This function is permanently blocking, and should be ran asynchronously 
 pub async fn start_backup_server(wv_watch_rx: watch::Receiver<Vec<u8>>) {
     println!("Backup-serveren startar...");
     

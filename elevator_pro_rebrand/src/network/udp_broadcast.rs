@@ -26,7 +26,18 @@ pub fn get_udp_timeout() -> &'static AtomicBool {
     UDP_TIMEOUT.get_or_init(|| AtomicBool::new(false))
 }
 
-/// ### Starter og kjører udp-broadcaster
+// ### Starter og kjører udp-broadcaster
+/// This function starts and runs the UDP-broadcaster
+/// 
+/// ## Parameters
+/// `wv_watch_rx`: Rx on watch the worldview is being sent on in the system  
+/// 
+/// ## Behavior
+/// - Sets up a reusable socket on the udp-broadcast address
+/// - Continously reads the latest worldview, if self is master on the network, it broadcasts the worldview. 
+/// 
+/// ## Note
+/// This function is permanently blocking, and should be called asynchronously
 pub async fn start_udp_broadcaster(wv_watch_rx: watch::Receiver<Vec<u8>>) -> tokio::io::Result<()> {
     // Sett opp sockets
     let addr: &str = &format!("{}:{}", config::BC_ADDR, config::DUMMY_PORT);
@@ -57,7 +68,21 @@ pub async fn start_udp_broadcaster(wv_watch_rx: watch::Receiver<Vec<u8>>) -> tok
     }
 }
 
-/// ### Starter og kjører udp-listener
+// ### Starter og kjører udp-listener
+/// Starts and runs the UDP-listener
+/// 
+/// ## Parameters
+/// `wv_watch_rx`: Rx on watch the worldview is being sent on in the system  
+/// `udp_wv_tx`: mpsc sender used to update [local_network::update_wv_watch] about new worldviews recieved over UDP
+/// 
+/// ## Behaviour
+/// - Sets up a reusable listener listening for udp-broadcasts
+/// - Continously reads on the listener
+/// - Checks for key-string on all recieved messages, making sure the message is from one of 'our' nodes. 
+/// - If the message is from the current master or a node with lower ID than the current master, it sends it on `udp_wv_tx`
+/// 
+/// ## Note
+/// This function is permanently blocking, and should be called asynchronously 
 pub async fn start_udp_listener(wv_watch_rx: watch::Receiver<Vec<u8>>, udp_wv_tx: mpsc::Sender<Vec<u8>>) -> tokio::io::Result<()> {
     //Sett opp sockets
     let self_id = local_network::SELF_ID.load(Ordering::SeqCst);
@@ -119,7 +144,7 @@ pub async fn start_udp_listener(wv_watch_rx: watch::Receiver<Vec<u8>>, udp_wv_tx
 }
 
 
-/// ### jalla udp watchdog
+// ### jalla udp watchdog
 pub async fn udp_watchdog(tcp_to_master_failed_tx: mpsc::Sender<bool>) {
     loop {
         if get_udp_timeout().load(Ordering::SeqCst) == false {

@@ -61,7 +61,7 @@ impl TcpWatchdog {
 }
 
 
-/// ### Håndterer TCP-connections
+// ### Håndterer TCP-connections
 pub async fn tcp_handler(
                         wv_watch_rx: watch::Receiver<Vec<u8>>, 
                         remove_container_tx: mpsc::Sender<u8>, 
@@ -175,7 +175,7 @@ async fn connect_to_master(wv_watch_rx: watch::Receiver<Vec<u8>>, tcp_to_master_
     }
 }
 
-/// ### Starter og kjører TCP-listener
+// ### Starter og kjører TCP-listener
 pub async fn listener_task(socket_tx: mpsc::Sender<(TcpStream, SocketAddr)>) {
     let self_ip = format!("{}.{}", config::NETWORK_PREFIX, local_network::SELF_ID.load(Ordering::SeqCst));
     // Ved første init, vent til vi er sikre på at vi har internett

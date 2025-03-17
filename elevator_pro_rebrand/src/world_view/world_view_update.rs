@@ -410,7 +410,7 @@ pub fn update_elev_state(wv: &mut Vec<u8>, status: ElevatorStatus) -> bool {
 ///
 /// This function continuously checks whether the device has a valid network connection.
 /// It determines connectivity by verifying that the device's IP matches the expected network prefix.
-/// The network status is stored in a shared atomic boolean (`get_network_status()`).
+/// The network status is stored in a shared atomic boolean [get_network_status()].
 ///
 /// ## Behavior
 /// - Retrieves the device's IP address using `utils::get_self_ip()`.

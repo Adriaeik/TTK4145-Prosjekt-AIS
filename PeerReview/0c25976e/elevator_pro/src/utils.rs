@@ -499,19 +499,19 @@ pub fn is_master(wv: Vec<u8>) -> bool {
     return SELF_ID.load(Ordering::SeqCst) == wv[config::MASTER_IDX];
 }
 
-/// Retrieves the latest elevator tasks from the system.
-///
-/// This function borrows the value from the `elev_task` channel and clones it, returning a copy of the tasks.
-/// It is used to fetch the current tasks for the local elevator.
-///
-/// ## Parameters
-/// - `chs`: A `LocalChannels` struct that contains the communication channels for the system.
-///
-/// ## Returns
-/// - A `Vec<Task>` containing the current elevator tasks.
-pub fn get_elev_tasks(chs: local_network::LocalChannels) -> Vec<Task> {
-    chs.watches.rxs.elev_task.borrow().clone()
-}
+// /// Retrieves the latest elevator tasks from the system.
+// ///
+// /// This function borrows the value from the `elev_task` channel and clones it, returning a copy of the tasks.
+// /// It is used to fetch the current tasks for the local elevator.
+// ///
+// /// ## Parameters
+// /// - `chs`: A `LocalChannels` struct that contains the communication channels for the system.
+// ///
+// /// ## Returns
+// /// - A `Vec<Task>` containing the current elevator tasks.
+// pub fn get_elev_tasks(chs: local_network::LocalChannels) -> Vec<Task> {
+//     chs.watches.rxs.elev_task.borrow().clone()
+// }
 
 /// Retrieves a clone of the `ElevatorContainer` with the specified `id` from the provided worldview.
 ///

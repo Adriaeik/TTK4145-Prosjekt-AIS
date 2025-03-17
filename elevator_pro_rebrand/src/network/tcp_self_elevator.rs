@@ -91,7 +91,22 @@ async fn start_elevator_server() {
     println!("Elevator server startet.");
 }
 
-/// ### Kjører den lokale heisen
+// ### Kjører den lokale heisen
+
+/// Runs the local elevator
+/// 
+/// ## Parameters
+/// `wv_watch_rx`: Rx on watch the worldview is being sent on in the system  
+/// `update_elev_state_tx`: mpsc sender used to update [local_network::update_wv_watch] when the elevator is in a new state  
+/// `local_elev_tx`: mpsc sender used to update [local_network::update_wv_watch] when a message has been recieved form the elevator  
+/// 
+/// ## Behavior
+/// - The function starts the elevatorserver on the machine, and starts polling for messages  
+/// - The function starts a thread which forwards messages from the elevator to [local_network::update_wv_watch]
+/// - The function starts a thread which executes the first task for your own elevator in the worldview
+/// 
+/// ## Note
+/// This function loops over a tokio::yield_now(). This is added in case further implementation is added which makes the function permanently-blocking, forcing the user to spawn this function in a tokio task. In theroy, this could be removed, but for now: call this function asynchronously
 pub async fn run_local_elevator(wv_watch_rx: watch::Receiver<Vec<u8>>, update_elev_state_tx: mpsc::Sender<ElevatorStatus> , local_elev_tx: mpsc::Sender<elevio::ElevMessage>) -> std::io::Result<()> {
     // Start elevator-serveren
     start_elevator_server().await;

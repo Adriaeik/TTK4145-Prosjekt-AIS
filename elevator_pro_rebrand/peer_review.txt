@@ -1,0 +1,43 @@
+Reviewer 1:
+9
+The code is very well structured With comments that Clearly split the code into parts that are more managable and understandable. Using multiline comments to indicate the start and end of a task is a Nice way to saparate between comments of the acutal code and the divisions that are done for readability.
+The code is very detailed and handels many cases that is not specified in the Project description. e.g. confirming that the adress of incomming messages
+It seems overly complex compared to the Project requirements. for example colorcoating for messeages is a Nice touch but adds nothing to the information information itself and is a detriment to readability of the code itself. print_cosmic_err is a sinner here.
+In general the variable and function names are very good and intuitive, they give a good explanation of what the variable or furnction is/does without a wall of comments.
+Is it necessary to use both UDP and TCP?, would it be beneficial/simpler to use only one to reduce the complexity of the system. There are ways to Ensure the integrity of the communication over UDP, forexample adding sequencing and acknowledgment to your packets instead of using both UDP and TCP.
+Im not an expert but isnt running unsafe{} in a multithreaded program for a mutable global variable (e.g PRINT_INFO_ON) without proper synchronization a problem?
+Do you have any way of knowing if it takes unreasnoable long time to service an order that has been given to an elevator. forexample if there is an obstruction blockign the elevator from proceding is there a way to detct and handle this order?
+Overall it looks very good, and it seems you have full control and are on route to finish With a good product once you have implemented the missing elements.
+
+Reviewer 2:
+6
+1. The README is copy paste chatGPT, which sets a bad first impression on your solution. Based on this and my walkthrough indicates AI generated code (AI inspired at best). Despite this I give some comments, even though I would make chatGPT do it, I do it myself.
+2. Nice of you to include flowcharts, one of the few reasons I understand your code. Some good comments, but suspect them to be AI generated
+3. Your naming sheme is nonexistent, or just not put much thought in (ie. world_view files, WorldView struct, what is happening in pub mod world_view {pub mod world_view} recurive mod??  )
+4. State looks to be somewhat structured, but consider how you would differenciate between tasks that are new but not colective confirmed(pending) and that are confrimed. Multiple states can ease the distingusje.
+5. The different datastructures seems overly intricate and intertwined. This is reflected on the multiple lines of code in for example local_networks file. Tip would be to look into #[derive(copy, clone, ... ) ]. 
+6. Usin tokio to split work onto fibers is somewhat tedious, consider using "crossbeam channels" ?
+7. Is serializing and deserializeing nessecary for transmitting worldview? The worldview can be sent as a plain string.
+
+Reviewer 3:
+7
+-Break down larger functions to multiple smaller ones, for example join_wv.
+-Try to avoid using let _ =, and rather use error handling to make system more reliable.'
+-The main function clearly initializes the different components, and makes it easy to see what threads and classes are being run.
+-The code is well documented, perhaps some unneccesary comments where the code is self-explaining.
+-The initialization in main.rs could be implemented in their own modules, and make main.rs a lot Shorter.
+-Some documentation on how components interract and depend on each other would make the code easier to understand.
+-It seems that you are starting to create your own task_allocater. You could save time and use the hall_request_assigner that is available in the TTK4145 GitHub.
+-In local_network, why are there so many buffer channels? And could some of the implementation be automated so that it is easier to change channels if needed?
+-Why do you shorten the names in ElevMsgType? ✅
+
+Reviewer 4:
+7
+You have come a long way, with a program that will handle three elevators. However, we would seriously consider taking some time refactoring your codebase, as it is very difficult to follow the structure and logic present.
+- One thing which struck us immediately while we were going through your code, was the excessive passing of the `LocalChannels` struct to almost every thread being created. Sharing channels between the threads like this makes it near impossible to determine anything relating to the function/thread's scope and state. Which values are available to the thread? Does it send messages over the channels, or just use them to receive data? It is impossible to tell without scouring through every function manually, which is time-consuming and tedious. The cloned and repeated channels affect far too many of the bullet points present in the feedback suggestion (Cohoerence, State, Functions, Understandability, Traceability and Direction). PLEASE limit the parameters of a function to only the necessary values and channels. ✅
+- Building on the previous suggestion, having proper documentation for the functions/threads would probably have made your project a lot more readable (this is not proposed as an alternative to the previous part, but as an addition). You should attempt to make a descriptive comment for each function to document its parameters, expected behaviour, return values and potential pitfalls. Might we suggest utilizing the official Rust documentation generator, [`rustdoc`](https://doc.rust-lang.org/rustdoc/how-to-write-documentation.html)? It supports standard markdown, and should be fairly simple to use. ✅
+- While working on a refactor of your code, we would love to see some clearer separation between the tasks delegated to the master compared to the slave. It was difficult to navigate your project to find the pieces of code which were special to either one. This leads directly into our next suggestion:
+- Module purity and clarity. While you have a great starting point for separating code into modules (we think it's a great idea separating networking logic into its own module), a lot of your code could benefit from even clearer separation. For example, there are several functions defined in `utils.rs` which seem like they would fit better in other modules, like `get_wv` and `update_wv` would probably fit better in one of the worldview files (why are there multiple of these?), and a lot of the ip- and network related functions could probably also be moved. You might even be able to completely empty the `utils.rs` file, bringing us to our next point: ✅
+- Avoid "catch-all" terms for modules, variables, functions and methods. A file like `utils.rs` is entirely non-descriptive, especially in its jumbled current state. Your functions seem aptly named (although we would recommend avoiding generic terms like `handler` and `task`), but where your functions shine, your structs and variables suffer. What are `Watches`? How is `tx1` different from `tx2`? If `LocalChannels` are truly local, then why are copies sent to every single other thread started in main? (On a separate note, why are there so many different channels created in the `local_network` file?)
+- Finally, we would recommend implementing the order distributor from the provided resources, rather than implementing your own. `serde` is a great tool for serializing and deserializing JSON, which you can use to translate between your current elevator representation and the format required for the order distributor. 
+

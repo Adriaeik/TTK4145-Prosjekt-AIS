@@ -50,7 +50,6 @@ async fn main() {
     print::info("Starter hovedprosess...".to_string());
 
 /* START ----------- Task for å overvake Nettverksstatus ---------------------- */
-    /* oppdaterer ein atomicbool der true er online, false er då offline */
     let _network_status_watcher_task = tokio::spawn(async move {
         print::info("Starter å passe på nettverket".to_string());
         let _ = world_view_update::watch_ethernet().await;
@@ -64,18 +63,18 @@ async fn main() {
 
     
 /* START ----------- Init av channels brukt til oppdatering av lokal worldview ---------------------- */
-    //Kun bruk mpsc-rxene fra main_local_chs
     let main_mpscs = local_network::Mpscs::new();
     let watches = local_network::Watches::new();
+    
+    // Send the initialized worldview on the worldview watch, so its not empty when rx tries to borrow it
     let _ = watches.txs.wv.send(worldview_serialised.clone());
-/* SLUTT ----------- Init av channels brukt til oppdatering av lokal worldview ---------------------- */
-
-/* START ----------- Init av diverse channels ---------------------- */
-    //Kun bruk mpsc-rxene fra main_local_chs
-    let (task_dellecator_tx, task_dellecator_rx) = mpsc::channel::<Vec<u8>>(1000);
-    let (socket_tx, socket_rx) = mpsc::channel::<(TcpStream, SocketAddr)>(100);
-    let mpsc_rxs = main_mpscs.rxs;
+    // Seperate the watch Tx's so they can be sent to theis designated tasks
     let wv_watch_tx = watches.txs.wv;
+    let elev_task_tx= watches.txs.elev_task;
+
+    // Seperate the mpsc Rx's so they can be sent to [local_network::update_wv_watch]
+    let mpsc_rxs = main_mpscs.rxs;
+    // Seperate the mpsc Tx's so they can be sent to their designated tasks
     let update_elev_state_tx = main_mpscs.txs.update_elev_state;
     let local_elev_tx = main_mpscs.txs.local_elev;
     let new_task_tx = main_mpscs.txs.new_task;
@@ -86,6 +85,14 @@ async fn main() {
     let tcp_to_master_failed_tx_clone = main_mpscs.txs.tcp_to_master_failed.clone();
     let sent_tcp_container_tx = main_mpscs.txs.sent_tcp_container;
     let tcp_to_master_failed_tx = main_mpscs.txs.tcp_to_master_failed;
+
+/* SLUTT ----------- Init av channels brukt til oppdatering av lokal worldview ---------------------- */
+
+/* START ----------- Init av diverse channels ---------------------- */ 
+    // Create other channels used for other things
+    let (task_dellecator_tx, task_dellecator_rx) = mpsc::channel::<Vec<u8>>(1000);
+    let (socket_tx, socket_rx) = mpsc::channel::<(TcpStream, SocketAddr)>(100);
+
 /* SLUTT ----------- Init av diverse channels ---------------------- */
 
 /* START ----------- Starte kritiske tasks ----------- */

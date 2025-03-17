@@ -31,7 +31,7 @@ use crate::{config, elevio, manager::task_allocator::Task, network::local_networ
 /// ## Example Usage:
 /// ```rust
 /// let worldview_data: Vec<u8> = initialize_worldview().await;
-/// let worldview: worldview::worldview::WorldView = worldview::worldview::deserialize_worldview(&worldview_data);
+/// let worldview: worldview::WorldView = worldview::serial::deserialize_worldview(&worldview_data);
 /// ```
 pub async fn initialize_worldview(self_container : Option< world_view::ElevatorContainer>) -> Vec<u8> {
     let mut worldview = WorldView::default();
@@ -200,6 +200,10 @@ pub async fn check_for_udp() -> Vec<u8> {
 /// `help` &rarr; Displays all possible arguments without starting the program  
 /// 
 /// If no arguments are provided, all prints are enabled by default.
+/// 
+/// Secret options:  
+/// `backup` &rarr; Starts the program in backup-mode.
+/// 
 pub fn parse_args() -> bool {
     let args: Vec<String> = env::args().collect();
 
