@@ -3,15 +3,12 @@ use std::time::Duration;
 
 use crate::manager::task_allocator::ElevatorState;
 use crate::network::local_network;
-use crate::utils::{update_wv};
-use crate::print;
-use crate::world_view::world_view::{ElevatorContainer, ElevatorStatus, TaskStatus};
+use crate::world_view::world_view::{self, ElevatorContainer, ElevatorStatus, TaskStatus};
 use crate::elevio::elev;
-use crate::{utils, world_view::world_view};
 
 
 pub async fn execute_tasks(chs: local_network::LocalChannels, elevator: elev::Elevator){
-    let mut wv = utils::get_wv(chs.clone());    
+    let mut wv = world_view::get_wv(chs.clone());    
 
     // loop{
     //     let wv = utils::get_wv(chs.clone());
@@ -20,15 +17,16 @@ pub async fn execute_tasks(chs: local_network::LocalChannels, elevator: elev::El
 
     // }
     let mut container: ElevatorContainer;
-    update_wv(chs.clone(), &mut wv).await;
-    container = utils::extract_self_elevator_container(wv.clone());update_wv(chs.clone(), &mut wv).await;
-    container = utils::extract_self_elevator_container(wv.clone());
+    world_view::update_wv(chs.clone(), &mut wv).await;
+    container = world_view::extract_self_elevator_container(wv.clone());
+    world_view::update_wv(chs.clone(), &mut wv).await;
+    container = world_view::extract_self_elevator_container(wv.clone());
     elevator.motor_direction(elev::DIRN_DOWN);
     let mut last_state = ElevatorStatus::IDLE;
     loop {
         // let tasks_from_udp = utils::get_elev_tasks(chs.clone());
-        update_wv(chs.clone(), &mut wv).await;
-        container = utils::extract_self_elevator_container(wv.clone());
+        world_view::update_wv(chs.clone(), &mut wv).await;
+        container = world_view::extract_self_elevator_container(wv.clone());
         let tasks_from_udp = container.task;
 
         // utils::print_err(format!("last_floor: {}", container.last_floor_sensor));

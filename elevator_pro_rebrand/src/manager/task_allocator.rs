@@ -6,10 +6,10 @@ use std::thread::sleep;
 use std::time::{Duration, Instant};
 use crate::elevio::poll::CallButton;
 use crate::network::local_network::LocalChannels;
-use crate::world_view::world_view::{deserialize_elev_container, deserialize_worldview, ElevatorContainer, ElevatorStatus};
+use crate::world_view::world_view::{self, deserialize_elev_container, deserialize_worldview, ElevatorContainer, ElevatorStatus};
 use serde::{Deserialize, Serialize};
 use tokio::sync::{mpsc, RwLock};
-use crate::{config, print, utils};
+use crate::{config, print, ip_help_functions};
 use crate::elevio::poll::CallType;
 use tokio::sync::Mutex;
 use std::sync::Arc;
@@ -61,12 +61,12 @@ pub async fn delegate_tasks(chs: LocalChannels, mut container_ch: mpsc::Receiver
     // Lager egen task å lese container-meldinger, så den leser fort nok (cost fcn tar litt tid)
     let chs_clone = chs.clone();
     tokio::spawn(async move {
-        let mut wv = utils::get_wv(chs_clone.clone());
+        let mut wv = world_view::get_wv(chs_clone.clone());
         let mut task_id: u16 = 0;
         let mut read_slave = false;
         loop {
-            utils::update_wv(chs_clone.clone(), &mut wv).await;
-            if utils::is_master(wv.clone()) && read_slave {
+            world_view::update_wv(chs_clone.clone(), &mut wv).await;
+            if world_view::is_master(wv.clone()) && read_slave {
                 sleep(Duration::from_millis(1));
             // println!("Meldinger i kø: {}", container_ch.len());
                 match container_ch.try_recv() {

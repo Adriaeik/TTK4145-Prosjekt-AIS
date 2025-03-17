@@ -15,7 +15,6 @@ use crate::world_view::world_view_update::{ join_wv_from_udp,
                                             publish_tasks,
                                         };
 use crate::network::local_network::LocalChannels;
-use crate::utils::{self, extract_self_elevator_container};
 use crate::print;
 use crate::world_view::world_view::{self, deserialize_worldview, serialize_worldview};
 
@@ -109,7 +108,7 @@ pub async fn update_wv(mut main_local_chs: LocalChannels, mut worldview_serialis
         match main_local_chs.mpscs.rxs.update_elev_state.try_recv() {
             Ok(status) => {
                 wv_edited_I = update_elev_state(&mut worldview_serialised, status);
-                master_container_updated_I = utils::is_master(worldview_serialised.clone());
+                master_container_updated_I = world_view::is_master(worldview_serialised.clone());
             },
             Err(_) => {},
         }
@@ -117,7 +116,7 @@ pub async fn update_wv(mut main_local_chs: LocalChannels, mut worldview_serialis
         match main_local_chs.mpscs.rxs.local_elev.try_recv() {
             Ok(msg) => {
                 wv_edited_I = recieve_local_elevator_msg(main_local_chs.clone(), &mut worldview_serialised, msg).await;
-                master_container_updated_I = utils::is_master(worldview_serialised.clone());
+                master_container_updated_I = world_view::is_master(worldview_serialised.clone());
             },
             Err(_) => {},
         }
@@ -127,7 +126,7 @@ pub async fn update_wv(mut main_local_chs: LocalChannels, mut worldview_serialis
         /* KANALER ALLE SENDER LOKAL WV PÅ */
         /*_____Hvis worldview er endra, oppdater kanalen_____ */
         if master_container_updated_I {
-            let container = extract_self_elevator_container(worldview_serialised.clone());
+            let container = world_view::extract_self_elevator_container(worldview_serialised.clone());
             let _ = main_local_chs.mpscs.txs.container.send(world_view::serialize_elev_container(&container)).await;
             master_container_updated_I = false;
         }

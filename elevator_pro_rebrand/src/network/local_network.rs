@@ -1,8 +1,43 @@
-use crate::{elevio::poll::CallButton, world_view::world_view::TaskStatus};
+use crate::{elevio::poll::CallButton, world_view::world_view::ElevatorStatus};
+use crate::print;
+use crate::config;
+use crate::manager::task_allocator::Task;
 use tokio::sync::{mpsc, broadcast, watch, Semaphore};
 use std::sync::Arc;
-use crate::world_view::world_view::ElevatorStatus;
-use crate::manager::task_allocator::Task;
+
+use local_ip_address::local_ip;
+use std::net::IpAddr;
+use std::sync::atomic::AtomicU8;
+
+/// Atomic bool storing self ID, standard inited as config::ERROR_ID
+pub static SELF_ID: AtomicU8 = AtomicU8::new(config::ERROR_ID); // Startverdi 255
+
+/// Returns the local IPv4 address of the machine as `IpAddr`.
+///
+/// If no local IPv4 address is found, returns `local_ip_address::Error`.
+///
+/// # Example
+/// ```
+/// use elevatorpro::utils::get_self_ip;
+///
+/// match get_self_ip() {
+///     Ok(ip) => println!("Local IP: {}", ip), // IP retrieval successful
+///     Err(e) => println!("Failed to get IP: {:?}", e), // No local IP available
+/// }
+/// ```
+pub fn get_self_ip() -> Result<IpAddr, local_ip_address::Error> {
+    let ip = match local_ip() {
+        Ok(ip) => {
+            ip
+        }
+        Err(e) => {
+            print::warn(format!("Fant ikke IP i get_self_ip() -> Vi er offline: {}", e));
+            return Err(e);
+        }
+    };
+    Ok(ip)
+}
+
 
 
 /// Represents different types of elevator messages.

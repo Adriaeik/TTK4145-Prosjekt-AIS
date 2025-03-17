@@ -9,8 +9,8 @@ use tokio::sync::watch;
 use tokio::time::{sleep, Duration, timeout};
 
 // Tilpass desse importane til prosjektet ditt:
-use crate::{config, init, utils, world_view::world_view::{self}};
-use crate::print; 
+use crate::{config, init, ip_help_functions, world_view::world_view};
+use crate::print;
 use crate::network::local_network;
 
 // Global variabel for å sjå om backup-terminalen allereie er starta
@@ -71,7 +71,7 @@ pub async fn start_backup_server(chs: local_network::LocalChannels) {
     
     // Bruk ein gjennbrukbar listener.
     let listener = create_reusable_listener(config::BCU_PORT);
-    let wv = utils::get_wv(chs.clone());
+    let wv = world_view::get_wv(chs.clone());
     let (tx, rx) = watch::channel(wv.clone());
     
     // Start backup-terminalen éin gong.
@@ -90,7 +90,7 @@ pub async fn start_backup_server(chs: local_network::LocalChannels) {
     
     // Oppdater kontinuerleg worldview til backup-klientane.
     loop {
-        let new_wv = utils::get_wv(chs.clone());
+        let new_wv = world_view::get_wv(chs.clone());
         tx.send(new_wv).expect("Klarte ikkje sende til backup-klientane");
         sleep(Duration::from_secs(1)).await;
     }
@@ -135,7 +135,7 @@ pub async fn run_as_backup() -> world_view::ElevatorContainer {
                 if retries > 3 {
                     eprintln!("Master feila, promoterer backup til master!");
                     // Her kan failover-logikken setjast i gang, t.d. køyre master-logikken.
-                    return utils::extract_self_elevator_container(current_wv);
+                    return world_view::extract_self_elevator_container(current_wv);
                 }
             }
         }

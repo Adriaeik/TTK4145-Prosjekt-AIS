@@ -6,8 +6,9 @@ use serde::{Serialize, Deserialize};
 use std::hash::{Hash, Hasher};
 
 use crate::config;
+use crate::network::local_network;
 use crate::print;
-use crate::utils;
+use crate::ip_help_functions;
 
 use super::elev::{self/*, DIRN_STOP, DIRN_DOWN, DIRN_UP*/};
 
@@ -141,7 +142,7 @@ pub fn call_buttons(elev: elev::Elevator, ch: cbc::Sender<CallButton>, period: t
             for c in 0..3 {
                 let v = elev.call_button(f, c);
                 if v && prev[f as usize][c as usize] != v {
-                    ch.send(CallButton { floor: f, call_type: CallType::from(c), elev_id: utils::SELF_ID.load(Ordering::SeqCst)}).unwrap();
+                    ch.send(CallButton { floor: f, call_type: CallType::from(c), elev_id: local_network::SELF_ID.load(Ordering::SeqCst)}).unwrap();
                 }
                 prev[f as usize][c as usize] = v;
             }

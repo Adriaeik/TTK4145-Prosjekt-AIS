@@ -4,7 +4,7 @@ use std::{sync::atomic::Ordering, net::SocketAddr, time::Duration, borrow::Cow, 
 use tokio::{time::{Instant, timeout}, net::UdpSocket};
 use socket2::{Domain, Socket, Type};
 use local_ip_address::local_ip;
-use crate::{config, print, elevio::poll::{CallButton, CallType}, manager::task_allocator::Task, utils::{self, ip2id, SELF_ID}, world_view::world_view::{self, serialize_worldview, ElevatorContainer, TaskStatus, WorldView}};
+use crate::{config, elevio::poll::{CallButton, CallType}, manager::task_allocator::Task, network::local_network, print, ip_help_functions::ip2id, world_view::world_view::{self, serialize_worldview, ElevatorContainer, TaskStatus, WorldView}};
 
 
 /// ### Initializes the worldview on startup
@@ -43,7 +43,7 @@ pub async fn initialize_worldview(self_container : Option< world_view::ElevatorC
         let mut container = ElevatorContainer::default();
         let init_task = Task {
             id: 69,
-            call: CallButton{floor: 0, call_type: CallType::INSIDE, elev_id: SELF_ID.load(Ordering::SeqCst)},
+            call: CallButton{floor: 0, call_type: CallType::INSIDE, elev_id: local_network::SELF_ID.load(Ordering::SeqCst)},
         };
         container.task = Some(init_task.clone());
         container
@@ -60,9 +60,9 @@ pub async fn initialize_worldview(self_container : Option< world_view::ElevatorC
     };
 
     // Extract self ID from IP address (last segment of IP)
-    utils::SELF_ID.store(ip2id(ip), Ordering::SeqCst);
-    elev_container.elevator_id = utils::SELF_ID.load(Ordering::SeqCst);
-    worldview.master_id = utils::SELF_ID.load(Ordering::SeqCst);
+    local_network::SELF_ID.store(ip2id(ip), Ordering::SeqCst);
+    elev_container.elevator_id = local_network::SELF_ID.load(Ordering::SeqCst);
+    worldview.master_id = local_network::SELF_ID.load(Ordering::SeqCst);
     worldview.add_elev(elev_container.clone());
 
     // Listen for UDP messages for a short time to detect other elevators
@@ -77,8 +77,8 @@ pub async fn initialize_worldview(self_container : Option< world_view::ElevatorC
     wv_from_udp_deser.add_elev(elev_container.clone());
 
     // Set self as master if the current master has a higher ID
-    if wv_from_udp_deser.master_id > utils::SELF_ID.load(Ordering::SeqCst) {
-        wv_from_udp_deser.master_id = utils::SELF_ID.load(Ordering::SeqCst);
+    if wv_from_udp_deser.master_id > local_network::SELF_ID.load(Ordering::SeqCst) {
+        wv_from_udp_deser.master_id = local_network::SELF_ID.load(Ordering::SeqCst);
     }
 
     // Serialize and return the updated worldview

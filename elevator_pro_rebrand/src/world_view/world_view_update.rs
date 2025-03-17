@@ -1,6 +1,6 @@
 // use crate::elevator_logic::master::wv_from_slaves::update_call_buttons;
 use crate::world_view::world_view;
-use crate::{config, print, utils::{self}};
+use crate::{config, print, ip_help_functions::{self}};
 use crate::elevator_logic::master;
 use crate::network::local_network::{self, ElevMessage, LocalChannels};
 use crate::world_view::world_view::TaskStatus;
@@ -62,8 +62,8 @@ pub fn join_wv(mut my_wv: Vec<u8>, master_wv: Vec<u8>) -> Vec<u8> {
     let my_wv_deserialised = world_view::deserialize_worldview(&my_wv);
     let mut master_wv_deserialised = world_view::deserialize_worldview(&master_wv);
 
-    let my_self_index = world_view::get_index_to_container(utils::SELF_ID.load(Ordering::SeqCst) , my_wv);
-    let master_self_index = world_view::get_index_to_container(utils::SELF_ID.load(Ordering::SeqCst) , master_wv);
+    let my_self_index = world_view::get_index_to_container(local_network::SELF_ID.load(Ordering::SeqCst) , my_wv);
+    let master_self_index = world_view::get_index_to_container(local_network::SELF_ID.load(Ordering::SeqCst) , master_wv);
 
 
     if let (Some(i_org), Some(i_new)) = (my_self_index, master_self_index) {
@@ -125,9 +125,9 @@ pub fn join_wv(mut my_wv: Vec<u8>, master_wv: Vec<u8>) -> Vec<u8> {
 /// ```
 pub fn abort_network(wv: &mut Vec<u8>) -> bool {
     let mut deserialized_wv = world_view::deserialize_worldview(wv);
-    deserialized_wv.elevator_containers.retain(|elevator| elevator.elevator_id == utils::SELF_ID.load(Ordering::SeqCst));
+    deserialized_wv.elevator_containers.retain(|elevator| elevator.elevator_id == local_network::SELF_ID.load(Ordering::SeqCst));
     deserialized_wv.set_num_elev(deserialized_wv.elevator_containers.len() as u8);
-    deserialized_wv.master_id = utils::SELF_ID.load(Ordering::SeqCst);
+    deserialized_wv.master_id = local_network::SELF_ID.load(Ordering::SeqCst);
     *wv = world_view::serialize_worldview(&deserialized_wv);
     true
 }
@@ -251,9 +251,9 @@ pub fn remove_container(wv: &mut Vec<u8>, id: u8) -> bool {
 /// recieve_local_elevator_msg(&mut worldview, msg).await;
 /// ```
 pub async fn recieve_local_elevator_msg(chs: LocalChannels, wv: &mut Vec<u8>, msg: ElevMessage) -> bool {
-    let is_master = utils::is_master(wv.clone());
+    let is_master = world_view::is_master(wv.clone());
     let mut deserialized_wv = world_view::deserialize_worldview(&wv);
-    let self_idx = world_view::get_index_to_container(utils::SELF_ID.load(Ordering::SeqCst) , wv.clone());
+    let self_idx = world_view::get_index_to_container(local_network::SELF_ID.load(Ordering::SeqCst) , wv.clone());
 
     // Matcher hvilken knapp-type som er mottat
     match msg.msg_type {
@@ -325,7 +325,7 @@ pub async fn recieve_local_elevator_msg(chs: LocalChannels, wv: &mut Vec<u8>, ms
 /// ```
 pub fn clear_from_sent_tcp(wv: &mut Vec<u8>, tcp_container: Vec<u8>) -> bool {
     let mut deserialized_wv = world_view::deserialize_worldview(&wv);
-    let self_idx = world_view::get_index_to_container(utils::SELF_ID.load(Ordering::SeqCst) , wv.clone());
+    let self_idx = world_view::get_index_to_container(local_network::SELF_ID.load(Ordering::SeqCst) , wv.clone());
     let tcp_container_des = world_view::deserialize_elev_container(&tcp_container);
 
     // Lagre task-IDen til alle sendte tasks. 
@@ -388,7 +388,7 @@ pub fn push_task(wv: &mut Vec<u8>, id: u8, some_task: Option<Task>) -> bool {
 // / ### Oppdaterer status til `new_status` til task med `id` i egen heis_container.tasks_status
 pub fn update_elev_state(wv: &mut Vec<u8>, status: ElevatorStatus) -> bool {
     let mut wv_deser = world_view::deserialize_worldview(&wv);
-    let self_idx = world_view::get_index_to_container(utils::SELF_ID.load(Ordering::SeqCst), wv.clone());
+    let self_idx = world_view::get_index_to_container(local_network::SELF_ID.load(Ordering::SeqCst), wv.clone());
 
     if let Some(i) = self_idx {
         wv_deser.elevator_containers[i].status = status;
@@ -429,11 +429,11 @@ pub async fn watch_ethernet() {
     let mut last_net_status = false;
     let mut net_status;
     loop {
-        let ip = utils::get_self_ip();
+        let ip = local_network::get_self_ip();
 
         match ip {
             Ok(ip) => {
-                if utils::get_root_ip(ip) == config::NETWORK_PREFIX {
+                if ip_help_functions::get_root_ip(ip) == config::NETWORK_PREFIX {
                     net_status = true;
                 }
                 else {

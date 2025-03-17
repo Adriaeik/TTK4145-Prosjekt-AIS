@@ -5,9 +5,7 @@ use tokio::process::Command;
 use std::sync::atomic::Ordering;
 
 use crate::elevator_logic::task_handler;
-use crate::utils::SELF_ID;
-use crate::world_view::world_view;
-use crate::{config, print, utils::{self}, world_view::world_view_update, elevio, elevio::poll::CallButton, elevio::elev as e};
+use crate::{config, print, ip_help_functions::{self}, elevio, elevio::poll::CallButton, elevio::elev as e};
 
 use super::local_network;
 
@@ -49,7 +47,7 @@ impl LocalElevChannels {
 
 /// ### Henter ut lokal IP adresse
 fn get_ip_address() -> String {
-    let self_id = utils::SELF_ID.load(Ordering::SeqCst);
+    let self_id = local_network::SELF_ID.load(Ordering::SeqCst);
     format!("{}.{}", config::NETWORK_PREFIX, self_id)
 }
 
@@ -96,7 +94,7 @@ pub async fn run_local_elevator(chs: local_network::LocalChannels) -> std::io::R
     // Start elevator-serveren
     start_elevator_server().await;
     let local_elev_channels: LocalElevChannels = LocalElevChannels::new();
-    utils::slave_sleep().await;
+    let _ = sleep(config::SLAVE_TIMEOUT);
     let elevator: e::Elevator = e::Elevator::init(config::LOCAL_ELEV_IP, config::DEFAULT_NUM_FLOORS).expect("Feil!");
     
     // Start polling på meldinger fra heisen

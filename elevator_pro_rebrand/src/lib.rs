@@ -16,7 +16,7 @@
 pub mod config;
 
 /// Help functions
-pub mod utils;
+pub mod ip_help_functions;
 
 /// Initialize functions
 pub mod init;

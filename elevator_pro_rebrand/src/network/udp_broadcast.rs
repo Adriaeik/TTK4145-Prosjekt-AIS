@@ -2,7 +2,8 @@
 
 use crate::config;
 use crate::print;
-use crate::utils;
+use crate::ip_help_functions;
+use crate::world_view::world_view;
 use super::local_network;
 
 use std::net::SocketAddr;
@@ -37,13 +38,13 @@ pub async fn start_udp_broadcaster(mut chs: local_network::LocalChannels) -> tok
     socket.bind(&socket_addr.into())?;
     let udp_socket = UdpSocket::from_std(socket.into())?;
 
-    let mut wv = utils::get_wv(chs.clone());
+    let mut wv = world_view::get_wv(chs.clone());
     loop{
         let chs_clone = chs.clone();
-        utils::update_wv(chs_clone, &mut wv).await;
+        world_view::update_wv(chs_clone, &mut wv).await;
 
         // Hvis du er master, broadcast worldview
-        if utils::SELF_ID.load(Ordering::SeqCst) == wv[config::MASTER_IDX] {
+        if local_network::SELF_ID.load(Ordering::SeqCst) == wv[config::MASTER_IDX] {
             //TODO: Lag bedre delay?
             sleep(config::UDP_PERIOD);
             let mesage = format!("{:?}{:?}", config::KEY_STR, wv).to_string();
@@ -56,7 +57,7 @@ pub async fn start_udp_broadcaster(mut chs: local_network::LocalChannels) -> tok
 pub async fn start_udp_listener(mut chs: local_network::LocalChannels) -> tokio::io::Result<()> {
     //Sett opp sockets
     chs.subscribe_broadcast();
-    let self_id = utils::SELF_ID.load(Ordering::SeqCst);
+    let self_id = local_network::SELF_ID.load(Ordering::SeqCst);
     let broadcast_listen_addr = format!("{}:{}", config::BC_LISTEN_ADDR, config::DUMMY_PORT);
     let socket_addr: SocketAddr = broadcast_listen_addr.parse().expect("Ugyldig adresse");
     let socket_temp = Socket::new(Domain::IPV4, Type::DGRAM, None)?;
@@ -70,7 +71,7 @@ pub async fn start_udp_listener(mut chs: local_network::LocalChannels) -> tokio:
     let mut read_wv: Vec<u8> = Vec::new();
     
     let mut message: Cow<'_, str> = std::borrow::Cow::Borrowed("a");
-    let mut my_wv = utils::get_wv(chs.clone());
+    let mut my_wv = world_view::get_wv(chs.clone());
     // Loop mottar og behandler udp-broadcaster
     loop {
         match socket.recv_from(&mut buf).await {
@@ -92,7 +93,7 @@ pub async fn start_udp_listener(mut chs: local_network::LocalChannels) -> tokio:
             .filter_map(|s| s.parse::<u8>().ok()) // Konverter til u8, ignorer feil
             .collect(); // Samle i Vec<u8>
 
-            utils::update_wv(chs.clone(), &mut my_wv).await;
+            world_view::update_wv(chs.clone(), &mut my_wv).await;
             if read_wv[config::MASTER_IDX] != my_wv[config::MASTER_IDX] {
                 // mulighet for debug print
             } else {
