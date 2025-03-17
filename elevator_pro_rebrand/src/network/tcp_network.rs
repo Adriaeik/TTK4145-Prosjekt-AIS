@@ -3,7 +3,7 @@
 use std::sync::atomic::{AtomicBool, Ordering};
 use tokio::{io::{AsyncReadExt, AsyncWriteExt}, net::{TcpListener, TcpStream}, task::JoinHandle, sync::mpsc, time::{sleep, Duration, Instant}};
 use std::net::SocketAddr;
-use crate::{config, print, ip_help_functions::{self}, world_view::{self, world_view_update}};
+use crate::{config, print, ip_help_functions::{self}, world_view::{self, serial, world_view_update}};
 use super::local_network;
 
 // Definer ein global `AtomicU8`
@@ -272,7 +272,7 @@ async fn read_from_stream(stream: &mut TcpStream, chs: local_network::LocalChann
 pub async fn send_tcp_message(chs: local_network::LocalChannels, stream: &mut TcpStream, wv: Vec<u8>) {
     let self_elev_container = world_view::extract_self_elevator_container(wv);
 
-    let self_elev_serialized = world_view::serialize_elev_container(&self_elev_container);
+    let self_elev_serialized = serial::serialize_elev_container(&self_elev_container);
     let len = (self_elev_serialized.len() as u16).to_be_bytes(); // Konverter lengde til big-endian bytes    
 
     if let Err(e) = stream.write_all(&len).await {

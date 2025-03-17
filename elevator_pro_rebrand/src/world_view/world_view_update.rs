@@ -13,7 +13,7 @@ use std::collections::HashSet;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::OnceLock;
 
-use crate::world_view::{deserialize_worldview, get_index_to_container, serialize_elev_container, serialize_worldview, ElevatorStatus};
+use crate::world_view::{get_index_to_container, serial, ElevatorStatus};
 
 
 static ONLINE: OnceLock<AtomicBool> = OnceLock::new(); 
@@ -61,8 +61,8 @@ pub fn join_wv_from_udp(wv: &mut Vec<u8>, master_wv: Vec<u8>) -> bool {
 /// - Ensures that `tasks_status` retains only tasks present in `tasks`.
 /// - If the local elevator is missing in `master_wv`, it is added to `master_wv`.
 pub fn join_wv(mut my_wv: Vec<u8>, master_wv: Vec<u8>) -> Vec<u8> {
-    let my_wv_deserialised = world_view::deserialize_worldview(&my_wv);
-    let mut master_wv_deserialised = world_view::deserialize_worldview(&master_wv);
+    let my_wv_deserialised = serial::deserialize_worldview(&my_wv);
+    let mut master_wv_deserialised = serial::deserialize_worldview(&master_wv);
 
     let my_self_index = world_view::get_index_to_container(local_network::SELF_ID.load(Ordering::SeqCst) , my_wv);
     let master_self_index = world_view::get_index_to_container(local_network::SELF_ID.load(Ordering::SeqCst) , master_wv);
@@ -100,7 +100,7 @@ pub fn join_wv(mut my_wv: Vec<u8>, master_wv: Vec<u8>) -> Vec<u8> {
         master_wv_deserialised.add_elev(my_wv_deserialised.elevator_containers[i_org].clone());
     }
 
-    my_wv = world_view::serialize_worldview(&master_wv_deserialised);
+    my_wv = serial::serialize_worldview(&master_wv_deserialised);
     //utils::print_info(format!("Oppdatert wv fra UDP: {:?}", my_wv));
     my_wv 
 }
@@ -126,11 +126,11 @@ pub fn join_wv(mut my_wv: Vec<u8>, master_wv: Vec<u8>) -> Vec<u8> {
 /// abort_network(&mut worldview);
 /// ```
 pub fn abort_network(wv: &mut Vec<u8>) -> bool {
-    let mut deserialized_wv = world_view::deserialize_worldview(wv);
+    let mut deserialized_wv = serial::deserialize_worldview(wv);
     deserialized_wv.elevator_containers.retain(|elevator| elevator.elevator_id == local_network::SELF_ID.load(Ordering::SeqCst));
     deserialized_wv.set_num_elev(deserialized_wv.elevator_containers.len() as u8);
     deserialized_wv.master_id = local_network::SELF_ID.load(Ordering::SeqCst);
-    *wv = world_view::serialize_worldview(&deserialized_wv);
+    *wv = serial::serialize_worldview(&deserialized_wv);
     true
 }
 
@@ -160,15 +160,15 @@ pub fn abort_network(wv: &mut Vec<u8>) -> bool {
 /// join_wv_from_tcp_container(&mut worldview, container).await;
 /// ```
 pub async fn join_wv_from_tcp_container(wv: &mut Vec<u8>, container: Vec<u8>) -> bool {
-    let deser_container = world_view::deserialize_elev_container(&container);
-    let mut deserialized_wv = world_view::deserialize_worldview(&wv);
+    let deser_container = serial::deserialize_elev_container(&container);
+    let mut deserialized_wv = serial::deserialize_worldview(&wv);
 
     // Hvis slaven ikke eksisterer, legg den til som den er
     if None == deserialized_wv.elevator_containers.iter().position(|x| x.elevator_id == deser_container.elevator_id) {
         deserialized_wv.add_elev(deser_container.clone());
     }
 
-    let self_idx = world_view::get_index_to_container(deser_container.elevator_id, world_view::serialize_worldview(&deserialized_wv));
+    let self_idx = world_view::get_index_to_container(deser_container.elevator_id, serial::serialize_worldview(&deserialized_wv));
     
     if let Some(i) = self_idx {
         //Oppdater statuser + fjerner tasks som er TaskStatus::DONE
@@ -182,7 +182,7 @@ pub async fn join_wv_from_tcp_container(wv: &mut Vec<u8>, container: Vec<u8>) ->
 
         //Oppdater call_buttons
         // master::wv_from_slaves::update_call_buttons(&mut deserialized_wv, &deser_container, i).await;
-        *wv = world_view::serialize_worldview(&deserialized_wv);
+        *wv = serial::serialize_worldview(&deserialized_wv);
         return true;
     } else {
         //Hvis dette printes, finnes ikke slaven i worldview. I teorien umulig, ettersom slaven blir lagt til over hvis den ikke allerede eksisterte
@@ -214,9 +214,9 @@ pub async fn join_wv_from_tcp_container(wv: &mut Vec<u8>, container: Vec<u8>) ->
 /// remove_container(&mut worldview, elevator_id);
 /// ```
 pub fn remove_container(wv: &mut Vec<u8>, id: u8) -> bool {
-    let mut deserialized_wv = world_view::deserialize_worldview(&wv);
+    let mut deserialized_wv = serial::deserialize_worldview(&wv);
     deserialized_wv.remove_elev(id);
-    *wv = world_view::serialize_worldview(&deserialized_wv);
+    *wv = serial::serialize_worldview(&deserialized_wv);
     true
 }
 
@@ -254,7 +254,7 @@ pub fn remove_container(wv: &mut Vec<u8>, id: u8) -> bool {
 /// ```
 pub async fn recieve_local_elevator_msg(chs: LocalChannels, wv: &mut Vec<u8>, msg: ElevMessage) -> bool {
     let is_master = world_view::is_master(wv.clone());
-    let mut deserialized_wv = world_view::deserialize_worldview(&wv);
+    let mut deserialized_wv = serial::deserialize_worldview(&wv);
     let self_idx = world_view::get_index_to_container(local_network::SELF_ID.load(Ordering::SeqCst) , wv.clone());
 
     // Matcher hvilken knapp-type som er mottat
@@ -270,7 +270,7 @@ pub async fn recieve_local_elevator_msg(chs: LocalChannels, wv: &mut Vec<u8>, ms
                     let container = deserialized_wv.elevator_containers[i].clone();
                     
                     // update_call_buttons(&mut deserialized_wv, &container, i).await;
-                    let _ = chs.mpscs.txs.container.send(serialize_elev_container(&container)).await;
+                    let _ = chs.mpscs.txs.container.send(serial::serialize_elev_container(&container)).await;
 
                     deserialized_wv.elevator_containers[i].calls.clear();
                 }
@@ -300,7 +300,7 @@ pub async fn recieve_local_elevator_msg(chs: LocalChannels, wv: &mut Vec<u8>, ms
             }
         }
     }
-    *wv = world_view::serialize_worldview(&deserialized_wv);
+    *wv = serial::serialize_worldview(&deserialized_wv);
     true
 }
 
@@ -326,9 +326,9 @@ pub async fn recieve_local_elevator_msg(chs: LocalChannels, wv: &mut Vec<u8>, ms
 /// clear_from_sent_tcp(&mut worldview, tcp_container);
 /// ```
 pub fn clear_from_sent_tcp(wv: &mut Vec<u8>, tcp_container: Vec<u8>) -> bool {
-    let mut deserialized_wv = world_view::deserialize_worldview(&wv);
+    let mut deserialized_wv = serial::deserialize_worldview(&wv);
     let self_idx = world_view::get_index_to_container(local_network::SELF_ID.load(Ordering::SeqCst) , wv.clone());
-    let tcp_container_des = world_view::deserialize_elev_container(&tcp_container);
+    let tcp_container_des = serial::deserialize_elev_container(&tcp_container);
 
     // Lagre task-IDen til alle sendte tasks. 
     // let tasks_ids: HashSet<u16> = tcp_container_des
@@ -342,7 +342,7 @@ pub fn clear_from_sent_tcp(wv: &mut Vec<u8>, tcp_container: Vec<u8>) -> bool {
         // deserialized_wv.elevator_containers[i].tasks_status.retain(|t| tasks_ids.contains(&t.id));
         /*_____ Fjern sendte CallButtons _____ */
         deserialized_wv.elevator_containers[i].calls.retain(|call| !tcp_container_des.calls.contains(call));
-        *wv = world_view::serialize_worldview(&deserialized_wv);
+        *wv = serial::serialize_worldview(&deserialized_wv);
         return true;
     } else {
         print::cosmic_err("The elevator does not exist clear_sent_container_stuff()".to_string());
@@ -354,12 +354,12 @@ pub fn clear_from_sent_tcp(wv: &mut Vec<u8>, tcp_container: Vec<u8>) -> bool {
 /// 
 /// Ikke ferdig implementert
 pub fn push_task(wv: &mut Vec<u8>, id: u8, some_task: Option<Task>) -> bool {
-    let mut deser_wv = world_view::deserialize_worldview(&wv);
+    let mut deser_wv = serial::deserialize_worldview(&wv);
 
     let index = get_index_to_container(id, wv.clone());
     if let Some(i) = index {
         deser_wv.elevator_containers[i].task = some_task;
-        *wv = serialize_worldview(&deser_wv);
+        *wv = serial::serialize_worldview(&deser_wv);
         return true
     } else {
         return false
@@ -389,14 +389,14 @@ pub fn push_task(wv: &mut Vec<u8>, id: u8, some_task: Option<Task>) -> bool {
 
 // / ### Oppdaterer status til `new_status` til task med `id` i egen heis_container.tasks_status
 pub fn update_elev_state(wv: &mut Vec<u8>, status: ElevatorStatus) -> bool {
-    let mut wv_deser = world_view::deserialize_worldview(&wv);
+    let mut wv_deser = serial::deserialize_worldview(&wv);
     let self_idx = world_view::get_index_to_container(local_network::SELF_ID.load(Ordering::SeqCst), wv.clone());
 
     if let Some(i) = self_idx {
         wv_deser.elevator_containers[i].status = status;
     }
     // println!("Satt {:?} på id: {}", new_status, task_id);
-    *wv = world_view::serialize_worldview(&wv_deser);
+    *wv = serial::serialize_worldview(&wv_deser);
     true
 }
 
@@ -457,10 +457,10 @@ pub async fn watch_ethernet() {
 }
 
 pub fn publish_tasks(wv: &mut Vec<u8>, tasks: Vec<Task>) -> bool {
-    let mut wv_deser = deserialize_worldview(&wv);
+    let mut wv_deser = serial::deserialize_worldview(&wv);
 
     wv_deser.pending_tasks = tasks;
-    *wv = serialize_worldview(&wv_deser);
+    *wv = serial::serialize_worldview(&wv_deser);
     true
 }
 

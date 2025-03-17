@@ -18,7 +18,7 @@ use crate::world_view::world_view_update::{ join_wv_from_udp,
                                         };
 use crate::network::local_network::LocalChannels;
 use crate::print;
-use crate::world_view::{self, deserialize_worldview, serialize_worldview};
+use crate::world_view::{self, serial};
 
 
 /// ### Oppdatering av lokal worldview
@@ -129,7 +129,7 @@ pub async fn update_wv(mut main_local_chs: LocalChannels, mut worldview_serialis
         /*_____Hvis worldview er endra, oppdater kanalen_____ */
         if master_container_updated_I {
             let container = world_view::extract_self_elevator_container(worldview_serialised.clone());
-            let _ = main_local_chs.mpscs.txs.container.send(world_view::serialize_elev_container(&container)).await;
+            let _ = main_local_chs.mpscs.txs.container.send(serial::serialize_elev_container(&container)).await;
             master_container_updated_I = false;
         }
 

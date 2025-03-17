@@ -6,7 +6,7 @@ use std::thread::sleep;
 use std::time::{Duration, Instant};
 use crate::elevio::poll::CallButton;
 use crate::network::local_network::LocalChannels;
-use crate::world_view::{self, deserialize_elev_container, deserialize_worldview, ElevatorContainer, ElevatorStatus};
+use crate::world_view::{self, serial, ElevatorContainer, ElevatorStatus};
 use serde::{Deserialize, Serialize};
 use tokio::sync::{mpsc, RwLock};
 use crate::{config, print, ip_help_functions};
@@ -73,7 +73,7 @@ pub async fn delegate_tasks(chs: LocalChannels, mut container_ch: mpsc::Receiver
                     Ok(cont_ser) => {
                         // println!("Fikk melding fra slave heis");
                         let mut elevators_unlocked = elevator_clone.write().await;
-                        let mut new_tasks = update_elevator(&mut elevators_unlocked, deserialize_elev_container(&cont_ser), &mut task_id); // Oppdater states
+                        let mut new_tasks = update_elevator(&mut elevators_unlocked, serial::deserialize_elev_container(&cont_ser), &mut task_id); // Oppdater states
                         
                         // Gå gjennom elevators. hvis de er idle, fjern tasken dems fra tasks
                         // Gå gjennom heiser. Hvis de er IDLE, fjern deres `current_task`
@@ -100,7 +100,7 @@ pub async fn delegate_tasks(chs: LocalChannels, mut container_ch: mpsc::Receiver
                     Err(_) => {},
                 }
             } else {
-                let wv_deser = deserialize_worldview(&wv.clone());
+                let wv_deser = serial::deserialize_worldview(&wv.clone());
                 let mut tasks_locked = tasks_clone.lock().await;
                 *tasks_locked = wv_deser.pending_tasks;
                 read_slave = true;

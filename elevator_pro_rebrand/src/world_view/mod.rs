@@ -1,5 +1,6 @@
 pub mod world_view_ch;
 pub mod world_view_update;
+pub mod serial;
 
 use serde::{Serialize, Deserialize};
 use std::sync::atomic::Ordering;
@@ -160,106 +161,7 @@ impl WorldView {
 
 
 
-/// Serializes a `WorldView` into a binary format.
-///
-/// Uses `bincode` for efficient serialization.
-/// If serialization fails, the function logs the error and panics.
-///
-/// ## Parameters
-/// - `worldview`: A reference to the `WorldView` to be serialized.
-///
-/// ## Returns
-/// - A `Vec<u8>` containing the serialized data.
-pub fn serialize_worldview(worldview: &WorldView) -> Vec<u8> {
-    let encoded = bincode::serialize(worldview);
-    match encoded {
-        Ok(serialized_data) => {
-            // Deserialisere WorldView fra binært format
-            return serialized_data;
-        }
-        Err(e) => {
-            println!("{:?}", worldview);
-            print::err(format!("Serialization failed: {} (world_view.rs, serialize_worldview())", e));
-            panic!();
-        }
-    }
-}
 
-/// Deserializes a `WorldView` from a binary format.
-///
-/// Uses `bincode` for deserialization.
-/// If deserialization fails, the function logs the error and panics.
-///
-/// ## Parameters
-/// - `data`: A byte slice (`&[u8]`) containing the serialized `WorldView`.
-///
-/// ## Returns
-/// - A `WorldView` instance reconstructed from the binary data.
-pub fn deserialize_worldview(data: &[u8]) -> WorldView {
-    let decoded = bincode::deserialize(data);
-
-
-    match decoded {
-        Ok(serialized_data) => {
-            // Deserialisere WorldView fra binært format
-            return serialized_data;
-        }
-        Err(e) => {
-            print::err(format!("Serialization failed: {} (world_view.rs, deserialize_worldview())", e));
-            panic!();
-        }
-    }
-}
-
-/// Serializes an `ElevatorContainer` into a binary format.
-///
-/// Uses `bincode` for serialization.
-/// If serialization fails, the function logs the error and panics.
-///
-/// ## Parameters
-/// - `elev_container`: A reference to the `ElevatorContainer` to be serialized.
-///
-/// ## Returns
-/// - A `Vec<u8>` containing the serialized data.
-pub fn serialize_elev_container(elev_container: &ElevatorContainer) -> Vec<u8> {
-    let encoded = bincode::serialize(elev_container);
-    match encoded {
-        Ok(serialized_data) => {
-            // Deserialisere WorldView fra binært format
-            return serialized_data;
-        }
-        Err(e) => {
-            print::err(format!("Serialization failed: {} (world_view.rs, serialize_elev_container())", e));
-            panic!();
-        }
-    }
-}
-
-/// Deserializes an `ElevatorContainer` from a binary format.
-///
-/// Uses `bincode` for deserialization.
-/// If deserialization fails, the function logs the error and panics.
-///
-/// ## Parameters
-/// - `data`: A byte slice (`&[u8]`) containing the serialized `ElevatorContainer`.
-///
-/// ## Returns
-/// - An `ElevatorContainer` instance reconstructed from the binary data.
-pub fn deserialize_elev_container(data: &[u8]) -> ElevatorContainer {
-    let decoded = bincode::deserialize(data);
-
-
-    match decoded {
-        Ok(serialized_data) => {
-            // Deserialisere WorldView fra binært format
-            return serialized_data;
-        }
-        Err(e) => {
-            print::err(format!("Serialization failed: {} (world_view.rs, deserialize_elev_container())", e));
-            panic!();
-        }
-    }
-}
 
 /// Retrieves the index of an `ElevatorContainer` with the specified `id` in the deserialized `WorldView`.
 ///
@@ -274,7 +176,7 @@ pub fn deserialize_elev_container(data: &[u8]) -> ElevatorContainer {
 /// - `Some(usize)`: The index of the `ElevatorContainer` in the `WorldView` if found.
 /// - `None`: If no elevator with the given `id` exists.
 pub fn get_index_to_container(id: u8, wv: Vec<u8>) -> Option<usize> {
-    let wv_deser = deserialize_worldview(&wv);
+    let wv_deser = serial::deserialize_worldview(&wv);
     for i in 0..wv_deser.get_num_elev() {
         if wv_deser.elevator_containers[i as usize].elevator_id == id {
             return Some(i as usize);
@@ -399,7 +301,7 @@ pub fn get_elev_tasks(chs: local_network::LocalChannels) -> Vec<Task> {
 ///
 /// **Note:** If no elevator container with the specified `id` is found, this function will panic due to indexing.
 pub fn extract_elevator_container(wv: Vec<u8>, id: u8) -> ElevatorContainer {
-    let mut deser_wv = deserialize_worldview(&wv);
+    let mut deser_wv = serial::deserialize_worldview(&wv);
 
     deser_wv.elevator_containers.retain(|elevator| elevator.elevator_id == id);
     deser_wv.elevator_containers[0].clone()

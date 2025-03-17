@@ -1,6 +1,6 @@
 use std::io::Write;
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
-use crate::{config, world_view::{ElevatorStatus, deserialize_worldview}};
+use crate::{config, world_view::{ElevatorStatus, serial}};
 use crate::elevio::poll::CallType;
 use ansi_term::Colour::{Blue, Green, Red, Yellow, Purple, Fixed};
 use prettytable::{Table, Row, Cell, format, Attr, color};
@@ -287,7 +287,7 @@ pub fn worldview(worldview: Vec<u8>) {
         return;
     }
 
-    let wv_deser = deserialize_worldview(&worldview);
+    let wv_deser = serial::deserialize_worldview(&worldview);
     let mut gen_table = Table::new();
     gen_table.set_format(*format::consts::FORMAT_CLEAN);
     let mut table = Table::new();

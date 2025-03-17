@@ -4,7 +4,7 @@ use std::{sync::atomic::Ordering, net::SocketAddr, time::Duration, borrow::Cow, 
 use tokio::{time::{Instant, timeout}, net::UdpSocket};
 use socket2::{Domain, Socket, Type};
 use local_ip_address::local_ip;
-use crate::{config, elevio::poll::{CallButton, CallType}, manager::task_allocator::Task, network::local_network, print, ip_help_functions::ip2id, world_view::{self, serialize_worldview, ElevatorContainer, TaskStatus, WorldView}};
+use crate::{config, elevio::poll::{CallButton, CallType}, manager::task_allocator::Task, network::local_network, print, ip_help_functions::ip2id, world_view::{self, serial, ElevatorContainer, TaskStatus, WorldView}};
 
 
 /// ### Initializes the worldview on startup
@@ -69,11 +69,11 @@ pub async fn initialize_worldview(self_container : Option< world_view::ElevatorC
     let wv_from_udp = check_for_udp().await;
     if wv_from_udp.is_empty() {
         print::info("No other elevators detected on the network.".to_string());
-        return serialize_worldview(&worldview);
+        return serial::serialize_worldview(&worldview);
     }
 
     // If other elevators are found, merge worldview and add the local elevator
-    let mut wv_from_udp_deser = world_view::deserialize_worldview(&wv_from_udp);
+    let mut wv_from_udp_deser = serial::deserialize_worldview(&wv_from_udp);
     wv_from_udp_deser.add_elev(elev_container.clone());
 
     // Set self as master if the current master has a higher ID
@@ -82,7 +82,7 @@ pub async fn initialize_worldview(self_container : Option< world_view::ElevatorC
     }
 
     // Serialize and return the updated worldview
-    world_view::serialize_worldview(&wv_from_udp_deser)
+    serial::serialize_worldview(&wv_from_udp_deser)
 }
 
 
