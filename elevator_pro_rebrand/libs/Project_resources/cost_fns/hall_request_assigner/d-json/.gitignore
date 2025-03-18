@@ -1,0 +1,8 @@
+bench
+test
+test.txt
+main
+*.d.deps
+*.lst
+trace.def
+trace.log

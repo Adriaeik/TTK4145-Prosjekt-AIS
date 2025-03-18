@@ -24,7 +24,7 @@ pub async fn run_cost_algorithm(json_str: String) -> String {
     let cost_path = env::current_dir()
         .unwrap()
         .join("libs")
-        .join("Project-resources")
+        .join("Project_resources")
         .join("cost_fns")
         .join("hall_request_assigner")
         .join("hall_request_assigner");
