@@ -1,5 +1,6 @@
 // Library that allows us to use environment variables or command-line arguments to pass variables from terminal to the program directly
 use std::{collections::HashMap, env};
+use bincode::config;
 use serde::{Serialize, Deserialize};
 use std::fs::File;
 use std::io::Write;
@@ -10,7 +11,7 @@ use crate::world_view;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ElevatorState {
     behaviour: String,
-    floor: u8,
+    floor: i32,
     direction: String,
     cabRequests: Vec<bool>,
 }
@@ -50,7 +51,11 @@ pub async fn create_hall_request_json(wv: Vec<u8>) -> String {
             key,
             ElevatorState {
                 behaviour: format!("{:?}", elev.behaviour.clone()).to_lowercase(),
-                floor: elev.last_floor_sensor,
+                floor: if (0..elev.num_floors).contains(&elev.last_floor_sensor) {
+                    elev.last_floor_sensor as i32
+                } else {
+                    2
+                },
                 direction: format!("{:?}", elev.dirn.clone()).to_lowercase(),
                 cabRequests: elev.cab_requests.clone(),
             },
@@ -64,8 +69,8 @@ pub async fn create_hall_request_json(wv: Vec<u8>) -> String {
 
     let s = serde_json::to_string_pretty(&request).expect("Failed to serialize");
     
-    // let mut file = File::create("hall_request.json").expect("Failed to create file");
-    // file.write_all(s.as_bytes()).expect("Failed to write to file");
+    let mut file = File::create("hall_request.json").expect("Failed to create file");
+    file.write_all(s.as_bytes()).expect("Failed to write to file");
     s
     // run_cost_algorithm(s.clone()).await
 }
