@@ -1,6 +1,0 @@
-[submodule "elevator_pro/libs/Project-resources"]
-	path = elevator_pro/libs/Project-resources
-	url = https://github.com/TTK4145/Project-resources.git
-[submodule "elevator_pro_rebrand/libs/Project-resources"]
-	path = elevator_pro_rebrand/libs/Project-resources
-	url = https://github.com/TTK4145/Project-resources.git
