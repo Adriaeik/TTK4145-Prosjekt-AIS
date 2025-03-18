@@ -90,7 +90,7 @@ pub async fn start_udp_listener(wv_watch_rx: watch::Receiver<Vec<u8>>, udp_wv_tx
     let socket_addr: SocketAddr = broadcast_listen_addr.parse().expect("Ugyldig adresse");
     let socket_temp = Socket::new(Domain::IPV4, Type::DGRAM, None)?;
     
-    
+    socket_temp.set_nonblocking(true).expect("Failed to set non-blocking");
     socket_temp.set_reuse_address(true)?;
     socket_temp.set_broadcast(true)?;
     socket_temp.bind(&socket_addr.into())?;

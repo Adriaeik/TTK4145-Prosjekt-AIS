@@ -124,12 +124,15 @@ pub async fn check_for_udp() -> Vec<u8> {
         .expect("Failed to create new socket");
 
     // Configure socket for address reuse and broadcasting
+    socket_temp.set_nonblocking(true).expect("Failed to set non-blocking");
     socket_temp.set_reuse_address(true).expect("Failed to set reuse address");
     socket_temp.set_broadcast(true).expect("Failed to enable broadcast mode");
     socket_temp.bind(&socket_addr.into()).expect("Failed to bind socket");
 
     // Convert standard socket into an async UDP socket
+    print::err("1".to_string());
     let socket = UdpSocket::from_std(socket_temp.into()).expect("Failed to create UDP socket");
+    print::err("2".to_string());
 
     // Buffer for receiving UDP data
     let mut buf = [0; config::UDP_BUFFER];
