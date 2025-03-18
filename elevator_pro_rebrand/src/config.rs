@@ -45,7 +45,7 @@ pub const UDP_PERIOD: Duration = Duration::from_millis(TCP_PER_U64);
 /// Period between sending of TCP messages to master-node
 pub const TCP_PERIOD: Duration = Duration::from_millis(TCP_PER_U64);
 
-pub const POLL_PERIOD: Duration = Duration::from_millis(10);
+pub const POLL_PERIOD: Duration = Duration::from_millis(100);
 
 /// Timeout duration of slave-nodes
 pub const SLAVE_TIMEOUT: Duration = Duration::from_millis(100);
