@@ -62,7 +62,7 @@ async fn handle_backup_client(mut stream: TcpStream, rx: watch::Receiver<Vec<u8>
             // Avslutt løkka for denne klienten for å unngå evig loop.
             break;
         }
-        sleep(Duration::from_secs(1)).await;
+        sleep(Duration::from_millis(1000)).await;
     }
 }
 
@@ -105,7 +105,7 @@ pub async fn start_backup_server(wv_watch_rx: watch::Receiver<Vec<u8>>) {
     loop {
         let new_wv = world_view::get_wv(wv_watch_rx.clone());
         tx.send(new_wv).expect("Klarte ikkje sende til backup-klientane");
-        sleep(Duration::from_secs(1)).await;
+        sleep(Duration::from_millis(1000)).await;
     }
 }
 

@@ -36,16 +36,14 @@ pub async fn onFloorArrival(elevator: &mut ElevatorContainer, e: Elevator, door_
     }
 }
 
-pub async fn onDoorTimeout(elevator: &mut ElevatorContainer, e: Elevator, door_timer: &mut timer::Timer) {
+pub async fn onDoorTimeout(elevator: &mut ElevatorContainer, e: Elevator) {
     match elevator.behaviour {
         ElevatorBehaviour::DoorOpen => {
+            let DBPair = request::choose_direction(&elevator.clone());
 
-            if door_timer.timer_timeouted() && !elevator.obstruction {
-                let DBPair = request::choose_direction(&elevator.clone());
-    
-                elevator.dirn = DBPair.dirn;
-                elevator.behaviour = DBPair.behaviour;
-            }
+            elevator.dirn = DBPair.dirn;
+            elevator.behaviour = DBPair.behaviour;
+        
 
             match elevator.behaviour {
                 ElevatorBehaviour::DoorOpen => {
@@ -58,15 +56,6 @@ pub async fn onDoorTimeout(elevator: &mut ElevatorContainer, e: Elevator, door_t
                 }
             }
         },
-        ElevatorBehaviour::Idle => {
-            let DBPair = request::choose_direction(&elevator.clone());
-
-            if DBPair.behaviour != ElevatorBehaviour::Idle {
-                elevator.dirn = DBPair.dirn;
-                elevator.behaviour = DBPair.behaviour;
-                e.motor_direction(elevator.dirn as u8);
-            }
-        }
         _ => {},
     }
 }

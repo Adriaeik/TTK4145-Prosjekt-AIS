@@ -110,8 +110,6 @@ pub async fn update_wv_watch(mut mpsc_rxs: MpscRxs, worldview_watch_tx: watch::S
         /*_____Melding til master fra slaven (elevator-containeren til slaven)_____*/
         match mpsc_rxs.container.try_recv() {
             Ok(container) => {
-                i = i+1;
-                print::ok(i.to_string());
                 wv_edited_I = join_wv_from_tcp_container(&mut worldview_serialised, container.clone()).await;
                 // let _ = to_task_alloc_tx.send(container.clone()).await;
             },

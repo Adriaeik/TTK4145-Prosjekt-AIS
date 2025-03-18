@@ -69,16 +69,34 @@ pub async fn handle_elevator(wv_watch_rx: watch::Receiver<Vec<u8>>, elevator_sta
     let mut timer = timer::new(Duration::from_secs(3));
 
     loop {
-        //Hent nyeste worldview
-        
         //Les nye data fra heisen, putt de inn i self_container
         let prev_floor = self_container.last_floor_sensor;
         self_elevator::update_elev_container_from_msgs(&mut local_elev_rx, &mut self_container).await;
         
+
+
+        /*______ START: FSM Events ______ */
+        // Hvis du er på ny etasje, 
         if prev_floor != self_container.last_floor_sensor {
             fsm::onFloorArrival(&mut self_container, e.clone(), &mut timer).await;
         }
-        fsm::onDoorTimeout(&mut self_container, e.clone(), &mut timer).await;
+        if timer.timer_timeouted() && !self_container.obstruction{
+            fsm::onDoorTimeout(&mut self_container, e.clone()).await;
+        }
+
+        // fsm::onIdle ?
+        if self_container.behaviour == ElevatorBehaviour::Idle {
+            let DBPair = request::choose_direction(&self_container.clone());
+
+            if DBPair.behaviour != ElevatorBehaviour::Idle {
+                self_container.dirn = DBPair.dirn;
+                self_container.behaviour = DBPair.behaviour;
+                e.motor_direction(self_container.dirn as u8);
+            }
+        }
+        /*______ SLUTT: FSM Events ______ */
+
+
 
         if self_container.behaviour != ElevatorBehaviour::DoorOpen {
             e.motor_direction(self_container.dirn as u8);  
@@ -89,6 +107,7 @@ pub async fn handle_elevator(wv_watch_rx: watch::Receiver<Vec<u8>>, elevator_sta
         //Send til update_wv -> nye self_container
         let _ = elevator_states_tx.send(world_view::serial::serialize_elev_container(&self_container)).await;    
         
+        //Hent nyeste worldview
         sleep(config::POLL_PERIOD).await;
         if world_view::update_wv(wv_watch_rx.clone(), &mut wv).await{
             self_container = world_view::extract_self_elevator_container(wv.clone());
