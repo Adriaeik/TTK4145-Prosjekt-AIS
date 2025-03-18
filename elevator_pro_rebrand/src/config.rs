@@ -63,6 +63,8 @@ pub const UDP_BUFFER: usize = u16::MAX as usize;
 pub const TASK_TIMEOUT: u64 = 100;
 
 
+
+
 /// Bool to determine if program should print worldview
 pub static PRINT_WV_ON: Lazy<Mutex<bool>> = Lazy::new(|| Mutex::new(true));
 /// Bool to determine if program should print error's

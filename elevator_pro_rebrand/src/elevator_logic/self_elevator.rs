@@ -5,7 +5,8 @@ use tokio::process::Command;
 use std::sync::atomic::Ordering;
 use tokio::sync::{mpsc, watch};
 
-use crate::{world_view::{Dirn, ElevatorBehaviour}, network::local_network, config, elevio, elevio::elev as e};
+use crate::world_view::ElevatorContainer;
+use crate::{world_view::{Dirn, ElevatorBehaviour}, network::local_network, config, print, elevio, elevio::elev as e};
 
 
 struct LocalElevTxs {
@@ -136,14 +137,13 @@ pub async fn init(local_elev_tx: mpsc::Sender<elevio::ElevMessage>) -> e::Elevat
         });
     }
     // ______STOPP:: LESE KNAPPER_______________
-
-
+   
     {
         let _listen_task = tokio::spawn(async move {
             let _ = read_from_local_elevator(local_elev_channels.rxs, local_elev_tx).await;
         });
     } 
-    //TODO:: fsm_init_between_floors();
+
 
     elevator
 }
@@ -205,6 +205,77 @@ async fn read_from_local_elevator(rxs: LocalElevRxs, local_elev_tx: mpsc::Sender
     }
 }
 
+
+/// ### Handles messages from the local elevator
+/// 
+/// This function processes messages received from the local elevator and updates 
+/// the worldview accordingly. It supports different message types such as call 
+/// buttons, floor sensors, stop buttons, and obstruction notifications. It also 
+/// manages the state of the elevator container based on the received data.
+///
+/// ## Parameters
+/// - `local_elev_rx`: A mutable reference to the mpsc reciever recieving messages sent from [read_from_local_elevator].
+/// - `container`: A mutable reference to the elevatorcontainer.
+///
+/// ## Behavior
+/// The function reads all available messages on the mpsc reciever. Then it performs different actions based on the type of the message:
+/// - **Call button (`CBTN`)**: Adds the call button to the `calls` list in the elevator container.
+/// - **Floor sensor (`FSENS`)**: Updates the `last_floor_sensor` field in the elevator container.
+/// - **Stop button (`SBTN`)**: A placeholder for future functionality to handle stop button messages.
+/// - **Obstruction (`OBSTRX`)**: Sets the `obstruction` field in the elevator container to the 
+///   received value.
+pub async fn update_elev_container_from_msgs(local_elev_rx: &mut mpsc::Receiver<elevio::ElevMessage>, container: &mut ElevatorContainer) {
+    loop{
+        match local_elev_rx.try_recv() {
+            Ok(msg) => {
+                match msg.msg_type {
+                    elevio::ElevMsgType::CALLBTN => {
+                        print::info(format!("Callbutton: {:?}", msg.call_button));
+                        if let Some(call_btn) = msg.call_button {
+                            
+                            match call_btn.call_type {
+                                elevio::CallType::INSIDE => {
+                                    container.cab_requests[call_btn.floor as usize] = true;
+                                }
+                                elevio::CallType::UP => {
+                                    container.unsent_hall_request[call_btn.floor as usize][0] = true;
+                                }
+                                elevio::CallType::DOWN => {
+                                    container.unsent_hall_request[call_btn.floor as usize][1] = true;
+                                }
+                                elevio::CallType::COSMIC_ERROR => {},
+                            }   
+                        }
+                    }
+            
+                    elevio::ElevMsgType::FLOORSENS => {
+                        print::info(format!("Floor: {:?}", msg.floor_sensor));
+                        if let Some(floor) = msg.floor_sensor {
+                            container.last_floor_sensor = floor;
+                        }
+                        
+                    }
+            
+                    elevio::ElevMsgType::STOPBTN => {
+                        print::info(format!("Stop button: {:?}", msg.stop_button));
+                        // TODO: selvforklarende
+                    }
+            
+                    elevio::ElevMsgType::OBSTRX => {
+                        print::info(format!("Obstruction: {:?}", msg.obstruction));
+                        if let Some(obs) = msg.obstruction {
+                            container.obstruction = obs;
+                        }
+                    }
+                }
+            },
+            Err(_) => {
+                break;
+            }
+        }
+    }
+
+}
 
 
 

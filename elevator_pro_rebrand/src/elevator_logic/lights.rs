@@ -3,12 +3,6 @@ use tokio::sync::watch;
 use crate::{elevio::elev::Elevator, world_view};
 
 
-pub fn set_lights(wv_watch_rx: watch::Receiver<Vec<u8>>, e: Elevator) {
-
-}
-
-
-
 /// Sets all hall lights
 /// 
 /// ## Parameters
@@ -21,7 +15,7 @@ pub fn set_lights(wv_watch_rx: watch::Receiver<Vec<u8>>, e: Elevator) {
 /// 
 /// ## Note
 /// The function only sets the lights once per call, and needs to be recalled every time the lights needs to be updated
-fn set_hall_lights(wv: Vec<u8>, e: Elevator) {
+pub fn set_hall_lights(wv: Vec<u8>, e: Elevator) {
     let wv_deser = world_view::serial::deserialize_worldview(&wv);
 
     for (i, [up, down]) in wv_deser.hall_request.iter().enumerate() {
@@ -40,26 +34,26 @@ fn set_hall_lights(wv: Vec<u8>, e: Elevator) {
 }
 
 /// The function sets the cab light on last_floor_sensor
-fn set_cab_light(e: Elevator, last_floor: u8) {
+pub fn set_cab_light(e: Elevator, last_floor: u8) {
     e.floor_indicator(last_floor);
 }
 
 /// The function sets the door open light on
-fn set_door_open_light(e: Elevator) {
+pub fn set_door_open_light(e: Elevator) {
     e.door_light(true);
 }
 
 /// The function sets the door open light off
-fn clear_door_open_light(e: Elevator) {
+pub fn clear_door_open_light(e: Elevator) {
     e.door_light(false);
 }
 
 /// The function sets the stop button light on
-fn set_stop_button_light(e: Elevator) {
+pub fn set_stop_button_light(e: Elevator) {
     e.stop_button_light(true);
 }
 
 /// The function sets the stop button light off
-fn clear_stop_button_light(e: Elevator) {
+pub fn clear_stop_button_light(e: Elevator) {
     e.stop_button_light(false);
 }

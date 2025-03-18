@@ -34,8 +34,6 @@ pub mod network {
     pub mod local_network;
     /// TCP communication with other nodes.
     pub mod tcp_network;
-    /// TCP communication for the local elevator.
-    pub mod tcp_self_elevator;
 }
 
 /// Management of the system's world view.

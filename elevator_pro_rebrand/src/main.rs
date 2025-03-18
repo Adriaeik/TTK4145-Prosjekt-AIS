@@ -2,7 +2,7 @@ use tokio::sync::mpsc;
 use tokio::net::TcpStream;
 use std::{net::SocketAddr, time::Duration};
 
-use elevatorpro::{backup, manager, network::{local_network, tcp_network, tcp_self_elevator, udp_broadcast}, world_view::{self, world_view_update}};
+use elevatorpro::{backup, elevator_logic, manager, network::{local_network, tcp_network, udp_broadcast}, world_view::{self, world_view_update}};
 use elevatorpro::init;
 use elevatorpro::print;
 
@@ -75,8 +75,7 @@ async fn main() {
     // Seperate the mpsc Rx's so they can be sent to [local_network::update_wv_watch]
     let mpsc_rxs = main_mpscs.rxs;
     // Seperate the mpsc Tx's so they can be sent to their designated tasks
-    let update_elev_state_tx = main_mpscs.txs.update_elev_state;
-    let local_elev_tx = main_mpscs.txs.local_elev;
+    let elevator_states_tx = main_mpscs.txs.elevator_states;
     let delegated_tasks_tx = main_mpscs.txs.delegated_tasks;
     let udp_wv_tx = main_mpscs.txs.udp_wv;
     let remove_container_tx = main_mpscs.txs.remove_container;
@@ -106,7 +105,7 @@ async fn main() {
     {
         let wv_watch_rx = watches.rxs.wv.clone();
         let _local_elev_task = tokio::spawn(async move {
-            let _ = tcp_self_elevator::run_local_elevator(wv_watch_rx, update_elev_state_tx, local_elev_tx).await;
+            let _ = elevator_logic::run_local_elevator(wv_watch_rx, elevator_states_tx).await;
         });
     }
     {

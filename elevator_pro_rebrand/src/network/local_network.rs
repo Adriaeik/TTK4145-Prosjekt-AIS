@@ -8,11 +8,10 @@ use crate::world_view::world_view_update::{
     join_wv_from_udp, 
     abort_network, 
     join_wv_from_tcp_container, 
-    remove_container, 
-    recieve_local_elevator_msg, 
+    remove_container,
     clear_from_sent_tcp,
     distribute_tasks,
-    // update_elev_state,
+    update_elev_states,
     // push_task,
     // publish_tasks,
 };
@@ -148,19 +147,10 @@ pub async fn update_wv_watch(mut mpsc_rxs: MpscRxs, worldview_watch_tx: watch::S
 
 
 /* KANALER MASTER OG SLAVE MOTTAR PÅ */
-        /*____Får signal når en task er ferdig_____ */
-        // match mpsc_rxs.update_elev_state.try_recv() {
-        //     Ok(status) => {
-        //         wv_edited_I = update_elev_state(&mut worldview_serialised, status);
-        //         master_container_updated_I = world_view::is_master(worldview_serialised.clone());
-        //     },
-        //     Err(_) => {},
-        // }
-        /*_____Knapper trykket på lokal heis_____ */
-        match mpsc_rxs.local_elev.try_recv() {
-            Ok(msg) => {
-                // println!("local elev len {}", mpsc_rxs.local_elev.len());
-                wv_edited_I = recieve_local_elevator_msg(master_container_tx.clone(), &mut worldview_serialised, msg).await;
+        /*____Får signal når lokal heis container er endra_____ */
+        match mpsc_rxs.elevator_states.try_recv() {
+            Ok(container) => {
+                wv_edited_I = update_elev_states(&mut worldview_serialised, container);
                 master_container_updated_I = world_view::is_master(worldview_serialised.clone());
             },
             Err(_) => {},
@@ -223,18 +213,12 @@ pub struct MpscTxs {
     pub container: mpsc::Sender<Vec<u8>>,
     /// Requests the removal of a container by ID.
     pub remove_container: mpsc::Sender<u8>,
-    /// Sends messages from the local elevator.
-    pub local_elev: mpsc::Sender<ElevMessage>,
     /// Sends a TCP container message that has been transmitted to the master.
     pub sent_tcp_container: mpsc::Sender<Vec<u8>>,
-    /// Sends a new task along with associated data.
-    // pub new_task: mpsc::Sender<(u8, Option<Task>)>,
-    /// Updates the status of a task.
-    pub update_elev_state: mpsc::Sender<(Dirn, ElevatorBehaviour)>,
     /// Additional buffered channels for various data streams.
     // pub pending_tasks: mpsc::Sender<Vec<Task>>,
     pub delegated_tasks: mpsc::Sender<HashMap<u8, Vec<[bool; 2]>>>,
-    pub mpsc_buffer_ch4: mpsc::Sender<Vec<u8>>,
+    pub elevator_states: mpsc::Sender<Vec<u8>>,
     pub mpsc_buffer_ch5: mpsc::Sender<Vec<u8>>,
     pub mpsc_buffer_ch6: mpsc::Sender<Vec<u8>>,
     pub mpsc_buffer_ch7: mpsc::Sender<Vec<u8>>,
@@ -254,18 +238,12 @@ pub struct MpscRxs {
     pub container: mpsc::Receiver<Vec<u8>>,
     /// Receives requests to remove a container by ID.
     pub remove_container: mpsc::Receiver<u8>,
-    /// Receives messages from the local elevator.
-    pub local_elev: mpsc::Receiver<ElevMessage>,
     /// Receives TCP container messages that have been transmitted.
     pub sent_tcp_container: mpsc::Receiver<Vec<u8>>,
-    /// Receives new tasks along with associated data.
-    // pub new_task: mpsc::Receiver<(u8, Option<Task>)>,
-    /// Receives updates for the status of a task.
-    pub update_elev_state: mpsc::Receiver<(Dirn, ElevatorBehaviour)>,
     /// Additional buffered channels for various data streams.
     // pub pending_tasks: mpsc::Receiver<Vec<Task>>,
     pub delegated_tasks: mpsc::Receiver<HashMap<u8, Vec<[bool; 2]>>>,
-    pub mpsc_buffer_ch4: mpsc::Receiver<Vec<u8>>,
+    pub elevator_states: mpsc::Receiver<Vec<u8>>,
     pub mpsc_buffer_ch5: mpsc::Receiver<Vec<u8>>,
     pub mpsc_buffer_ch6: mpsc::Receiver<Vec<u8>>,
     pub mpsc_buffer_ch7: mpsc::Receiver<Vec<u8>>,
@@ -288,10 +266,8 @@ impl Mpscs {
         let (tx_tcp_to_master_failed, rx_tcp_to_master_failed) = mpsc::channel(300);
         let (tx_container, rx_container) = mpsc::channel(300);
         let (tx_remove_container, rx_remove_container) = mpsc::channel(300);
-        let (tx_local_elev, rx_local_elev) = mpsc::channel(300);
         let (tx_sent_tcp_container, rx_sent_tcp_container) = mpsc::channel(300);
         // let (tx_new_task, rx_new_task) = mpsc::channel(300);
-        let (tx_update_elev_state, rx_update_elev_state) = mpsc::channel(300);
         // let (tx_pending_tasks, rx_pending_tasks) = mpsc::channel(300);
         let (tx_buf3, rx_buf3) = mpsc::channel(300);
         let (tx_buf4, rx_buf4) = mpsc::channel(300);
@@ -307,13 +283,9 @@ impl Mpscs {
                 tcp_to_master_failed: tx_tcp_to_master_failed,
                 container: tx_container,
                 remove_container: tx_remove_container,
-                local_elev: tx_local_elev,
                 sent_tcp_container: tx_sent_tcp_container,
-                // new_task: tx_new_task,
-                update_elev_state: tx_update_elev_state,
-                // pending_tasks: tx_pending_tasks,
                 delegated_tasks: tx_buf3,
-                mpsc_buffer_ch4: tx_buf4,
+                elevator_states: tx_buf4,
                 mpsc_buffer_ch5: tx_buf5,
                 mpsc_buffer_ch6: tx_buf6,
                 mpsc_buffer_ch7: tx_buf7,
@@ -325,13 +297,9 @@ impl Mpscs {
                 tcp_to_master_failed: rx_tcp_to_master_failed,
                 container: rx_container,
                 remove_container: rx_remove_container,
-                local_elev: rx_local_elev,
                 sent_tcp_container: rx_sent_tcp_container,
-                // new_task: rx_new_task,
-                update_elev_state: rx_update_elev_state,
-                // pending_tasks: rx_pending_tasks,
                 delegated_tasks: rx_buf3,
-                mpsc_buffer_ch4: rx_buf4,
+                elevator_states: rx_buf4,
                 mpsc_buffer_ch5: rx_buf5,
                 mpsc_buffer_ch6: rx_buf6,
                 mpsc_buffer_ch7: rx_buf7,

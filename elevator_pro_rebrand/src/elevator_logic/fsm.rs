@@ -1,98 +1,67 @@
+use std::f32::consts::E;
 use std::task;
 
+
+
+use tokio::time::sleep;
+
+use crate::{elevio::elev::Elevator, world_view};
 use crate::world_view::{Dirn, ElevatorBehaviour, ElevatorContainer};
 
-#[derive(Debug, Clone, Copy)]
-struct DirnBehaviourPair {
-    dirn: Dirn,
-    behaviour: ElevatorBehaviour,
-}
+use crate::elevator_logic::request;
+
+use super::lights;
 
 
 
-/////Requests
-fn requests_above(elevator: &ElevatorContainer) -> bool {
-    for floor in (elevator.last_floor_sensor as usize + 1)..elevator.tasks.len() {
-        for btn in 0..2 {
-            if elevator.tasks[floor][btn] {
-                return true;
-            }
-        }
+
+pub async fn onFloorArrival(elevator: &mut ElevatorContainer, e: Elevator) {
+    if elevator.last_floor_sensor > elevator.num_floors {
+        elevator.last_floor_sensor = elevator.num_floors-1;
     }
-    false
-}
-
-fn requests_below(elevator: &ElevatorContainer) -> bool {
-    for floor in 0..elevator.last_floor_sensor as usize {
-        for btn in 0..2 {
-            if elevator.tasks[floor][btn] {
-                return true;
+    match elevator.behaviour {
+        ElevatorBehaviour::Moving => {
+            println!("Btns: {:?}, Floor: {}", elevator.cab_requests, elevator.last_floor_sensor);
+            if request::should_stop(&elevator.clone()) {
+                request::clear_at_current_floor(elevator);
+                lights::set_door_open_light(e);
+                // TODO: timer på door_open
+                elevator.behaviour = ElevatorBehaviour::DoorOpen;
             }
         }
-    }
-    false
-}
-
-fn requests_here(elevator: &ElevatorContainer) -> bool {
-    for btn in 0..2 {
-        if elevator.tasks[elevator.last_floor_sensor as usize][btn] {
-            return true;
-        }
-    }
-    false
-}
-
-fn requests_choose_direction(elevator: &ElevatorContainer) -> DirnBehaviourPair {
-    match elevator.dirn {
-        Dirn::Up => {
-            if requests_above(elevator) {
-                DirnBehaviourPair { dirn: Dirn::Up, behaviour: ElevatorBehaviour::Moving }
-            } else if requests_here(elevator) {
-                DirnBehaviourPair { dirn: Dirn::Down, behaviour: ElevatorBehaviour::DoorOpen }
-            } else if requests_below(elevator) {
-                DirnBehaviourPair { dirn: Dirn::Down, behaviour: ElevatorBehaviour::Moving }
-            } else {
-                DirnBehaviourPair { dirn: Dirn::Stop, behaviour: ElevatorBehaviour::Idle }
-            }
-        }
-        Dirn::Down => {
-            if requests_below(elevator) {
-                DirnBehaviourPair { dirn: Dirn::Down, behaviour: ElevatorBehaviour::Moving }
-            } else if requests_here(elevator) {
-                DirnBehaviourPair { dirn: Dirn::Up, behaviour: ElevatorBehaviour::DoorOpen }
-            } else if requests_above(elevator) {
-                DirnBehaviourPair { dirn: Dirn::Up, behaviour: ElevatorBehaviour::Moving }
-            } else {
-                DirnBehaviourPair { dirn: Dirn::Stop, behaviour: ElevatorBehaviour::Idle }
-            }
-        }
-        Dirn::Stop => {
-            if requests_here(elevator) {
-                DirnBehaviourPair { dirn: Dirn::Stop, behaviour: ElevatorBehaviour::DoorOpen }
-            } else if requests_above(elevator) {
-                DirnBehaviourPair { dirn: Dirn::Up, behaviour: ElevatorBehaviour::Moving }
-            } else if requests_below(elevator) {
-                DirnBehaviourPair { dirn: Dirn::Down, behaviour: ElevatorBehaviour::Moving }
-            } else {
-                DirnBehaviourPair { dirn: Dirn::Stop, behaviour: ElevatorBehaviour::Idle }
-            }
-        }
+        _ => {},
     }
 }
 
-fn requests_should_stop(elevator: &ElevatorContainer) -> bool {
-    match elevator.dirn {
-        Dirn::Down => {
-            elevator.tasks[elevator.last_floor_sensor as usize][1] || !requests_below(elevator)
+pub async fn onDoorTimeout(elevator: &mut ElevatorContainer, e: Elevator) {
+    match elevator.behaviour {
+        ElevatorBehaviour::DoorOpen => {
+            let DBPair = request::choose_direction(&elevator.clone());
+
+            elevator.dirn = DBPair.dirn;
+            elevator.behaviour = DBPair.behaviour;
+
+            match elevator.behaviour {
+                ElevatorBehaviour::DoorOpen => {
+                    // TODO: timeren
+                    request::clear_at_current_floor(elevator);
+                }
+                _ => {
+                    lights::clear_door_open_light(e.clone());
+                    e.motor_direction(elevator.dirn as u8);
+                }
+            }
+        },
+        ElevatorBehaviour::Idle => {
+            let DBPair = request::choose_direction(&elevator.clone());
+
+            if DBPair.behaviour != ElevatorBehaviour::Idle {
+                elevator.dirn = DBPair.dirn;
+                elevator.behaviour = DBPair.behaviour;
+                e.motor_direction(elevator.dirn as u8);
+            }
         }
-        Dirn::Up => {
-            elevator.tasks[elevator.last_floor_sensor as usize][0] || !requests_above(elevator)
-        }
-        Dirn::Stop => true,
+        _ => {},
     }
 }
 
-fn requests_clear_at_current_floor(mut elevator: ElevatorContainer) -> ElevatorContainer {
-    elevator.tasks[elevator.last_floor_sensor as usize] = [false, false];
-    elevator
-}

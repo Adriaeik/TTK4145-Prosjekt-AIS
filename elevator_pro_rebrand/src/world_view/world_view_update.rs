@@ -235,104 +235,7 @@ pub fn remove_container(wv: &mut Vec<u8>, id: u8) -> bool {
     true
 }
 
-/// ### Handles messages from the local elevator
-/// 
-/// This function processes messages received from the local elevator and updates 
-/// the worldview accordingly. It supports different message types such as call 
-/// buttons, floor sensors, stop buttons, and obstruction notifications. It also 
-/// manages the state of the elevator container based on the received data.
-///
-/// ## Parameters
-/// - `wv`: A mutable reference to a `Vec<u8>` representing the current worldview.
-/// - `msg`: The `ElevMessage` received from the local elevator, containing the message type 
-///   and associated data.
-///
-/// ## Return Value
-/// - Returns `true` after processing the message and updating the worldview, indicating 
-///   that the operation was successful.
-///
-/// ## Behavior
-/// The function performs different actions based on the type of the message:
-/// - **Call button (`CBTN`)**: Adds the call button to the `calls` list in the elevator container. 
-///   If the current node is the master, it sends the updated container to the channel responsible for handling msg's from slaves, 
-///   and clears the `calls` list.
-/// - **Floor sensor (`FSENS`)**: Updates the `last_floor_sensor` field in the elevator container.
-/// - **Stop button (`SBTN`)**: A placeholder for future functionality to handle stop button messages.
-/// - **Obstruction (`OBSTRX`)**: Sets the `obstruction` field in the elevator container to the 
-///   received value.
-///
-/// ## Example
-/// ```rust
-/// let mut worldview = vec![/* some serialized data */];
-/// let msg = ElevMessage { msg_type: ElevMsgType::CBTN, /* other fields */ };
-/// recieve_local_elevator_msg(&mut worldview, msg).await;
-/// ```
-pub async fn recieve_local_elevator_msg(master_container_tx: mpsc::Sender<Vec<u8>>, wv: &mut Vec<u8>, msg: elevio::ElevMessage) -> bool {
-    let is_master = world_view::is_master(wv.clone());
-    let mut deserialized_wv = serial::deserialize_worldview(&wv);
-    let self_idx = world_view::get_index_to_container(local_network::SELF_ID.load(Ordering::SeqCst) , wv.clone());
 
-    // Matcher hvilken knapp-type som er mottat
-    match msg.msg_type {
-        // Callbutton -> Legg den til i calls under egen heis-container
-        elevio::ElevMsgType::CALLBTN => {
-            print::info(format!("Callbutton: {:?}", msg.call_button));
-            if let (Some(i), Some(call_btn)) = (self_idx, msg.call_button) {
-                
-                
-                // Legger ti callbutton i tilsvarende vektor i elev_containeren
-                match call_btn.call_type {
-                    elevio::CallType::INSIDE => {
-                        deserialized_wv.elevator_containers[i].cab_requests[call_btn.floor as usize] = true;
-                    }
-                    elevio::CallType::UP => {
-                        deserialized_wv.elevator_containers[i].unsent_hall_request[call_btn.floor as usize][0] = true;
-                    }
-                    elevio::CallType::DOWN => {
-                        deserialized_wv.elevator_containers[i].unsent_hall_request[call_btn.floor as usize][1] = true;
-                    }
-                    elevio::CallType::COSMIC_ERROR => {},
-                }   
-                
-
-                //Om du er master i nettverket, oppdater call_buttons (Samme funksjon som kjøres i join_wv_from_tcp_container(). Behandler altså egen heis som en slave i nettverket) 
-                if is_master {
-                    let container = deserialized_wv.elevator_containers[i].clone();
-                    
-                    // update_call_buttons(&mut deserialized_wv, &container, i).await;
-                    let _ = master_container_tx.send(serial::serialize_elev_container(&container)).await;
-                    
-                    deserialized_wv.elevator_containers[i].unsent_hall_request = vec![[false; 2]; deserialized_wv.elevator_containers[i].num_floors as usize];
-                }
-            }
-        }
-
-        // Floor_sensor -> oppdater last_floor_sensor i egen heis-container
-        elevio::ElevMsgType::FLOORSENS => {
-            print::info(format!("Floor: {:?}", msg.floor_sensor));
-            if let (Some(i), Some(floor)) = (self_idx, msg.floor_sensor) {
-                deserialized_wv.elevator_containers[i].last_floor_sensor = floor;
-            }
-            
-        }
-
-        // Stop_button -> funksjon kommer
-        elevio::ElevMsgType::STOPBTN => {
-            print::info(format!("Stop button: {:?}", msg.stop_button));
-            
-        }
-
-        // Obstruction -> Sett obstruction lik melding fra heis i egen heis-container
-        elevio::ElevMsgType::OBSTRX => {
-            print::info(format!("Obstruction: {:?}", msg.obstruction));
-            if let (Some(i), Some(obs)) = (self_idx, msg.obstruction) {
-                deserialized_wv.elevator_containers[i].obstruction = obs;
-            }
-        }
-    }
-    *wv = serial::serialize_worldview(&deserialized_wv);
-    true
-}
 
 /// ### Updates local call buttons and task statuses after they are sent over TCP to the master
 /// 
@@ -407,64 +310,23 @@ pub fn distribute_tasks(wv: &mut Vec<u8>, map: HashMap<u8, Vec<[bool; 2]>>) -> b
 
 
 
+pub fn update_elev_states(wv: &mut Vec<u8>, container: Vec<u8>) -> bool {
+    let mut wv_deser = world_view::serial::deserialize_worldview(&wv.clone());
+    let container_deser = world_view::serial::deserialize_elev_container(&container);
 
-// / Push `some_task` to elevator with id `id` in `wv`
-// / 
-// / ## Return
-// / `true`: Elevator with `id` was found and given the task  
-// / `false`: Otherwise
-// pub fn push_task(wv: &mut Vec<u8>, id: u8, some_task: Option<Task>) -> bool {
-//     let mut deser_wv = serial::deserialize_worldview(&wv);
+    let idx = world_view::get_index_to_container(container_deser.elevator_id, wv.clone());
 
-//     let index = get_index_to_container(id, wv.clone());
-//     if let Some(i) = index {
-//         deser_wv.elevator_containers[i].task = some_task;
-//         *wv = serial::serialize_worldview(&deser_wv);
-//         return true
-//     } else {
-//         return false
-//     }
+    if let Some(i) = idx {
+        wv_deser.elevator_containers[i].cab_requests = container_deser.cab_requests;
+        wv_deser.elevator_containers[i].dirn = container_deser.dirn;
+        wv_deser.elevator_containers[i].behaviour = container_deser.behaviour;
+        wv_deser.elevator_containers[i].last_floor_sensor = container_deser.last_floor_sensor;
+        wv_deser.elevator_containers[i].unsent_hall_request = container_deser.unsent_hall_request;
+    }
 
-
-
-//     // Fjern `button` frå `outside_button` om han finst
-//     // if let Some(index) = deser_wv.outside_button.iter().position(|b| *b == button) {
-//     //     deser_wv.outside_button.swap_remove(index);
-//     // }
-    
-//     // let self_idx = world_view::get_index_to_container(id, wv.clone());
-
-//     // if let Some(i) = self_idx {
-//     //     // **Hindrar duplikatar: sjekk om task.id allereie finst i `tasks`**
-//     //     // NB: skal i teorien være unødvendig å sjekke dette
-//     //     if !deser_wv.elevator_containers[i].tasks.iter().any(|t| t.id == task.id) {
-//     //         deser_wv.elevator_containers[i].tasks.push(task);
-//     //         *wv = world_view::serialize_worldview(&deser_wv);
-//     //         return true;
-//     //     }
-//     // }
-    
-//     // false
-// }
-
-// // / ### Oppdaterer status til `new_status` til task med `id` i egen heis_container.tasks_status
-// /// Updates status of elevator with id matching [local_network::SELF_ID] to status in wv
-// /// 
-// /// ## Returns
-// /// `true`: Elevator with SELF_ID was found, and status was updated
-// /// `false`: otherwise
-// pub fn update_elev_state(wv: &mut Vec<u8>, status: ElevatorStatus) -> bool {
-//     let mut wv_deser = serial::deserialize_worldview(&wv);
-//     let self_idx = world_view::get_index_to_container(local_network::SELF_ID.load(Ordering::SeqCst), wv.clone());
-
-//     if let Some(i) = self_idx {
-//         wv_deser.elevator_containers[i].status = status;
-//         *wv = serial::serialize_worldview(&wv_deser);
-//         return true;
-//     }
-//     // println!("Satt {:?} på id: {}", new_status, task_id);
-//     false
-// }
+    *wv = world_view::serial::serialize_worldview(&wv_deser);
+    true
+}
 
 /// Monitors the Ethernet connection status asynchronously.
 ///
