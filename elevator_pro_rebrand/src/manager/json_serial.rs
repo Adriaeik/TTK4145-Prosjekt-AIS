@@ -54,6 +54,7 @@ pub async fn create_hall_request_json(wv: Vec<u8>) -> String {
                 floor: if (0..elev.num_floors).contains(&elev.last_floor_sensor) {
                     elev.last_floor_sensor as i32
                 } else {
+                    // TODO: Init floor er 255, bedre måte enn å sette til 2?
                     2
                 },
                 direction: format!("{:?}", elev.dirn.clone()).to_lowercase(),

@@ -1,6 +1,6 @@
 use tokio::sync::mpsc;
 use tokio::net::TcpStream;
-use std::net::SocketAddr;
+use std::{net::SocketAddr, time::Duration};
 
 use elevatorpro::{backup, manager, network::{local_network, tcp_network, tcp_self_elevator, udp_broadcast}, world_view::{self, world_view_update}};
 use elevatorpro::init;
@@ -77,8 +77,7 @@ async fn main() {
     // Seperate the mpsc Tx's so they can be sent to their designated tasks
     let update_elev_state_tx = main_mpscs.txs.update_elev_state;
     let local_elev_tx = main_mpscs.txs.local_elev;
-    // let new_task_tx = main_mpscs.txs.new_task;
-    // let pending_tasks_tx = main_mpscs.txs.pending_tasks;
+    let delegated_tasks_tx = main_mpscs.txs.delegated_tasks;
     let udp_wv_tx = main_mpscs.txs.udp_wv;
     let remove_container_tx = main_mpscs.txs.remove_container;
     let container_tx = main_mpscs.txs.container;
@@ -111,13 +110,13 @@ async fn main() {
             let _ = tcp_self_elevator::run_local_elevator(wv_watch_rx, update_elev_state_tx, local_elev_tx).await;
         });
     }
-    // {
-    //     let wv_watch_rx = watches.rxs.wv.clone();
-    //     let _task_allocater_task = tokio::spawn(async move {
-    //         print::info("Staring task delegator".to_string());
-    //         let _ = manager::task_allocator::delegate_tasks(wv_watch_rx, task_dellecator_rx, new_task_tx, pending_tasks_tx).await;
-    //     });
-    // }
+    {
+        let wv_watch_rx = watches.rxs.wv.clone();
+        let _manager_task = tokio::spawn(async move {
+            print::info("Staring task manager".to_string());
+            let _ = manager::start_manager(wv_watch_rx, delegated_tasks_tx).await;
+        });
+    }
 /* SLUTT ----------- Starte kritiske tasks ----------- */
 
     // Start backup server i en egen task
@@ -175,19 +174,18 @@ async fn main() {
     // Lag prat med egen heis thread her 
 /* SLUTT ----------- Starte Eksterne Nettverkstasks ---------------------- */
 
-/*
+
     //Task som printer worldview
     let _print_task = tokio::spawn(async move {
-        let mut wv = utils::get_wv(chs_print.clone());
+        let mut wv = world_view::get_wv(watches.rxs.wv.clone());
         loop {
-            let chs_clone = chs_print.clone();
-            if utils::update_wv(chs_clone, &mut wv).await {
-                world_view::print_wv(wv.clone());
+            if world_view::update_wv(watches.rxs.wv.clone(), &mut wv).await {
+                print::worldview(wv.clone());
                 tokio::time::sleep(Duration::from_millis(500)).await;
             }
         }
     });
-*/
+
     //Vent med å avslutte programmet
     loop{
         tokio::task::yield_now().await;

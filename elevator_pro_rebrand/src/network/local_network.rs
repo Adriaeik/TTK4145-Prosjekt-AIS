@@ -11,6 +11,7 @@ use crate::world_view::world_view_update::{
     remove_container, 
     recieve_local_elevator_msg, 
     clear_from_sent_tcp,
+    distribute_tasks,
     // update_elev_state,
     // push_task,
     // publish_tasks,
@@ -21,6 +22,7 @@ use tokio::{sync::{mpsc, watch}, time::sleep};
 use local_ip_address::local_ip;
 use std::{net::IpAddr, time::Duration};
 use std::sync::atomic::AtomicU8;
+use std::collections::HashMap;
 
 /// Atomic bool storing self ID, standard inited as config::ERROR_ID
 pub static SELF_ID: AtomicU8 = AtomicU8::new(config::ERROR_ID); // Startverdi 255
@@ -116,6 +118,12 @@ pub async fn update_wv_watch(mut mpsc_rxs: MpscRxs, worldview_watch_tx: watch::S
             },
             Err(_) => {},
         }
+        match mpsc_rxs.delegated_tasks.try_recv() {
+            Ok(map) => {
+                wv_edited_I = distribute_tasks(&mut worldview_serialised, map);
+            },
+            Err(_) => {},
+        }
         // match mpsc_rxs.new_task.try_recv() {
         //     Ok((id, sometask)) => {
         //         // utils::print_master(format!("Fikk task: {:?}", task));
@@ -166,8 +174,6 @@ pub async fn update_wv_watch(mut mpsc_rxs: MpscRxs, worldview_watch_tx: watch::S
             // println!("Sendte worldview lokalt {}", worldview_serialised[1]);
             
             wv_edited_I = false;
-            println!("{:?}",manager::get_elev_tasks(worldview_serialised.clone()).await);
-
             // sleep(Duration::from_secs(1)).await;
         }
     }
@@ -219,7 +225,7 @@ pub struct MpscTxs {
     pub update_elev_state: mpsc::Sender<(Dirn, ElevatorBehaviour)>,
     /// Additional buffered channels for various data streams.
     // pub pending_tasks: mpsc::Sender<Vec<Task>>,
-    pub mpsc_buffer_ch3: mpsc::Sender<Vec<u8>>,
+    pub delegated_tasks: mpsc::Sender<HashMap<u8, Vec<[bool; 2]>>>,
     pub mpsc_buffer_ch4: mpsc::Sender<Vec<u8>>,
     pub mpsc_buffer_ch5: mpsc::Sender<Vec<u8>>,
     pub mpsc_buffer_ch6: mpsc::Sender<Vec<u8>>,
@@ -250,7 +256,7 @@ pub struct MpscRxs {
     pub update_elev_state: mpsc::Receiver<(Dirn, ElevatorBehaviour)>,
     /// Additional buffered channels for various data streams.
     // pub pending_tasks: mpsc::Receiver<Vec<Task>>,
-    pub mpsc_buffer_ch3: mpsc::Receiver<Vec<u8>>,
+    pub delegated_tasks: mpsc::Receiver<HashMap<u8, Vec<[bool; 2]>>>,
     pub mpsc_buffer_ch4: mpsc::Receiver<Vec<u8>>,
     pub mpsc_buffer_ch5: mpsc::Receiver<Vec<u8>>,
     pub mpsc_buffer_ch6: mpsc::Receiver<Vec<u8>>,
@@ -298,7 +304,7 @@ impl Mpscs {
                 // new_task: tx_new_task,
                 update_elev_state: tx_update_elev_state,
                 // pending_tasks: tx_pending_tasks,
-                mpsc_buffer_ch3: tx_buf3,
+                delegated_tasks: tx_buf3,
                 mpsc_buffer_ch4: tx_buf4,
                 mpsc_buffer_ch5: tx_buf5,
                 mpsc_buffer_ch6: tx_buf6,
@@ -316,7 +322,7 @@ impl Mpscs {
                 // new_task: rx_new_task,
                 update_elev_state: rx_update_elev_state,
                 // pending_tasks: rx_pending_tasks,
-                mpsc_buffer_ch3: rx_buf3,
+                delegated_tasks: rx_buf3,
                 mpsc_buffer_ch4: rx_buf4,
                 mpsc_buffer_ch5: rx_buf5,
                 mpsc_buffer_ch6: rx_buf6,

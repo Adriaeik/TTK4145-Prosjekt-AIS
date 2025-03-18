@@ -10,6 +10,7 @@ use crate::elevio;
 use tokio::sync::mpsc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::OnceLock;
+use std::collections::HashMap;
 
 use crate::world_view::{get_index_to_container, serial, Dirn, ElevatorBehaviour};
 
@@ -385,6 +386,24 @@ pub fn clear_from_sent_tcp(wv: &mut Vec<u8>, tcp_container: Vec<u8>) -> bool {
         return false;
     }
 }
+
+
+pub fn distribute_tasks(wv: &mut Vec<u8>, map: HashMap<u8, Vec<[bool; 2]>>) -> bool {
+    let mut wv_deser = world_view::serial::deserialize_worldview(&wv.clone());
+
+    for elev in wv_deser.elevator_containers.iter_mut() {
+        if let Some(tasks) = map.get(&elev.elevator_id) {
+            elev.tasks = tasks.clone();
+        }
+    }
+
+    *wv = world_view::serial::serialize_worldview(&wv_deser);
+
+    true
+}
+
+
+
 
 // / Push `some_task` to elevator with id `id` in `wv`
 // / 

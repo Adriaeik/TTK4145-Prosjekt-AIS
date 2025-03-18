@@ -361,7 +361,7 @@ pub fn worldview(worldview: Vec<u8>) {
             
 
         // Vanleg utskrift av calls
-        let call_list = format!("{:?}", elev.unsent_hall_request);
+        let call_list = format!("{:?}", elev.tasks);
 
         let task_stat_list = match (elev.dirn, elev.behaviour) {
             (Dirn::Up, _) => Blue.paint("Up"),

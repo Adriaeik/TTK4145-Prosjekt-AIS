@@ -81,7 +81,8 @@ pub struct ElevatorContainer {
 
     /// List of assigned tasks for the elevator.
     pub cab_requests: Vec<bool>,
-    //pub task: Option<Task>, // Default: empty vector
+
+    pub tasks: Vec<[bool; 2]>, 
 
     pub dirn: Dirn,
 
@@ -102,6 +103,7 @@ impl Default for ElevatorContainer {
             // calls: Vec::new(),
             unsent_hall_request: vec![[false; 2]; config::DEFAULT_NUM_FLOORS as usize],
             cab_requests: vec![false; config::DEFAULT_NUM_FLOORS as usize],
+            tasks: vec![[false, false]; config::DEFAULT_NUM_FLOORS as usize],
             // task: None,
             // status: ElevatorStatus::IDLE,
             dirn: Dirn::Stop,

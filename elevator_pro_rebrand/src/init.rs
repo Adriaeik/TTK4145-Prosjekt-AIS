@@ -126,9 +126,7 @@ pub async fn check_for_udp() -> Vec<u8> {
     socket_temp.bind(&socket_addr.into()).expect("Failed to bind socket");
 
     // Convert standard socket into an async UDP socket
-    print::err("1".to_string());
     let socket = UdpSocket::from_std(socket_temp.into()).expect("Failed to create UDP socket");
-    print::err("2".to_string());
 
     // Buffer for receiving UDP data
     let mut buf = [0; config::UDP_BUFFER];
