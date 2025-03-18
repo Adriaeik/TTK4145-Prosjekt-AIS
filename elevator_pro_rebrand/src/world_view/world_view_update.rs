@@ -184,8 +184,7 @@ pub async fn join_wv_from_tcp_container(wv: &mut Vec<u8>, container: Vec<u8>) ->
             }
         }
 
-        //Oppdater statuser + fjerner tasks som er TaskStatus::DONE
-        // deserialized_wv.elevator_containers[i].unsent_hall_request = deser_container.unsent_hall_request.clone();
+        //Oppdater statuser
         deserialized_wv.elevator_containers[i].cab_requests = deser_container.cab_requests;
         deserialized_wv.elevator_containers[i].elevator_id = deser_container.elevator_id;
         deserialized_wv.elevator_containers[i].last_floor_sensor = deser_container.last_floor_sensor;
@@ -194,6 +193,18 @@ pub async fn join_wv_from_tcp_container(wv: &mut Vec<u8>, container: Vec<u8>) ->
         deserialized_wv.elevator_containers[i].dirn = deser_container.dirn;
         deserialized_wv.elevator_containers[i].behaviour = deser_container.behaviour;
         // Master styrer task, ikke overskriv det med slaven sitt forrige WV
+
+        //Fjern tatt hall_requests. TODO: bedre? gjør mer forståelig
+        // / NB!!!!!!!!!!! Den blir fjerna mens man er der med døra oppe, men kommer tilbake med en gang døre lukker seg???
+        for (idx, [up, down]) in deserialized_wv.hall_request.iter_mut().enumerate() {
+            if (deserialized_wv.elevator_containers[i].behaviour == ElevatorBehaviour::DoorOpen) && (deserialized_wv.elevator_containers[i].last_floor_sensor == (idx as u8)) {
+                if deserialized_wv.elevator_containers[i].dirn == Dirn::Up {
+                    *up = false;
+                } else if deserialized_wv.elevator_containers[i].dirn == Dirn::Down {
+                    *down = false;
+                }
+            }
+        }
 
         //Oppdater call_buttons
         // master::wv_from_slaves::update_call_buttons(&mut deserialized_wv, &deser_container, i).await;

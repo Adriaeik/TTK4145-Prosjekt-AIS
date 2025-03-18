@@ -1,7 +1,10 @@
 pub mod fsm;
 pub mod request;
+pub mod timer;
 mod lights;
 mod self_elevator;
+
+use std::time::Duration;
 
 use tokio::task::yield_now;
 use tokio::sync::mpsc;
@@ -63,16 +66,24 @@ pub async fn handle_elevator(wv_watch_rx: watch::Receiver<Vec<u8>>, elevator_sta
     self_container.behaviour = ElevatorBehaviour::Moving;
     self_container.dirn = Dirn::Down;
 
+    let mut timer = timer::new(Duration::from_secs(3));
+
     loop {
         //Hent nyeste worldview
         
         //Les nye data fra heisen, putt de inn i self_container
+        let prev_floor = self_container.last_floor_sensor;
         self_elevator::update_elev_container_from_msgs(&mut local_elev_rx, &mut self_container).await;
         
+        if prev_floor != self_container.last_floor_sensor {
+            fsm::onFloorArrival(&mut self_container, e.clone(), &mut timer).await;
+        }
+        fsm::onDoorTimeout(&mut self_container, e.clone(), &mut timer).await;
+
+        if self_container.behaviour != ElevatorBehaviour::DoorOpen {
+            e.motor_direction(self_container.dirn as u8);  
+        }
         
-        fsm::onFloorArrival(&mut self_container, e.clone()).await;
-        fsm::onDoorTimeout(&mut self_container, e.clone()).await;
-        e.motor_direction(self_container.dirn as u8);  
         // println!("Motor dir: {:?}, Elev behaviour: {:?}", self_container.dirn, self_container.behaviour);
         
         //Send til update_wv -> nye self_container

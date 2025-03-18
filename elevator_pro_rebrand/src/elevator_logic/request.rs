@@ -86,15 +86,18 @@ pub fn choose_direction(elevator: &ElevatorContainer) -> DirnBehaviourPair {
 }
 
 pub fn should_stop(elevator: &ElevatorContainer) -> bool {
-    if elevator.cab_requests[elevator.last_floor_sensor as usize] {
+    let floor = elevator.last_floor_sensor as usize;
+    
+    if elevator.cab_requests[floor] {
         return true;
     }
+
     match elevator.dirn {
         Dirn::Down => {
-            elevator.tasks[elevator.last_floor_sensor as usize][1] || !below(elevator)
+            elevator.tasks[floor][1] || !below(elevator)
         }
         Dirn::Up => {
-            elevator.tasks[elevator.last_floor_sensor as usize][0] || !above(elevator)
+            elevator.tasks[floor][0] || !above(elevator)
         }
         Dirn::Stop => true,
     }

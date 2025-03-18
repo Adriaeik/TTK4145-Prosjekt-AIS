@@ -6,7 +6,7 @@ use std::fs::File;
 use std::io::Write;
 // Library for executing terminal commands
 use tokio::process::Command;
-use crate::world_view;
+use crate::world_view::{self, ElevatorBehaviour};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ElevatorState {
@@ -50,7 +50,14 @@ pub async fn create_hall_request_json(wv: Vec<u8>) -> String {
         states.insert(
             key,
             ElevatorState {
-                behaviour: format!("{:?}", elev.behaviour.clone()).to_lowercase(),
+                behaviour: match elev.behaviour.clone() {
+                    ElevatorBehaviour::DoorOpen => {
+                        format!("doorOpen")
+                    }
+                    _ => {
+                        format!("{:?}", elev.behaviour.clone()).to_lowercase()
+                    }
+                },
                 floor: if (0..elev.num_floors).contains(&elev.last_floor_sensor) {
                     elev.last_floor_sensor as i32
                 } else {
