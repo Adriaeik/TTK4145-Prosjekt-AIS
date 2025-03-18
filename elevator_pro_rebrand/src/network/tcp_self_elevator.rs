@@ -5,7 +5,6 @@ use tokio::process::Command;
 use std::sync::atomic::Ordering;
 use tokio::sync::{mpsc, watch};
 
-use crate::elevator_logic::task_handler;
 use crate::world_view::{Dirn, ElevatorBehaviour};
 use crate::{config, elevio, elevio::elev as e};
 

@@ -45,15 +45,7 @@ pub mod world_view;
 pub mod elevio;
 
 /// Elevator control logic and task handling.
-pub mod elevator_logic {
-    /// Handles elevator task management.
-    pub mod task_handler;
-    /// Logic for the master elevator.
-    pub mod master {
-        /// Handles world view data from slave elevators.
-        pub mod wv_from_slaves;
-    }
-}
+pub mod elevator_logic;
 
 pub mod backup;
 
