@@ -3,7 +3,7 @@
 use crate::{elevio::ElevMessage, world_view::ElevatorStatus};
 use crate::print;
 use crate::config;
-use crate::manager::task_allocator::Task;
+// use crate::manager::task_allocator::Task;
 use crate::world_view::world_view_update::{ 
     join_wv_from_udp, 
     abort_network, 
@@ -12,8 +12,8 @@ use crate::world_view::world_view_update::{
     recieve_local_elevator_msg, 
     clear_from_sent_tcp,
     update_elev_state,
-    push_task,
-    publish_tasks,
+    // push_task,
+    // publish_tasks,
 };
 use crate::world_view::{self, serial};
 
@@ -116,19 +116,19 @@ pub async fn update_wv_watch(mut mpsc_rxs: MpscRxs, worldview_watch_tx: watch::S
             },
             Err(_) => {},
         }
-        match mpsc_rxs.new_task.try_recv() {
-            Ok((id, sometask)) => {
-                // utils::print_master(format!("Fikk task: {:?}", task));
-                wv_edited_I = push_task(&mut worldview_serialised, id, sometask);
-            },
-            Err(_) => {},
-        }
-        match mpsc_rxs.pending_tasks.try_recv() {
-            Ok(tasks) => {
-                wv_edited_I = publish_tasks(&mut worldview_serialised, tasks);
-            },
-            Err(_) => {},
-        }
+        // match mpsc_rxs.new_task.try_recv() {
+        //     Ok((id, sometask)) => {
+        //         // utils::print_master(format!("Fikk task: {:?}", task));
+        //         wv_edited_I = push_task(&mut worldview_serialised, id, sometask);
+        //     },
+        //     Err(_) => {},
+        // }
+        // match mpsc_rxs.pending_tasks.try_recv() {
+        //     Ok(tasks) => {
+        //         wv_edited_I = publish_tasks(&mut worldview_serialised, tasks);
+        //     },
+        //     Err(_) => {},
+        // }
         
 
 
@@ -211,11 +211,11 @@ pub struct MpscTxs {
     /// Sends a TCP container message that has been transmitted to the master.
     pub sent_tcp_container: mpsc::Sender<Vec<u8>>,
     /// Sends a new task along with associated data.
-    pub new_task: mpsc::Sender<(u8, Option<Task>)>,
+    // pub new_task: mpsc::Sender<(u8, Option<Task>)>,
     /// Updates the status of a task.
     pub update_elev_state: mpsc::Sender<ElevatorStatus>,
     /// Additional buffered channels for various data streams.
-    pub pending_tasks: mpsc::Sender<Vec<Task>>,
+    // pub pending_tasks: mpsc::Sender<Vec<Task>>,
     pub mpsc_buffer_ch3: mpsc::Sender<Vec<u8>>,
     pub mpsc_buffer_ch4: mpsc::Sender<Vec<u8>>,
     pub mpsc_buffer_ch5: mpsc::Sender<Vec<u8>>,
@@ -242,11 +242,11 @@ pub struct MpscRxs {
     /// Receives TCP container messages that have been transmitted.
     pub sent_tcp_container: mpsc::Receiver<Vec<u8>>,
     /// Receives new tasks along with associated data.
-    pub new_task: mpsc::Receiver<(u8, Option<Task>)>,
+    // pub new_task: mpsc::Receiver<(u8, Option<Task>)>,
     /// Receives updates for the status of a task.
     pub update_elev_state: mpsc::Receiver<ElevatorStatus>,
     /// Additional buffered channels for various data streams.
-    pub pending_tasks: mpsc::Receiver<Vec<Task>>,
+    // pub pending_tasks: mpsc::Receiver<Vec<Task>>,
     pub mpsc_buffer_ch3: mpsc::Receiver<Vec<u8>>,
     pub mpsc_buffer_ch4: mpsc::Receiver<Vec<u8>>,
     pub mpsc_buffer_ch5: mpsc::Receiver<Vec<u8>>,
@@ -273,9 +273,9 @@ impl Mpscs {
         let (tx_remove_container, rx_remove_container) = mpsc::channel(300);
         let (tx_local_elev, rx_local_elev) = mpsc::channel(300);
         let (tx_sent_tcp_container, rx_sent_tcp_container) = mpsc::channel(300);
-        let (tx_new_task, rx_new_task) = mpsc::channel(300);
+        // let (tx_new_task, rx_new_task) = mpsc::channel(300);
         let (tx_update_elev_state, rx_update_elev_state) = mpsc::channel(300);
-        let (tx_pending_tasks, rx_pending_tasks) = mpsc::channel(300);
+        // let (tx_pending_tasks, rx_pending_tasks) = mpsc::channel(300);
         let (tx_buf3, rx_buf3) = mpsc::channel(300);
         let (tx_buf4, rx_buf4) = mpsc::channel(300);
         let (tx_buf5, rx_buf5) = mpsc::channel(300);
@@ -292,9 +292,9 @@ impl Mpscs {
                 remove_container: tx_remove_container,
                 local_elev: tx_local_elev,
                 sent_tcp_container: tx_sent_tcp_container,
-                new_task: tx_new_task,
+                // new_task: tx_new_task,
                 update_elev_state: tx_update_elev_state,
-                pending_tasks: tx_pending_tasks,
+                // pending_tasks: tx_pending_tasks,
                 mpsc_buffer_ch3: tx_buf3,
                 mpsc_buffer_ch4: tx_buf4,
                 mpsc_buffer_ch5: tx_buf5,
@@ -310,9 +310,9 @@ impl Mpscs {
                 remove_container: rx_remove_container,
                 local_elev: rx_local_elev,
                 sent_tcp_container: rx_sent_tcp_container,
-                new_task: rx_new_task,
+                // new_task: rx_new_task,
                 update_elev_state: rx_update_elev_state,
-                pending_tasks: rx_pending_tasks,
+                // pending_tasks: rx_pending_tasks,
                 mpsc_buffer_ch3: rx_buf3,
                 mpsc_buffer_ch4: rx_buf4,
                 mpsc_buffer_ch5: rx_buf5,
@@ -332,8 +332,8 @@ impl Mpscs {
 pub struct WatchTxs {
     /// Sender for the `wv` channel, transmitting a vector of bytes.
     pub wv: watch::Sender<Vec<u8>>,
-    /// Sender for the `elev_task` channel, transmitting a list of tasks.
-    pub elev_task: watch::Sender<Vec<Task>>,
+    // Sender for the `elev_task` channel, transmitting a list of tasks.
+    // pub elev_task: watch::Sender<Vec<Task>>,
 }
 
 /// Struct containing watch receivers for listening to state updates.
@@ -341,8 +341,8 @@ pub struct WatchTxs {
 pub struct WatchRxs {
     /// Receiver for the `wv` channel, listening to a vector of bytes.
     pub wv: watch::Receiver<Vec<u8>>,
-    /// Receiver for the `elev_task` channel, listening to a list of tasks.
-    pub elev_task: watch::Receiver<Vec<Task>>,
+    // Receiver for the `elev_task` channel, listening to a list of tasks.
+    // pub elev_task: watch::Receiver<Vec<Task>>,
 }
 
 
@@ -362,16 +362,16 @@ impl Watches {
     /// A `Watches` instance containing both senders and receivers.
     pub fn new() -> Self {
         let (wv_tx, wv_rx) = watch::channel(Vec::<u8>::new());
-        let (tx1, rx1) = watch::channel(Vec::new());
+        // let (tx1, rx1) = watch::channel(Vec::new());
 
         Watches {
             txs: WatchTxs {
                 wv: wv_tx,
-                elev_task: tx1,
+                // elev_task: tx1,
             },
             rxs: WatchRxs {
                 wv: wv_rx,
-                elev_task: rx1,
+                // elev_task: rx1,
             },
         }
     }

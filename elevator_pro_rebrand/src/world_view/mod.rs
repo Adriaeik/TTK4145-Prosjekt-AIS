@@ -8,7 +8,7 @@ use crate::config;
 use crate::print;
 use crate::network::local_network;
 use crate::elevio;
-use crate::manager::task_allocator::Task;
+// use crate::manager::task_allocator::Task;
 
 
 /// Represents the status of a task within the system.
@@ -49,10 +49,12 @@ pub struct ElevatorContainer {
     pub num_floors: u8,
 
     /// List of external call requests.
-    pub calls: Vec<elevio::CallButton>, // Default: empty vector
+    // pub calls: Vec<elevio::CallButton>, // Default: empty vector
+    pub unsent_hall_request: Vec<[bool; 2]>,
 
     /// List of assigned tasks for the elevator.
-    pub task: Option<Task>, // Default: empty vector
+    pub cab_requests: Vec<bool>,
+    //pub task: Option<Task>, // Default: empty vector
 
     pub status: ElevatorStatus,
 
@@ -68,8 +70,10 @@ impl Default for ElevatorContainer {
         Self {
             elevator_id: config::ERROR_ID,
             num_floors: config::DEFAULT_NUM_FLOORS,
-            calls: Vec::new(),
-            task: None,
+            // calls: Vec::new(),
+            unsent_hall_request: vec![[false; 2]; config::DEFAULT_NUM_FLOORS as usize],
+            cab_requests: vec![false; config::DEFAULT_NUM_FLOORS as usize],
+            // task: None,
             status: ElevatorStatus::IDLE,
             obstruction: false,
             last_floor_sensor: 255, // Spesifikk verdi for sensor
@@ -89,7 +93,9 @@ pub struct WorldView {
     /// - `master_id`: The ID of the master elevator.
     pub master_id: u8, 
     /// - `pending_tasks`: A list of call buttons pressed outside elevators.
-    pub pending_tasks: Vec<Task>, 
+    // pub pending_tasks: Vec<Task>, 
+    pub hall_request: Vec<[bool; 2]>,
+
     /// - `elevator_containers`: A list of `ElevatorContainer` structures containing
     ///   individual elevator information.
     pub elevator_containers: Vec<ElevatorContainer>,  
@@ -102,7 +108,8 @@ impl Default for WorldView {
         Self {
             n: 0,
             master_id: config::ERROR_ID,
-            pending_tasks: Vec::new(),
+            // pending_tasks: Vec::new(),
+            hall_request: vec![[false; 2]; config::DEFAULT_NUM_FLOORS as usize],
             elevator_containers: Vec::new(),
         }
     }
@@ -273,19 +280,19 @@ pub fn is_master(wv: Vec<u8>) -> bool {
     return local_network::SELF_ID.load(Ordering::SeqCst) == wv[config::MASTER_IDX];
 }
 
-/// Retrieves the latest elevator tasks from the system.
-///
-/// This function borrows the value from the `elev_task` channel and clones it, returning a copy of the tasks.
-/// It is used to fetch the current tasks for the local elevator.
-///
-/// ## Parameters
-/// - `chs`: A `LocalChannels` struct that contains the communication channels for the system.
-///
-/// ## Returns
-/// - A `Vec<Task>` containing the current elevator tasks.
-pub fn get_elev_tasks(elev_task_rx: watch::Receiver<Vec<Task>>) -> Vec<Task> {
-    elev_task_rx.borrow().clone()
-}
+// /// Retrieves the latest elevator tasks from the system.
+// ///
+// /// This function borrows the value from the `elev_task` channel and clones it, returning a copy of the tasks.
+// /// It is used to fetch the current tasks for the local elevator.
+// ///
+// /// ## Parameters
+// /// - `chs`: A `LocalChannels` struct that contains the communication channels for the system.
+// ///
+// /// ## Returns
+// /// - A `Vec<Task>` containing the current elevator tasks.
+// pub fn get_elev_tasks(elev_task_rx: watch::Receiver<Vec<Task>>) -> Vec<Task> {
+//     elev_task_rx.borrow().clone()
+// }
 
 /// Retrieves a clone of the `ElevatorContainer` with the specified `id` from the provided worldview.
 ///

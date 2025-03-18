@@ -306,13 +306,7 @@ pub fn worldview(worldview: Vec<u8>) {
 
     let n_text = format!("{}", wv_deser.get_num_elev()); // Fjern ANSI og bruk prettytable farge
     let m_id_text = format!("{}", wv_deser.master_id);
-    let task_list = wv_deser.pending_tasks.iter()
-    .map(|c| match c.call.call_type {
-        elevio::CallType::INSIDE => format!("{}:{}({})", c.id, c.call.floor, c.call.elev_id),
-        _ => format!("{}:{}({:?})", c.id, c.call.floor, c.call.call_type),
-    })
-    .collect::<Vec<String>>()
-    .join(", ");
+    let task_list = format!("{:?}", wv_deser.hall_request);
 
     gen_table.add_row(Row::new(vec![
         Cell::new(&n_text).with_style(Attr::ForegroundColor(color::BRIGHT_YELLOW)),
@@ -355,21 +349,19 @@ pub fn worldview(worldview: Vec<u8>) {
         };
 
         
-        // Farge basert på `to_do`
-        let task_list = if let Some(task) = elev.task {
-            Yellow.paint(format!("{:?}", task.call.floor)).to_string()
-        } else {
-            Green.paint("None").to_string()
-        };
+        // Farge basert på `to_do` Her skal vi printe tildelt noverande task
+        let task_list = format!("{:?}", elev.cab_requests);
+        // if let Some(task) = elev.cab_requests {
+        //     Yellow.paint(format!("{:?}", task.call.floor)).to_string()
+        // } else {
+        //     Green.paint("None").to_string()
+        // };
 
         let last_floor = Fixed(69).paint(format!("{}", elev.last_floor_sensor));
             
 
         // Vanleg utskrift av calls
-        let call_list = elev.calls.iter()
-            .map(|c| format!("{}:{:?}", c.floor, c.call_type))
-            .collect::<Vec<String>>()
-            .join(", ");
+        let call_list = format!("{:?}", elev.unsent_hall_request);
 
         let task_stat_list = match elev.status {
             ElevatorStatus::DOOR_OPEN => {

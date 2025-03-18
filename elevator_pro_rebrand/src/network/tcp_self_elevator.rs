@@ -148,7 +148,7 @@ pub async fn run_local_elevator(wv_watch_rx: watch::Receiver<Vec<u8>>, update_el
     // Task som utfører deligerte tasks (ikke implementert korrekt enda)
     {
         let _handle_task = tokio::spawn(async move {
-            let _ = task_handler::execute_tasks(wv_watch_rx, update_elev_state_tx, elevator).await;
+            // let _ = task_handler::execute_tasks(wv_watch_rx, update_elev_state_tx, elevator).await;
         });
         tokio::task::yield_now().await;
     }  

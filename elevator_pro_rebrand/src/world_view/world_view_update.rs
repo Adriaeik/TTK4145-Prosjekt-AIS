@@ -5,7 +5,7 @@ use crate::world_view;
 use crate::{config, print, ip_help_functions::{self}};
 use crate::network::local_network;
 use crate::elevio;
-use crate::manager::task_allocator::Task;
+// use crate::manager::task_allocator::Task;
 
 use tokio::sync::mpsc;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -76,7 +76,8 @@ pub fn join_wv(mut my_wv: Vec<u8>, master_wv: Vec<u8>) -> Vec<u8> {
         master_view.last_floor_sensor = my_view.last_floor_sensor;
 
         // Update call buttons and task statuses
-        master_view.calls = my_view.calls.clone();
+        // master_view.calls = my_view.calls.clone();
+        master_view.unsent_hall_request = my_view.unsent_hall_request.clone();
 
         /* Update task statuses */
         // let new_ids: HashSet<u16> = master_view.tasks.iter().map(|t| t.id).collect();
@@ -170,7 +171,7 @@ pub async fn join_wv_from_tcp_container(wv: &mut Vec<u8>, container: Vec<u8>) ->
     
     if let Some(i) = self_idx {
         //Oppdater statuser + fjerner tasks som er TaskStatus::DONE
-        deserialized_wv.elevator_containers[i].calls = deser_container.calls.clone();
+        deserialized_wv.elevator_containers[i].unsent_hall_request = deser_container.unsent_hall_request.clone();
         deserialized_wv.elevator_containers[i].elevator_id = deser_container.elevator_id;
         deserialized_wv.elevator_containers[i].last_floor_sensor = deser_container.last_floor_sensor;
         deserialized_wv.elevator_containers[i].num_floors = deser_container.num_floors;
@@ -261,7 +262,21 @@ pub async fn recieve_local_elevator_msg(master_container_tx: mpsc::Sender<Vec<u8
         elevio::ElevMsgType::CALLBTN => {
             print::info(format!("Callbutton: {:?}", msg.call_button));
             if let (Some(i), Some(call_btn)) = (self_idx, msg.call_button) {
-                deserialized_wv.elevator_containers[i].calls.push(call_btn); 
+                
+                // Legger ti callbutton i tilsvarende vektor i elev_containeren
+                match call_btn.call_type {
+                    elevio::CallType::INSIDE => {
+                        deserialized_wv.elevator_containers[i].cab_requests[call_btn.floor as usize] = true;
+                    }
+                    elevio::CallType::UP => {
+                        deserialized_wv.elevator_containers[i].unsent_hall_request[call_btn.floor as usize][0] = true;
+                    }
+                    elevio::CallType::DOWN => {
+                        deserialized_wv.elevator_containers[i].unsent_hall_request[call_btn.floor as usize][1] = true;
+                    }
+                    elevio::CallType::COSMIC_ERROR => {},
+                }   
+
 
                 //Om du er master i nettverket, oppdater call_buttons (Samme funksjon som kjøres i join_wv_from_tcp_container(). Behandler altså egen heis som en slave i nettverket) 
                 if is_master {
@@ -269,8 +284,8 @@ pub async fn recieve_local_elevator_msg(master_container_tx: mpsc::Sender<Vec<u8
                     
                     // update_call_buttons(&mut deserialized_wv, &container, i).await;
                     let _ = master_container_tx.send(serial::serialize_elev_container(&container)).await;
-
-                    deserialized_wv.elevator_containers[i].calls.clear();
+                    
+                    deserialized_wv.elevator_containers[i].unsent_hall_request = vec![[false; 2]; deserialized_wv.elevator_containers[i].num_floors as usize];
                 }
             }
         }
@@ -338,8 +353,18 @@ pub fn clear_from_sent_tcp(wv: &mut Vec<u8>, tcp_container: Vec<u8>) -> bool {
     if let Some(i) = self_idx {
         /*_____ Fjern Tasks som master har oppdatert _____ */
         // deserialized_wv.elevator_containers[i].tasks_status.retain(|t| tasks_ids.contains(&t.id));
-        /*_____ Fjern sendte CallButtons _____ */
-        deserialized_wv.elevator_containers[i].calls.retain(|call| !tcp_container_des.calls.contains(call));
+        /*_____ Fjern sendte Hall request _____ */
+   
+        for (row1, row2) in deserialized_wv.elevator_containers[i].unsent_hall_request
+                                                        .iter_mut().zip(tcp_container_des.unsent_hall_request.iter()) {
+            for (val1, val2) in row1.iter_mut().zip(row2.iter()) {
+                if *val1 && *val2 {
+                    *val1 = false;
+                }
+            }
+        }
+
+
         *wv = serial::serialize_worldview(&deserialized_wv);
         return true;
     } else {
@@ -348,44 +373,44 @@ pub fn clear_from_sent_tcp(wv: &mut Vec<u8>, tcp_container: Vec<u8>) -> bool {
     }
 }
 
-/// Push `some_task` to elevator with id `id` in `wv`
-/// 
-/// ## Return
-/// `true`: Elevator with `id` was found and given the task  
-/// `false`: Otherwise
-pub fn push_task(wv: &mut Vec<u8>, id: u8, some_task: Option<Task>) -> bool {
-    let mut deser_wv = serial::deserialize_worldview(&wv);
+// / Push `some_task` to elevator with id `id` in `wv`
+// / 
+// / ## Return
+// / `true`: Elevator with `id` was found and given the task  
+// / `false`: Otherwise
+// pub fn push_task(wv: &mut Vec<u8>, id: u8, some_task: Option<Task>) -> bool {
+//     let mut deser_wv = serial::deserialize_worldview(&wv);
 
-    let index = get_index_to_container(id, wv.clone());
-    if let Some(i) = index {
-        deser_wv.elevator_containers[i].task = some_task;
-        *wv = serial::serialize_worldview(&deser_wv);
-        return true
-    } else {
-        return false
-    }
+//     let index = get_index_to_container(id, wv.clone());
+//     if let Some(i) = index {
+//         deser_wv.elevator_containers[i].task = some_task;
+//         *wv = serial::serialize_worldview(&deser_wv);
+//         return true
+//     } else {
+//         return false
+//     }
 
 
 
-    // Fjern `button` frå `outside_button` om han finst
-    // if let Some(index) = deser_wv.outside_button.iter().position(|b| *b == button) {
-    //     deser_wv.outside_button.swap_remove(index);
-    // }
+//     // Fjern `button` frå `outside_button` om han finst
+//     // if let Some(index) = deser_wv.outside_button.iter().position(|b| *b == button) {
+//     //     deser_wv.outside_button.swap_remove(index);
+//     // }
     
-    // let self_idx = world_view::get_index_to_container(id, wv.clone());
+//     // let self_idx = world_view::get_index_to_container(id, wv.clone());
 
-    // if let Some(i) = self_idx {
-    //     // **Hindrar duplikatar: sjekk om task.id allereie finst i `tasks`**
-    //     // NB: skal i teorien være unødvendig å sjekke dette
-    //     if !deser_wv.elevator_containers[i].tasks.iter().any(|t| t.id == task.id) {
-    //         deser_wv.elevator_containers[i].tasks.push(task);
-    //         *wv = world_view::serialize_worldview(&deser_wv);
-    //         return true;
-    //     }
-    // }
+//     // if let Some(i) = self_idx {
+//     //     // **Hindrar duplikatar: sjekk om task.id allereie finst i `tasks`**
+//     //     // NB: skal i teorien være unødvendig å sjekke dette
+//     //     if !deser_wv.elevator_containers[i].tasks.iter().any(|t| t.id == task.id) {
+//     //         deser_wv.elevator_containers[i].tasks.push(task);
+//     //         *wv = world_view::serialize_worldview(&deser_wv);
+//     //         return true;
+//     //     }
+//     // }
     
-    // false
-}
+//     // false
+// }
 
 // / ### Oppdaterer status til `new_status` til task med `id` i egen heis_container.tasks_status
 /// Updates status of elevator with id matching [local_network::SELF_ID] to status in wv
@@ -462,14 +487,14 @@ pub async fn watch_ethernet() {
     }
 }
 
-/// Updates tasks in `wv` to `tasks`
-/// 
-/// ## Returns
-/// `true`: always
-pub fn publish_tasks(wv: &mut Vec<u8>, tasks: Vec<Task>) -> bool {
-    let mut wv_deser = serial::deserialize_worldview(&wv);
-    wv_deser.pending_tasks = tasks;
-    *wv = serial::serialize_worldview(&wv_deser);
-    true
-}
+// / Updates tasks in `wv` to `tasks`
+// / 
+// / ## Returns
+// / `true`: always
+// pub fn publish_tasks(wv: &mut Vec<u8>, tasks: Vec<Task>) -> bool {
+//     let mut wv_deser = serial::deserialize_worldview(&wv);
+//     wv_deser.pending_tasks = tasks;
+//     *wv = serial::serialize_worldview(&wv_deser);
+//     true
+// }
 
