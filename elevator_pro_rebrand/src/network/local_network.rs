@@ -66,7 +66,7 @@ pub async fn update_wv_watch(mut mpsc_rxs: MpscRxs, worldview_watch_tx: watch::S
     let mut master_container_updated_I = false;
 
     let (master_container_tx, mut master_container_rx) = mpsc::channel::<Vec<u8>>(100);    
-
+    let mut i = 0;
     loop {
         //OBS: Error kommer når kanal er tom. ikke print der uten å eksplisitt eksludere channel_empty error type
 
@@ -106,7 +106,8 @@ pub async fn update_wv_watch(mut mpsc_rxs: MpscRxs, worldview_watch_tx: watch::S
         /*_____Melding til master fra slaven (elevator-containeren til slaven)_____*/
         match mpsc_rxs.container.try_recv() {
             Ok(container) => {
-                print::ok(1.to_string());
+                i = i+1;
+                print::ok(i.to_string());
                 wv_edited_I = join_wv_from_tcp_container(&mut worldview_serialised, container.clone()).await;
                 let _ = to_task_alloc_tx.send(container.clone()).await;
             },
