@@ -65,13 +65,7 @@ struct LocalElevatorState {
 }
 
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ElevatorState {
-    behaviour: ElevatorBehaviour,
-    floor: i32,
-    direction: Dirn,
-    requests: Vec<[bool; 3]>,
-}
+
 
 /// Represents the state of an elevator, including tasks, status indicators, and movement.
 #[derive(Serialize, Deserialize, Debug, Clone)]

@@ -1,6 +1,6 @@
 //! Handles messages on internal channels regarding changes in worldview
 
-use crate::{elevio::ElevMessage, world_view::{Dirn, ElevatorBehaviour}};
+use crate::{elevio::ElevMessage, manager, world_view::{Dirn, ElevatorBehaviour}};
 use crate::print;
 use crate::config;
 // use crate::manager::task_allocator::Task;
@@ -17,9 +17,9 @@ use crate::world_view::world_view_update::{
 };
 use crate::world_view::{self, serial};
 
-use tokio::sync::{mpsc, watch};
+use tokio::{sync::{mpsc, watch}, time::sleep};
 use local_ip_address::local_ip;
-use std::net::IpAddr;
+use std::{net::IpAddr, time::Duration};
 use std::sync::atomic::AtomicU8;
 
 /// Atomic bool storing self ID, standard inited as config::ERROR_ID
@@ -159,13 +159,16 @@ pub async fn update_wv_watch(mut mpsc_rxs: MpscRxs, worldview_watch_tx: watch::S
             let _ = master_container_tx.send(serial::serialize_elev_container(&container)).await;
             master_container_updated_I = false;
         }
-
+        
         if wv_edited_I {
-
+            
             let _ = worldview_watch_tx.send(worldview_serialised.clone());
             // println!("Sendte worldview lokalt {}", worldview_serialised[1]);
-    
+            
             wv_edited_I = false;
+            println!("{:?}",manager::get_elev_tasks(worldview_serialised.clone()).await);
+
+            // sleep(Duration::from_secs(1)).await;
         }
     }
 }

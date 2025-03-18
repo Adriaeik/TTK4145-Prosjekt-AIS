@@ -49,7 +49,7 @@ pub const TCP_PERIOD: Duration = Duration::from_millis(TCP_PER_U64);
 pub const SLAVE_TIMEOUT: Duration = Duration::from_millis(100);
 
 /// Timeout duration of master-nodes
-pub const MASTER_TIMEOUT: Duration = Duration::from_secs(5); // 5 sekunder før failover
+pub const MASTER_TIMEOUT: Duration = Duration::from_secs(50); // 5 sekunder før failover
 
 /// Timeout duration of backup-nodes
 pub const BACKUP_TIMEOUT: Duration = Duration::from_secs(50); // 5 sekunder før failover

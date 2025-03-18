@@ -24,6 +24,8 @@ pub mod init;
 /// Print functions with color coding
 pub mod print;
 
+pub mod manager;
+
 /// Network communication via UDP and TCP.
 pub mod network {
     /// Sends and receives messages using UDP broadcast.
@@ -55,10 +57,3 @@ pub mod elevator_logic {
 
 pub mod backup;
 
-
-
-/// Task distributer module
-pub mod manager {
-    /// Module to calculate cost based on elevator-states, and delegate task to available elevator with lowest cost
-    pub mod task_allocator;
-}

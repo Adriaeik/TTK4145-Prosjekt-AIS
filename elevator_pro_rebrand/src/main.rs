@@ -121,13 +121,13 @@ async fn main() {
 /* SLUTT ----------- Starte kritiske tasks ----------- */
 
     // Start backup server i en egen task
-    {
-        let wv_watch_rx = watches.rxs.wv.clone();
-        let _backup_task = tokio::spawn(async move {
-            print::info("Starter backup".to_string());
-            tokio::spawn(backup::start_backup_server(wv_watch_rx));
-        });
-    }
+    // {
+    //     let wv_watch_rx = watches.rxs.wv.clone();
+    //     let _backup_task = tokio::spawn(async move {
+    //         print::info("Starter backup".to_string());
+    //         tokio::spawn(backup::start_backup_server(wv_watch_rx));
+    //     });
+    // }
         
 /* START ----------- Starte Eksterne Nettverkstasks ---------------------- */
     //Task som hører etter UDP-broadcasts
