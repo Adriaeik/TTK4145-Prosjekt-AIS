@@ -89,7 +89,6 @@ async fn main() {
 
 /* START ----------- Init av diverse channels ---------------------- */ 
     // Create other channels used for other things
-    let (task_dellecator_tx, task_dellecator_rx) = mpsc::channel::<Vec<u8>>(1000);
     let (socket_tx, socket_rx) = mpsc::channel::<(TcpStream, SocketAddr)>(100);
 
 /* SLUTT ----------- Init av diverse channels ---------------------- */
@@ -99,7 +98,7 @@ async fn main() {
         //Task som kontinuerlig oppdaterer lokale worldview
         let _update_wv_task = tokio::spawn(async move {
             print::info("Starter å oppdatere wv".to_string());
-            let _ = local_network::update_wv_watch(mpsc_rxs, wv_watch_tx, worldview_serialised, task_dellecator_tx).await;
+            let _ = local_network::update_wv_watch(mpsc_rxs, wv_watch_tx, worldview_serialised).await;
         });
     }
     //Task som håndterer den lokale heisen

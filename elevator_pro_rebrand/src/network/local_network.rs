@@ -58,7 +58,7 @@ pub fn get_self_ip() -> Result<IpAddr, local_ip_address::Error> {
 /// 
 /// Funksjonen leser nye meldinger fra andre tasks som indikerer endring i systemet, og endrer og oppdaterer det lokale worldviewen basert på dette.
 #[allow(non_snake_case)]
-pub async fn update_wv_watch(mut mpsc_rxs: MpscRxs, worldview_watch_tx: watch::Sender<Vec<u8>>, mut worldview_serialised: Vec<u8>, to_task_alloc_tx: mpsc::Sender<Vec<u8>>) {
+pub async fn update_wv_watch(mut mpsc_rxs: MpscRxs, worldview_watch_tx: watch::Sender<Vec<u8>>, mut worldview_serialised: Vec<u8>) {
     println!("Starter update_wv");
     let _ = worldview_watch_tx.send(worldview_serialised.clone());
     
@@ -96,7 +96,7 @@ pub async fn update_wv_watch(mut mpsc_rxs: MpscRxs, worldview_watch_tx: watch::S
         match master_container_rx.try_recv() {
             Ok(container) => {
                 wv_edited_I = join_wv_from_tcp_container(&mut worldview_serialised, container.clone()).await;
-                let _ = to_task_alloc_tx.send(container.clone()).await;
+                // let _ = to_task_alloc_tx.send(container.clone()).await;
             },
             Err(_) => {},
         }
@@ -109,7 +109,7 @@ pub async fn update_wv_watch(mut mpsc_rxs: MpscRxs, worldview_watch_tx: watch::S
                 i = i+1;
                 print::ok(i.to_string());
                 wv_edited_I = join_wv_from_tcp_container(&mut worldview_serialised, container.clone()).await;
-                let _ = to_task_alloc_tx.send(container.clone()).await;
+                // let _ = to_task_alloc_tx.send(container.clone()).await;
             },
             Err(_) => {},
         }
