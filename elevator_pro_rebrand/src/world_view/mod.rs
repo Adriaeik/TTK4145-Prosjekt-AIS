@@ -32,14 +32,47 @@ impl Default for TaskStatus {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
-pub enum ElevatorStatus {
-    UP,
-    DOWN,
-    IDLE,
-    DOOR_OPEN,
-    ERROR,
+// #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
+// pub enum ElevatorStatus {
+//     UP,
+//     DOWN,
+//     IDLE,
+//     DOOR_OPEN,
+//     ERROR,
+// }
+
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Dirn {
+    Down = -1,
+    Stop = 0,
+    Up = 1,
 }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ElevatorBehaviour {
+    Idle,
+    Moving,
+    DoorOpen,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct LocalElevatorState {
+    behaviour: ElevatorBehaviour,
+    floor: i32,
+    direction: Dirn,
+    cab_requests: Vec<bool>,
+}
+
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ElevatorState {
+    behaviour: ElevatorBehaviour,
+    floor: i32,
+    direction: Dirn,
+    requests: Vec<[bool; 3]>,
+}
+
 /// Represents the state of an elevator, including tasks, status indicators, and movement.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ElevatorContainer {
@@ -56,7 +89,9 @@ pub struct ElevatorContainer {
     pub cab_requests: Vec<bool>,
     //pub task: Option<Task>, // Default: empty vector
 
-    pub status: ElevatorStatus,
+    pub dirn: Dirn,
+
+    pub behaviour: ElevatorBehaviour,
 
     /// Indicates whether the elevator detects an obstruction.
     pub obstruction: bool, // Default: false
@@ -74,7 +109,9 @@ impl Default for ElevatorContainer {
             unsent_hall_request: vec![[false; 2]; config::DEFAULT_NUM_FLOORS as usize],
             cab_requests: vec![false; config::DEFAULT_NUM_FLOORS as usize],
             // task: None,
-            status: ElevatorStatus::IDLE,
+            // status: ElevatorStatus::IDLE,
+            dirn: Dirn::Stop,
+            behaviour: ElevatorBehaviour::Idle,
             obstruction: false,
             last_floor_sensor: 255, // Spesifikk verdi for sensor
         }

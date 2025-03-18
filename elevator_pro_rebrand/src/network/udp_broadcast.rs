@@ -47,7 +47,7 @@ pub async fn start_udp_broadcaster(wv_watch_rx: watch::Receiver<Vec<u8>>) -> tok
     let socket_addr: SocketAddr = addr2.parse().expect("Ugyldig adresse");
     let socket = Socket::new(Domain::IPV4, Type::DGRAM, None)?;
     
-    
+    socket.set_nonblocking(true)?;
     socket.set_reuse_address(true)?;
     socket.set_broadcast(true)?;
     socket.bind(&socket_addr.into())?;

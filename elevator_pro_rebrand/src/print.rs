@@ -1,6 +1,6 @@
 use std::io::Write;
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
-use crate::{config, world_view::{ElevatorStatus, serial}};
+use crate::{config, world_view::{Dirn, ElevatorBehaviour, serial}};
 use crate::elevio;
 use ansi_term::Colour::{Blue, Green, Red, Yellow, Purple, Fixed};
 use prettytable::{Table, Row, Cell, format, Attr, color};
@@ -336,7 +336,7 @@ pub fn worldview(worldview: Vec<u8>) {
         let id_text = Yellow.bold().paint(format!("{}", elev.elevator_id)).to_string();
 
         // Door og obstruction i grøn/raud
-        let door_status = if elev.status == ElevatorStatus::DOOR_OPEN {
+        let door_status = if elev.behaviour == ElevatorBehaviour::DoorOpen {
             Yellow.paint("Åpen").to_string()
         } else {
             Green.paint("Lukket").to_string()
@@ -363,22 +363,12 @@ pub fn worldview(worldview: Vec<u8>) {
         // Vanleg utskrift av calls
         let call_list = format!("{:?}", elev.unsent_hall_request);
 
-        let task_stat_list = match elev.status {
-            ElevatorStatus::DOOR_OPEN => {
-                Yellow.paint(format!("{:?}", elev.status))
-            },
-            ElevatorStatus::DOWN => {
-                Blue.paint(format!("{:?}", elev.status))
-            },
-            ElevatorStatus::ERROR => {
-                Red.paint(format!("{:?}", elev.status))
-            },
-            ElevatorStatus::IDLE => {
-                Green.paint(format!("{:?}", elev.status))
-            },
-            ElevatorStatus::UP => {
-                Blue.paint(format!("{:?}", elev.status))
-            },
+        let task_stat_list = match (elev.dirn, elev.behaviour) {
+            (Dirn::Up, _) => Blue.paint("Up"),
+            (Dirn::Down, _) => Blue.paint("Down"),
+            (_, ElevatorBehaviour::Idle) => Green.paint("Idle"),
+            (_, ElevatorBehaviour::Moving) => Yellow.paint("Moving"),
+            (_, ElevatorBehaviour::DoorOpen) => Red.paint("Door Open"),
         };
 
         table.add_row(Row::new(vec![

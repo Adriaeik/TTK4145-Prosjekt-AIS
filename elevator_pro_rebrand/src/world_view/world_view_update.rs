@@ -11,7 +11,7 @@ use tokio::sync::mpsc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::OnceLock;
 
-use crate::world_view::{get_index_to_container, serial, ElevatorStatus};
+use crate::world_view::{get_index_to_container, serial, Dirn, ElevatorBehaviour};
 
 
 static ONLINE: OnceLock<AtomicBool> = OnceLock::new(); 
@@ -71,7 +71,9 @@ pub fn join_wv(mut my_wv: Vec<u8>, master_wv: Vec<u8>) -> Vec<u8> {
         let master_view = &mut master_wv_deserialised.elevator_containers[i_new];
 
         // Synchronize elevator status
-        master_view.status = my_view.status;
+        // master_view.status = my_view.status;
+        master_view.dirn = my_view.dirn;
+        master_view.behaviour = my_view.behaviour;
         master_view.obstruction = my_view.obstruction;
         master_view.last_floor_sensor = my_view.last_floor_sensor;
 
@@ -170,13 +172,24 @@ pub async fn join_wv_from_tcp_container(wv: &mut Vec<u8>, container: Vec<u8>) ->
     let self_idx = world_view::get_index_to_container(deser_container.elevator_id, serial::serialize_worldview(&deserialized_wv));
     
     if let Some(i) = self_idx {
+
+        // Legg til slave sine sendte hall_request til worldview sin hall_request
+        for (row1, row2) in deserialized_wv.hall_request.iter_mut().zip(deser_container.unsent_hall_request.iter()) {
+            for (val1, val2) in row1.iter_mut().zip(row2.iter()) {
+                if !*val1 && *val2 {
+                    *val1 = true;
+                }
+            }
+        }
+
         //Oppdater statuser + fjerner tasks som er TaskStatus::DONE
-        deserialized_wv.elevator_containers[i].unsent_hall_request = deser_container.unsent_hall_request.clone();
+        // deserialized_wv.elevator_containers[i].unsent_hall_request = deser_container.unsent_hall_request.clone();
         deserialized_wv.elevator_containers[i].elevator_id = deser_container.elevator_id;
         deserialized_wv.elevator_containers[i].last_floor_sensor = deser_container.last_floor_sensor;
         deserialized_wv.elevator_containers[i].num_floors = deser_container.num_floors;
         deserialized_wv.elevator_containers[i].obstruction = deser_container.obstruction;
-        deserialized_wv.elevator_containers[i].status = deser_container.status;
+        deserialized_wv.elevator_containers[i].dirn = deser_container.dirn;
+        deserialized_wv.elevator_containers[i].behaviour = deser_container.behaviour;
         // Master styrer task, ikke overskriv det med slaven sitt forrige WV
 
         //Oppdater call_buttons
@@ -412,24 +425,24 @@ pub fn clear_from_sent_tcp(wv: &mut Vec<u8>, tcp_container: Vec<u8>) -> bool {
 //     // false
 // }
 
-// / ### Oppdaterer status til `new_status` til task med `id` i egen heis_container.tasks_status
-/// Updates status of elevator with id matching [local_network::SELF_ID] to status in wv
-/// 
-/// ## Returns
-/// `true`: Elevator with SELF_ID was found, and status was updated
-/// `false`: otherwise
-pub fn update_elev_state(wv: &mut Vec<u8>, status: ElevatorStatus) -> bool {
-    let mut wv_deser = serial::deserialize_worldview(&wv);
-    let self_idx = world_view::get_index_to_container(local_network::SELF_ID.load(Ordering::SeqCst), wv.clone());
+// // / ### Oppdaterer status til `new_status` til task med `id` i egen heis_container.tasks_status
+// /// Updates status of elevator with id matching [local_network::SELF_ID] to status in wv
+// /// 
+// /// ## Returns
+// /// `true`: Elevator with SELF_ID was found, and status was updated
+// /// `false`: otherwise
+// pub fn update_elev_state(wv: &mut Vec<u8>, status: ElevatorStatus) -> bool {
+//     let mut wv_deser = serial::deserialize_worldview(&wv);
+//     let self_idx = world_view::get_index_to_container(local_network::SELF_ID.load(Ordering::SeqCst), wv.clone());
 
-    if let Some(i) = self_idx {
-        wv_deser.elevator_containers[i].status = status;
-        *wv = serial::serialize_worldview(&wv_deser);
-        return true;
-    }
-    // println!("Satt {:?} på id: {}", new_status, task_id);
-    false
-}
+//     if let Some(i) = self_idx {
+//         wv_deser.elevator_containers[i].status = status;
+//         *wv = serial::serialize_worldview(&wv_deser);
+//         return true;
+//     }
+//     // println!("Satt {:?} på id: {}", new_status, task_id);
+//     false
+// }
 
 /// Monitors the Ethernet connection status asynchronously.
 ///

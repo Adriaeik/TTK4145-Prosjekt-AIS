@@ -1,6 +1,6 @@
 //! Handles messages on internal channels regarding changes in worldview
 
-use crate::{elevio::ElevMessage, world_view::ElevatorStatus};
+use crate::{elevio::ElevMessage, world_view::{Dirn, ElevatorBehaviour}};
 use crate::print;
 use crate::config;
 // use crate::manager::task_allocator::Task;
@@ -11,7 +11,7 @@ use crate::world_view::world_view_update::{
     remove_container, 
     recieve_local_elevator_msg, 
     clear_from_sent_tcp,
-    update_elev_state,
+    // update_elev_state,
     // push_task,
     // publish_tasks,
 };
@@ -134,13 +134,13 @@ pub async fn update_wv_watch(mut mpsc_rxs: MpscRxs, worldview_watch_tx: watch::S
 
 /* KANALER MASTER OG SLAVE MOTTAR PÅ */
         /*____Får signal når en task er ferdig_____ */
-        match mpsc_rxs.update_elev_state.try_recv() {
-            Ok(status) => {
-                wv_edited_I = update_elev_state(&mut worldview_serialised, status);
-                master_container_updated_I = world_view::is_master(worldview_serialised.clone());
-            },
-            Err(_) => {},
-        }
+        // match mpsc_rxs.update_elev_state.try_recv() {
+        //     Ok(status) => {
+        //         wv_edited_I = update_elev_state(&mut worldview_serialised, status);
+        //         master_container_updated_I = world_view::is_master(worldview_serialised.clone());
+        //     },
+        //     Err(_) => {},
+        // }
         /*_____Knapper trykket på lokal heis_____ */
         match mpsc_rxs.local_elev.try_recv() {
             Ok(msg) => {
@@ -213,7 +213,7 @@ pub struct MpscTxs {
     /// Sends a new task along with associated data.
     // pub new_task: mpsc::Sender<(u8, Option<Task>)>,
     /// Updates the status of a task.
-    pub update_elev_state: mpsc::Sender<ElevatorStatus>,
+    pub update_elev_state: mpsc::Sender<(Dirn, ElevatorBehaviour)>,
     /// Additional buffered channels for various data streams.
     // pub pending_tasks: mpsc::Sender<Vec<Task>>,
     pub mpsc_buffer_ch3: mpsc::Sender<Vec<u8>>,
@@ -244,7 +244,7 @@ pub struct MpscRxs {
     /// Receives new tasks along with associated data.
     // pub new_task: mpsc::Receiver<(u8, Option<Task>)>,
     /// Receives updates for the status of a task.
-    pub update_elev_state: mpsc::Receiver<ElevatorStatus>,
+    pub update_elev_state: mpsc::Receiver<(Dirn, ElevatorBehaviour)>,
     /// Additional buffered channels for various data streams.
     // pub pending_tasks: mpsc::Receiver<Vec<Task>>,
     pub mpsc_buffer_ch3: mpsc::Receiver<Vec<u8>>,

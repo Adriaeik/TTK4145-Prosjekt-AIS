@@ -23,6 +23,7 @@ pub fn create_reusable_listener(port: u16) -> TcpListener {
         .expect("Ugyldig adresse");
     let socket = Socket::new(Domain::IPV4, Type::STREAM, Some(Protocol::TCP))
         .expect("Klarte ikkje opprette socket");
+    socket.set_nonblocking(true).expect("msg");
     socket.set_reuse_address(true)
         .expect("Klarte ikkje setje reuse_address");
     socket.bind(&addr.into())

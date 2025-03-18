@@ -6,7 +6,7 @@ use std::sync::atomic::Ordering;
 use tokio::sync::{mpsc, watch};
 
 use crate::elevator_logic::task_handler;
-use crate::world_view::ElevatorStatus;
+use crate::world_view::{Dirn, ElevatorBehaviour};
 use crate::{config, elevio, elevio::elev as e};
 
 use super::local_network;
@@ -107,7 +107,7 @@ async fn start_elevator_server() {
 /// 
 /// ## Note
 /// This function loops over a tokio::yield_now(). This is added in case further implementation is added which makes the function permanently-blocking, forcing the user to spawn this function in a tokio task. In theroy, this could be removed, but for now: call this function asynchronously
-pub async fn run_local_elevator(wv_watch_rx: watch::Receiver<Vec<u8>>, update_elev_state_tx: mpsc::Sender<ElevatorStatus> , local_elev_tx: mpsc::Sender<elevio::ElevMessage>) -> std::io::Result<()> {
+pub async fn run_local_elevator(wv_watch_rx: watch::Receiver<Vec<u8>>, update_elev_state_tx: mpsc::Sender<(Dirn, ElevatorBehaviour)> , local_elev_tx: mpsc::Sender<elevio::ElevMessage>) -> std::io::Result<()> {
     // Start elevator-serveren
     start_elevator_server().await;
     let local_elev_channels: LocalElevChannels = LocalElevChannels::new();
