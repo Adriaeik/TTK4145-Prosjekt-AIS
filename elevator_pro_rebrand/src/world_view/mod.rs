@@ -95,6 +95,7 @@ pub struct ElevatorContainer {
     pub last_floor_sensor: u8, // Default: 255 (undefined)
 }
 
+
 impl Default for ElevatorContainer {
     fn default() -> Self {
         Self {
