@@ -74,13 +74,16 @@ pub async fn update_wv_watch(mut mpsc_rxs: MpscRxs, worldview_watch_tx: watch::S
         /*_____Fjerne knappar som vart sendt på TCP_____ */
         match mpsc_rxs.sent_tcp_container.try_recv() {
             Ok(msg) => {
+                // println!("{}", 1);
                 wv_edited_I = clear_from_sent_tcp(&mut worldview_serialised, msg);
+                // println!("{}", 2);
             },
             Err(_) => {},
         }
         /*_____Oppdater WV fra UDP-melding_____ */
         match mpsc_rxs.udp_wv.try_recv() {
             Ok(master_wv) => {
+                // println!("udp wv len {}", mpsc_rxs.udp_wv.len());
                 wv_edited_I = join_wv_from_udp(&mut worldview_serialised, master_wv);
             },
             Err(_) => {}, 
@@ -88,6 +91,7 @@ pub async fn update_wv_watch(mut mpsc_rxs: MpscRxs, worldview_watch_tx: watch::S
         /*_____Signal om at tilkobling til master har feila_____ */
         match mpsc_rxs.tcp_to_master_failed.try_recv() {
             Ok(_) => {
+                // println!("tcp fail len {}", mpsc_rxs.tcp_to_master_failed.len());
                 wv_edited_I = abort_network(&mut worldview_serialised);
             },
             Err(_) => {},
@@ -95,6 +99,7 @@ pub async fn update_wv_watch(mut mpsc_rxs: MpscRxs, worldview_watch_tx: watch::S
         /*_____Melding til master fra master (elevator-containeren til master)_____*/
         match master_container_rx.try_recv() {
             Ok(container) => {
+                // println!("master cont len {}", master_container_rx.len());
                 wv_edited_I = join_wv_from_tcp_container(&mut worldview_serialised, container.clone()).await;
                 // let _ = to_task_alloc_tx.send(container.clone()).await;
             },
@@ -154,6 +159,7 @@ pub async fn update_wv_watch(mut mpsc_rxs: MpscRxs, worldview_watch_tx: watch::S
         /*_____Knapper trykket på lokal heis_____ */
         match mpsc_rxs.local_elev.try_recv() {
             Ok(msg) => {
+                // println!("local elev len {}", mpsc_rxs.local_elev.len());
                 wv_edited_I = recieve_local_elevator_msg(master_container_tx.clone(), &mut worldview_serialised, msg).await;
                 master_container_updated_I = world_view::is_master(worldview_serialised.clone());
             },

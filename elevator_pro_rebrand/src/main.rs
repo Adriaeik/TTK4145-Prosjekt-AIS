@@ -119,13 +119,13 @@ async fn main() {
 /* SLUTT ----------- Starte kritiske tasks ----------- */
 
     // Start backup server i en egen task
-    // {
-    //     let wv_watch_rx = watches.rxs.wv.clone();
-    //     let _backup_task = tokio::spawn(async move {
-    //         print::info("Starter backup".to_string());
-    //         tokio::spawn(backup::start_backup_server(wv_watch_rx));
-    //     });
-    // }
+    {
+        let wv_watch_rx = watches.rxs.wv.clone();
+        let _backup_task = tokio::spawn(async move {
+            print::info("Starter backup".to_string());
+            tokio::spawn(backup::start_backup_server(wv_watch_rx));
+        });
+    }
         
 /* START ----------- Starte Eksterne Nettverkstasks ---------------------- */
     //Task som hører etter UDP-broadcasts
@@ -175,15 +175,15 @@ async fn main() {
 
 
     // Task som printer worldview
-    let _print_task = tokio::spawn(async move {
-        let mut wv = world_view::get_wv(watches.rxs.wv.clone());
-        loop {
-            if world_view::update_wv(watches.rxs.wv.clone(), &mut wv).await {
-                print::worldview(wv.clone());
-                tokio::time::sleep(Duration::from_millis(500)).await;
-            }
-        }
-    });
+    // let _print_task = tokio::spawn(async move {
+    //     let mut wv = world_view::get_wv(watches.rxs.wv.clone());
+    //     loop {
+    //         if world_view::update_wv(watches.rxs.wv.clone(), &mut wv).await {
+    //             print::worldview(wv.clone());
+    //             tokio::time::sleep(Duration::from_millis(500)).await;
+    //         }
+    //     }
+    // });
 
     //Vent med å avslutte programmet
     loop{

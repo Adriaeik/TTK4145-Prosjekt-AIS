@@ -81,6 +81,7 @@ pub fn join_wv(mut my_wv: Vec<u8>, master_wv: Vec<u8>) -> Vec<u8> {
         // Update call buttons and task statuses
         // master_view.calls = my_view.calls.clone();
         master_view.unsent_hall_request = my_view.unsent_hall_request.clone();
+        master_view.cab_requests = my_view.cab_requests.clone();
 
         /* Update task statuses */
         // let new_ids: HashSet<u16> = master_view.tasks.iter().map(|t| t.id).collect();
@@ -185,6 +186,7 @@ pub async fn join_wv_from_tcp_container(wv: &mut Vec<u8>, container: Vec<u8>) ->
 
         //Oppdater statuser + fjerner tasks som er TaskStatus::DONE
         // deserialized_wv.elevator_containers[i].unsent_hall_request = deser_container.unsent_hall_request.clone();
+        deserialized_wv.elevator_containers[i].cab_requests = deser_container.cab_requests;
         deserialized_wv.elevator_containers[i].elevator_id = deser_container.elevator_id;
         deserialized_wv.elevator_containers[i].last_floor_sensor = deser_container.last_floor_sensor;
         deserialized_wv.elevator_containers[i].num_floors = deser_container.num_floors;
@@ -277,6 +279,7 @@ pub async fn recieve_local_elevator_msg(master_container_tx: mpsc::Sender<Vec<u8
             print::info(format!("Callbutton: {:?}", msg.call_button));
             if let (Some(i), Some(call_btn)) = (self_idx, msg.call_button) {
                 
+                
                 // Legger ti callbutton i tilsvarende vektor i elev_containeren
                 match call_btn.call_type {
                     elevio::CallType::INSIDE => {
@@ -290,7 +293,7 @@ pub async fn recieve_local_elevator_msg(master_container_tx: mpsc::Sender<Vec<u8
                     }
                     elevio::CallType::COSMIC_ERROR => {},
                 }   
-
+                
 
                 //Om du er master i nettverket, oppdater call_buttons (Samme funksjon som kjøres i join_wv_from_tcp_container(). Behandler altså egen heis som en slave i nettverket) 
                 if is_master {
