@@ -176,15 +176,15 @@ async fn main() {
 
 
     //Task som printer worldview
-    let _print_task = tokio::spawn(async move {
-        let mut wv = world_view::get_wv(watches.rxs.wv.clone());
-        loop {
-            if world_view::update_wv(watches.rxs.wv.clone(), &mut wv).await {
-                print::worldview(wv.clone());
-                tokio::time::sleep(Duration::from_millis(500)).await;
-            }
-        }
-    });
+    // let _print_task = tokio::spawn(async move {
+    //     let mut wv = world_view::get_wv(watches.rxs.wv.clone());
+    //     loop {
+    //         if world_view::update_wv(watches.rxs.wv.clone(), &mut wv).await {
+    //             print::worldview(wv.clone());
+    //             tokio::time::sleep(Duration::from_millis(500)).await;
+    //         }
+    //     }
+    // });
 
     //Vent med å avslutte programmet
     loop{
