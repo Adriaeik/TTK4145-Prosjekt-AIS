@@ -301,7 +301,7 @@ pub fn worldview(worldview: Vec<u8>) {
 
     // Generell info-tabell
     println!("┌─────────────┬──────────┬────────────────────┐");
-    println!("│ Num heiser  │ MasterID │ Pending tasks      │");
+    println!("{}", ansi_term::Colour::White.bold().paint("│ Num heiser  │ MasterID │ Pending tasks      │"));
     println!("├─────────────┼──────────┼────────────────────┤");
 
     println!(
@@ -314,8 +314,8 @@ pub fn worldview(worldview: Vec<u8>) {
         println!(
             "│ floor:{:<5} │          │ {} {}              │",
             floor,
-            if calls[0] { "✅" } else { "❌" }, // Opp
-            if calls[1] { "✅" } else { "❌" }  // Ned
+            if calls[0] { "🟢" } else { "🔴" }, // Opp
+            if calls[1] { "🟢" } else { "🔴" }  // Ned
         );
     }
 
@@ -323,7 +323,7 @@ pub fn worldview(worldview: Vec<u8>) {
 
     // Heisstatus-tabell
     println!("┌──────┬──────────┬──────────────┬──────────────┬─────────────┬──────────────────────┬───────────────┐");
-    println!("│ ID   │ Dør      │ Obstruksjon  │ Tasks        │ Siste etasje│ Calls (Etg:Call)     │ Elev status   │");
+    println!("{}", ansi_term::Colour::White.bold().paint("│ ID   │ Dør      │ Obstruksjon  │ Tasks        │ Siste etasje│ Calls (Etg:Call)     │ Elev status   │"));
     println!("├──────┼──────────┼──────────────┼──────────────┼─────────────┼──────────────────────┼───────────────┤");
 
     for elev in &wv_deser.elevator_containers {
@@ -340,16 +340,18 @@ pub fn worldview(worldview: Vec<u8>) {
         };
         
         let tasks_emoji: Vec<String> = elev.cab_requests.iter().enumerate()
-            .map(|(floor, task)| format!("{:<2} {}", floor, if *task { "✅" } else { "❌" }))
+            .map(|(floor, task)| format!("{:<2} {}", floor, if *task { "🟢" } else { "🔴" }))
             .collect();
 
         let call_list_emoji: Vec<String> = elev.tasks.iter().enumerate()
-            .map(|(floor, calls)| format!("{:<2} {} {}", floor, if calls[0] { "✅" } else { "❌" }, if calls[1] { "✅" } else { "❌" }))
+            .map(|(floor, calls)| format!("{:<2} {} {}", floor, if calls[0] { "🟢" } else { "🔴" }, if calls[1] { "🟢" } else { "🔴" }))
             .collect();
 
         let task_status = match (elev.dirn, elev.behaviour) {
             (_, ElevatorBehaviour::Idle) => pad_text(&Green.paint("Idle").to_string(), 22),
-            (_, ElevatorBehaviour::Moving) => pad_text(&Yellow.paint("Moving").to_string(), 22),
+            (Dirn::Up, ElevatorBehaviour::Moving) => pad_text(&Yellow.paint("⬆️   Moving").to_string(), 23),
+            (Dirn::Down, ElevatorBehaviour::Moving) => pad_text(&Yellow.paint("⬇️   Moving").to_string(), 23),
+            (Dirn::Stop, ElevatorBehaviour::Moving) => pad_text(&Yellow.paint("Not Moving").to_string(), 22),
             (_, ElevatorBehaviour::DoorOpen) => pad_text(&Purple.paint("Door Open").to_string(), 22),
             (_, ElevatorBehaviour::Error) => pad_text(&Red.paint("Error").to_string(), 22),
         };
