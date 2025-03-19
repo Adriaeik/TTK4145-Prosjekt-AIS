@@ -149,6 +149,7 @@ pub async fn start_udp_listener(wv_watch_rx: watch::Receiver<Vec<u8>>, udp_wv_tx
             // Hvis du har vert i offline mode: merge worldviews
             if world_view::world_view_update::get_network_status().load(Ordering::SeqCst) && !prev_network_status {
                 world_view_update::merge_wv_after_offline(&mut my_wv, &read_wv);
+                let _ = udp_wv_tx.send(my_wv.clone()).await;
             }
             prev_network_status = world_view::world_view_update::get_network_status().load(Ordering::SeqCst); 
 
