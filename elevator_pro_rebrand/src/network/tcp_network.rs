@@ -197,18 +197,22 @@ pub async fn listener_task(socket_tx: mpsc::Sender<(TcpStream, SocketAddr)>) {
 
     /* Når listener accepter ny tilkobling -> send socket og addr til tcp_handler gjennom socket_tx */
     loop {
-        sleep(Duration::from_millis(100)).await;
-        match listener.accept().await {
-            Ok((socket, addr)) => {
-                print::master(format!("{} kobla på TCP", addr));
-                if socket_tx.send((socket, addr)).await.is_err() {
-                    print::err("Hovudløkken har stengt, avsluttar listener.".to_string());
-                    break;
+        if world_view_update::get_network_status().load(Ordering::SeqCst) {
+            sleep(Duration::from_millis(100)).await;
+            match listener.accept().await {
+                Ok((socket, addr)) => {
+                    print::master(format!("{} kobla på TCP", addr));
+                    if socket_tx.send((socket, addr)).await.is_err() {
+                        print::err("Hovudløkken har stengt, avsluttar listener.".to_string());
+                        break;
+                    }
+                }
+                Err(e) => {
+                    print::err(format!("Feil ved tilkobling av slave: {}", e));
                 }
             }
-            Err(e) => {
-                print::err(format!("Feil ved tilkobling av slave: {}", e));
-            }
+        } else {
+            sleep(config::OFFLINE_PERIOD).await;
         }
     }
 }
