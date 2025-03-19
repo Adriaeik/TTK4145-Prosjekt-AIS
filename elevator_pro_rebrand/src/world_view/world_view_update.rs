@@ -1,13 +1,13 @@
 //! Help functions to update local worldview
 
 // use crate::elevator_logic::master::wv_from_slaves::update_call_buttons;
-use crate::world_view;
+use crate::{init, world_view};
 use crate::{config, print, ip_help_functions::{self}};
 use crate::network::local_network;
 use crate::elevio;
 // use crate::manager::task_allocator::Task;
 
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, watch};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::OnceLock;
 use std::collections::HashMap;
@@ -62,7 +62,7 @@ pub fn join_wv_from_udp(wv: &mut Vec<u8>, master_wv: Vec<u8>) -> bool {
 /// - Ensures that `tasks_status` retains only tasks present in `tasks`.
 /// - If the local elevator is missing in `master_wv`, it is added to `master_wv`.
 pub fn join_wv(mut my_wv: Vec<u8>, master_wv: Vec<u8>) -> Vec<u8> {
-    let mut my_wv_deserialised = serial::deserialize_worldview(&my_wv);
+    let my_wv_deserialised = serial::deserialize_worldview(&my_wv);
     let mut master_wv_deserialised = serial::deserialize_worldview(&master_wv);
     
     
@@ -109,7 +109,6 @@ pub fn join_wv(mut my_wv: Vec<u8>, master_wv: Vec<u8>) -> Vec<u8> {
 
     } else if let Some(i_org) = my_self_index {
         // If the local elevator is missing in master_wv, add it
-        my_wv_deserialised.elevator_containers[i_org].unsent_hall_request = merge_hall_requests(&my_wv_deserialised.elevator_containers[i_org].unsent_hall_request, &my_wv_deserialised.hall_request);
         master_wv_deserialised.add_elev(my_wv_deserialised.elevator_containers[i_org].clone());
     }
 
@@ -395,7 +394,7 @@ fn update_cab_request_backup(backup: &mut HashMap<u8, Vec<bool>>, container: Ele
 /// });
 /// # }
 /// ```
-pub async fn watch_ethernet() {
+pub async fn watch_ethernet(wv_watch_rx: watch::Receiver<Vec<u8>>) {
     let mut last_net_status = false;
     let mut net_status;
     loop {
@@ -416,9 +415,20 @@ pub async fn watch_ethernet() {
         }
 
         if last_net_status != net_status {  
+            if net_status {
+                let mut wv = world_view::get_wv(wv_watch_rx.clone());
+                let self_elev = world_view::extract_self_elevator_container(wv.clone());
+                wv = init::initialize_worldview(Some(self_elev)).await;
+
+                //Send til update_wv
+                print::worldview(wv.clone());
+
+                print::ok("Vi er online".to_string());
+            }
+            else {
+                print::warn("Vi er offline".to_string());
+            }
             get_network_status().store(net_status, Ordering::SeqCst);
-            if net_status {print::ok("Vi er online".to_string());}
-            else {print::warn("Vi er offline".to_string());}
             last_net_status = net_status;
         }
     }

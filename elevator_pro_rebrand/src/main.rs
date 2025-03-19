@@ -49,25 +49,29 @@ async fn main() {
     // Vanlig hovedprosess starter her:
     print::info("Starter hovedprosess...".to_string());
 
-/* START ----------- Task for å overvake Nettverksstatus ---------------------- */
-    let _network_status_watcher_task = tokio::spawn(async move {
-        print::info("Starter å passe på nettverket".to_string());
-        let _ = world_view_update::watch_ethernet().await;
-    });
-/* SLUTT ----------- Task for å overvake Nettverksstatus ---------------------- */
-
-
-
-/*Skaper oss eit verdensbildet ved fødselen, vi tar vår første pust */
-    let worldview_serialised = init::initialize_worldview(self_container).await;
-
     
-/* START ----------- Init av channels brukt til oppdatering av lokal worldview ---------------------- */
-    let main_mpscs = local_network::Mpscs::new();
+    
+    
+    /*Skaper oss eit verdensbildet ved fødselen, vi tar vår første pust */
+    let worldview_serialised = init::initialize_worldview(self_container).await;
+    
     let watches = local_network::Watches::new();
     
     // Send the initialized worldview on the worldview watch, so its not empty when rx tries to borrow it
     let _ = watches.txs.wv.send(worldview_serialised.clone());
+    
+    /* START ----------- Task for å overvake Nettverksstatus ---------------------- */
+    {
+        let wv_watch_rx = watches.rxs.wv.clone();
+        let _network_status_watcher_task = tokio::spawn(async move {
+            print::info("Starter å passe på nettverket".to_string());
+            let _ = world_view_update::watch_ethernet(wv_watch_rx).await;
+        });
+    }
+    /* SLUTT ----------- Task for å overvake Nettverksstatus ---------------------- */
+    
+/* START ----------- Init av channels brukt til oppdatering av lokal worldview ---------------------- */
+    let main_mpscs = local_network::Mpscs::new();
     // Seperate the watch Tx's so they can be sent to theis designated tasks
     let wv_watch_tx = watches.txs.wv;
     // let elev_task_tx= watches.txs.elev_task;
