@@ -422,7 +422,13 @@ pub fn merge_wv_after_offline(my_wv: &mut Vec<u8>, read_wv: &Vec<u8>) {
 
     // Hvis du blir master på nettverket:
     if my_wv_deser.master_id < read_wv_deser.master_id {
+        print::err("blir master...".to_string());
+
+        println!("Forrige master sine calls: {:?}, mine calls: {:?}", read_wv_deser.hall_request, my_wv_deser.hall_request);
+
         read_wv_deser.hall_request = merge_hall_requests(&read_wv_deser.hall_request, &my_wv_deser.hall_request);
+
+        println!("calls etter merge: {:?}", read_wv_deser.hall_request);
 
         read_wv_deser.master_id = my_wv_deser.master_id;
 
