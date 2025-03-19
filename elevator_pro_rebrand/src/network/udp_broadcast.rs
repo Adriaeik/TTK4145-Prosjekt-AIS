@@ -3,7 +3,6 @@
 use crate::config;
 use crate::print;
 use crate::world_view;
-use crate::world_view::world_view_update;
 use super::local_network;
 
 use std::net::SocketAddr;
@@ -98,8 +97,6 @@ pub async fn start_udp_broadcaster(wv_watch_rx: watch::Receiver<Vec<u8>>) -> tok
 /// ## Note
 /// This function is permanently blocking, and should be called asynchronously 
 pub async fn start_udp_listener(wv_watch_rx: watch::Receiver<Vec<u8>>, udp_wv_tx: mpsc::Sender<Vec<u8>>) -> tokio::io::Result<()> {
-    let mut prev_network_status = true;
-    
     //Sett opp sockets
     let self_id = local_network::SELF_ID.load(Ordering::SeqCst);
     let broadcast_listen_addr = format!("{}:{}", config::BC_LISTEN_ADDR, config::DUMMY_PORT);
@@ -118,57 +115,43 @@ pub async fn start_udp_listener(wv_watch_rx: watch::Receiver<Vec<u8>>, udp_wv_tx
     let mut my_wv = world_view::get_wv(wv_watch_rx.clone());
     // Loop mottar og behandler udp-broadcaster
     loop {
-        if world_view::world_view_update::get_network_status().load(Ordering::SeqCst) {
-            match socket.recv_from(&mut buf).await {
-                Ok((len, _)) => {
-                    message = String::from_utf8_lossy(&buf[..len]);
-                    // println!("WV length: {:?}", len);
-                }
-                Err(e) => {
-                    // utils::print_err(format!("udp_broadcast.rs, udp_listener(): {}", e));
-                    return Err(e);
-                }
+        match socket.recv_from(&mut buf).await {
+            Ok((len, _)) => {
+                message = String::from_utf8_lossy(&buf[..len]);
+                // println!("WV length: {:?}", len);
             }
+            Err(e) => {
+                // utils::print_err(format!("udp_broadcast.rs, udp_listener(): {}", e));
+                return Err(e);
+            }
+        }
         
-             // Verifiser at broadcasten var fra 'oss'
-            if &message[1..config::KEY_STR.len()+1] == config::KEY_STR { //Plusser på en, siden serialiseringa av stringen tar med '"'-tegnet
-                let clean_message = &message[config::KEY_STR.len()+3..message.len()-1]; // Fjerner `"`
-                read_wv = clean_message
-                .split(", ") // Del opp på ", "
-                .filter_map(|s| s.parse::<u8>().ok()) // Konverter til u8, ignorer feil
-                .collect(); // Samle i Vec<u8>
+        // Verifiser at broadcasten var fra 'oss'
+        if &message[1..config::KEY_STR.len()+1] == config::KEY_STR { //Plusser på en, siden serialiseringa av stringen tar med '"'-tegnet
+            let clean_message = &message[config::KEY_STR.len()+3..message.len()-1]; // Fjerner `"`
+            read_wv = clean_message
+            .split(", ") // Del opp på ", "
+            .filter_map(|s| s.parse::<u8>().ok()) // Konverter til u8, ignorer feil
+            .collect(); // Samle i Vec<u8>
 
-                world_view::update_wv(wv_watch_rx.clone(), &mut my_wv).await;
-                if read_wv[config::MASTER_IDX] != my_wv[config::MASTER_IDX] {
-                    // mulighet for debug print
-                } else {
-                    // Betyr at du har fått UDP-fra nettverkets master -> Restart UDP watchdog
-                    get_udp_timeout().store(false, Ordering::SeqCst);
-                    // println!("Resetter UDP-watchdog");
-                }
-                
-                // Hvis du har vert i offline mode: merge worldviews
-                if !prev_network_status {
-                    print::err("Kom tilbake på nett".to_string());
-                    world_view_update::merge_wv_after_offline(&mut my_wv, &read_wv);
+            world_view::update_wv(wv_watch_rx.clone(), &mut my_wv).await;
+            if read_wv[config::MASTER_IDX] != my_wv[config::MASTER_IDX] {
+                // mulighet for debug print
+            } else {
+                // Betyr at du har fått UDP-fra nettverkets master -> Restart UDP watchdog
+                get_udp_timeout().store(false, Ordering::SeqCst);
+                // println!("Resetter UDP-watchdog");
+            }
+
+            // Hvis broadcast har lavere ID enn nettverkets tidligere master
+            if my_wv[config::MASTER_IDX] >= read_wv[config::MASTER_IDX] {
+                if !(self_id == read_wv[config::MASTER_IDX]) {
+                    //Oppdater egen WV
+                    my_wv = read_wv;
                     let _ = udp_wv_tx.send(my_wv.clone()).await;
                 }
-                prev_network_status = true;
-                
-                // Hvis broadcast har lavere ID enn nettverkets tidligere master
-                if my_wv[config::MASTER_IDX] >= read_wv[config::MASTER_IDX] {
-                    if !(self_id == read_wv[config::MASTER_IDX]) {
-                        //Oppdater egen WV
-                        my_wv = read_wv;
-                        let _ = udp_wv_tx.send(my_wv.clone()).await;
-                    }
-                }
-                
-                
             }
-        } else {
-            prev_network_status = false;
-            sleep(config::OFFLINE_PERIOD);
+            
         }
     }
 }

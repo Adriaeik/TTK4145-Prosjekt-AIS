@@ -64,25 +64,32 @@ pub fn join_wv_from_udp(wv: &mut Vec<u8>, master_wv: Vec<u8>) -> bool {
 pub fn join_wv(mut my_wv: Vec<u8>, master_wv: Vec<u8>) -> Vec<u8> {
     let my_wv_deserialised = serial::deserialize_worldview(&my_wv);
     let mut master_wv_deserialised = serial::deserialize_worldview(&master_wv);
-
+    
+    
     let my_self_index = world_view::get_index_to_container(local_network::SELF_ID.load(Ordering::SeqCst) , my_wv);
     let master_self_index = world_view::get_index_to_container(local_network::SELF_ID.load(Ordering::SeqCst) , master_wv);
-
-
+    
+    
     if let (Some(i_org), Some(i_new)) = (my_self_index, master_self_index) {
         let my_view = &my_wv_deserialised.elevator_containers[i_org];
         let master_view = &mut master_wv_deserialised.elevator_containers[i_new];
-
+        
+        
+        
         // Synchronize elevator status
         // master_view.status = my_view.status;
         master_view.dirn = my_view.dirn;
         master_view.behaviour = my_view.behaviour;
         master_view.obstruction = my_view.obstruction;
         master_view.last_floor_sensor = my_view.last_floor_sensor;
-
+        
         // Update call buttons and task statuses
         // master_view.calls = my_view.calls.clone();
         master_view.unsent_hall_request = my_view.unsent_hall_request.clone();
+        //Hvis ny master:
+        if my_wv_deserialised.master_id < master_wv_deserialised.master_id {
+            master_view.unsent_hall_request = merge_hall_requests(&master_view.unsent_hall_request, &my_wv_deserialised.hall_request);
+        }
         master_view.cab_requests = my_view.cab_requests.clone();
 
         /* Update task statuses */
