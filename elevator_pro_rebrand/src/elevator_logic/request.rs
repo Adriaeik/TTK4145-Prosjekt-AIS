@@ -75,13 +75,10 @@ pub fn choose_direction(elevator: &ElevatorContainer) -> DirnBehaviourPair {
         }
         Dirn::Stop => {
             if here(elevator) {
-                print::err(1.to_string());
                 DirnBehaviourPair { dirn: Dirn::Stop, behaviour: ElevatorBehaviour::DoorOpen }
             } else if above(elevator) {
-                print::err(2.to_string());
                 DirnBehaviourPair { dirn: Dirn::Up, behaviour: ElevatorBehaviour::Moving }
             } else if below(elevator) {
-                print::err(3.to_string());
                 DirnBehaviourPair { dirn: Dirn::Down, behaviour: ElevatorBehaviour::Moving }
             } else {
                 // print::err(4.to_string());
@@ -120,6 +117,8 @@ pub fn clear_at_current_floor(elevator: &mut ElevatorContainer) {
             elevator.cab_requests[elevator.last_floor_sensor as usize] = false;
             // Master clearer hall_request
         },
-        _ => {},        
+        Dirn::Stop => {
+            elevator.cab_requests[elevator.last_floor_sensor as usize] = false;
+        },        
     }
 }

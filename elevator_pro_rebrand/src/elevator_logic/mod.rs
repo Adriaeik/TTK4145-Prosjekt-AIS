@@ -80,6 +80,7 @@ pub async fn handle_elevator(wv_watch_rx: watch::Receiver<Vec<u8>>, elevator_sta
         if prev_floor != self_container.last_floor_sensor {
             fsm::onFloorArrival(&mut self_container, e.clone(), &mut timer).await;
         }
+        
         if timer.timer_timeouted() && !self_container.obstruction{
             fsm::onDoorTimeout(&mut self_container, e.clone()).await;
         }
