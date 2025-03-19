@@ -147,12 +147,18 @@ pub async fn start_udp_listener(wv_watch_rx: watch::Receiver<Vec<u8>>, udp_wv_tx
             }
             
             // Hvis du har vert i offline mode: merge worldviews
-            if world_view::world_view_update::get_network_status().load(Ordering::SeqCst) && !prev_network_status {
-                print::err("Kom tilbake på nett".to_string());
-                world_view_update::merge_wv_after_offline(&mut my_wv, &read_wv);
-                let _ = udp_wv_tx.send(my_wv.clone()).await;
+            if world_view::world_view_update::get_network_status().load(Ordering::SeqCst) {
+                println!("På nettverk");
+                if !prev_network_status {
+                    print::err("Kom tilbake på nett".to_string());
+                    world_view_update::merge_wv_after_offline(&mut my_wv, &read_wv);
+                    let _ = udp_wv_tx.send(my_wv.clone()).await;
+                }
+                prev_network_status = true;
+            } else {
+                println!("Av nettverk");
+                prev_network_status = false;
             }
-            prev_network_status = world_view::world_view_update::get_network_status().load(Ordering::SeqCst); 
 
             // Hvis broadcast har lavere ID enn nettverkets tidligere master
             if my_wv[config::MASTER_IDX] >= read_wv[config::MASTER_IDX] {
