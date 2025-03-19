@@ -49,6 +49,18 @@ fn here(elevator: &ElevatorContainer) -> bool {
     false
 }
 
+fn get_here_dirn(elevator: &ElevatorContainer) -> Dirn {
+    if elevator.tasks[elevator.last_floor_sensor as usize][0] {
+        return Dirn::Up;
+    } else if elevator.tasks[elevator.last_floor_sensor as usize][1] {
+        return Dirn::Down;
+    } else {
+        return Dirn::Stop;
+    }
+
+}
+
+
 pub fn choose_direction(elevator: &ElevatorContainer) -> DirnBehaviourPair {
     match elevator.dirn {
         Dirn::Up => {
@@ -75,7 +87,7 @@ pub fn choose_direction(elevator: &ElevatorContainer) -> DirnBehaviourPair {
         }
         Dirn::Stop => {
             if here(elevator) {
-                DirnBehaviourPair { dirn: Dirn::Stop, behaviour: ElevatorBehaviour::DoorOpen }
+                DirnBehaviourPair { dirn: get_here_dirn(elevator), behaviour: ElevatorBehaviour::DoorOpen }
             } else if above(elevator) {
                 DirnBehaviourPair { dirn: Dirn::Up, behaviour: ElevatorBehaviour::Moving }
             } else if below(elevator) {

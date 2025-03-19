@@ -364,11 +364,12 @@ pub fn worldview(worldview: Vec<u8>) {
         let call_list = format!("{:?}", elev.tasks);
 
         let task_stat_list = match (elev.dirn, elev.behaviour) {
-            (Dirn::Up, _) => Blue.paint("Up"),
-            (Dirn::Down, _) => Blue.paint("Down"),
+            // (Dirn::Up, _) => Blue.paint("Up"),
+            // (Dirn::Down, _) => Blue.paint("Down"),
             (_, ElevatorBehaviour::Idle) => Green.paint("Idle"),
             (_, ElevatorBehaviour::Moving) => Yellow.paint("Moving"),
-            (_, ElevatorBehaviour::DoorOpen) => Red.paint("Door Open"),
+            (_, ElevatorBehaviour::DoorOpen) => Purple.paint("Door Open"),
+            (_, ElevatorBehaviour::Error) => Red.paint("Error"),
         };
 
         table.add_row(Row::new(vec![

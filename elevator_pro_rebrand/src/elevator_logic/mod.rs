@@ -14,6 +14,7 @@ use crate::config;
 use crate::elevio;
 use crate::elevio::elev::Elevator;
 use crate::elevio::ElevMessage;
+use crate::print;
 use crate::world_view;
 use crate::world_view::Dirn;
 use crate::world_view::ElevatorBehaviour;
@@ -66,29 +67,46 @@ pub async fn handle_elevator(wv_watch_rx: watch::Receiver<Vec<u8>>, elevator_sta
     self_container.behaviour = ElevatorBehaviour::Moving;
     self_container.dirn = Dirn::Down;
 
-    let mut timer = timer::new(Duration::from_secs(3));
+    let mut door_timer = timer::new(Duration::from_secs(3));
+    let mut cab_call_timer = timer::new(Duration::from_secs(10));
+    let mut error_timer = timer::new(Duration::from_secs(10));
+    let mut prev_cab_call_timer_stat:bool = false;
 
     loop {
         //Les nye data fra heisen, putt de inn i self_container
         let prev_floor = self_container.last_floor_sensor;
-        self_elevator::update_elev_container_from_msgs(&mut local_elev_rx, &mut self_container).await;
+        self_elevator::update_elev_container_from_msgs(&mut local_elev_rx, &mut self_container, &mut cab_call_timer).await;
         
 
 
         /*______ START: FSM Events ______ */
         // Hvis du er på ny etasje, 
         if prev_floor != self_container.last_floor_sensor {
-            fsm::onFloorArrival(&mut self_container, e.clone(), &mut timer).await;
-        }
-        
-        if timer.timer_timeouted() && !self_container.obstruction{
-            fsm::onDoorTimeout(&mut self_container, e.clone()).await;
+            fsm::onFloorArrival(&mut self_container, e.clone(), &mut door_timer, &mut cab_call_timer).await;
+            error_timer.timer_start();
         }
 
+        if door_timer.timer_timeouted()  && !self_container.obstruction{
+            lights::clear_door_open_light(e.clone());
+            if  cab_call_timer.timer_timeouted() {
+
+                fsm::onDoorTimeout(&mut self_container, e.clone(), &mut cab_call_timer).await;
+            }
+        }
+        if !cab_call_timer.timer_timeouted()|| self_container.behaviour == ElevatorBehaviour::Idle {
+            error_timer.timer_start();
+        }
+        if error_timer.timer_timeouted() && !prev_cab_call_timer_stat {
+            print::cosmic_err("Feil på travel!!!!".to_string());
+            // error_timer.timer_start();
+
+        }
+
+        
         // fsm::onIdle ?
         if self_container.behaviour == ElevatorBehaviour::Idle {
             let DBPair = request::choose_direction(&self_container.clone());
-
+            
             if DBPair.behaviour != ElevatorBehaviour::Idle {
                 self_container.dirn = DBPair.dirn;
                 self_container.behaviour = DBPair.behaviour;
@@ -96,11 +114,17 @@ pub async fn handle_elevator(wv_watch_rx: watch::Receiver<Vec<u8>>, elevator_sta
             }
         }
         /*______ SLUTT: FSM Events ______ */
-
-
-
+        
+        
+        
         if self_container.behaviour != ElevatorBehaviour::DoorOpen {
             e.motor_direction(self_container.dirn as u8);  
+        }
+        if error_timer.timer_timeouted() {
+            prev_cab_call_timer_stat = true;
+            self_container.behaviour = ElevatorBehaviour::Error;
+        } else {
+            prev_cab_call_timer_stat = false;
         }
         
         // println!("Motor dir: {:?}, Elev behaviour: {:?}", self_container.dirn, self_container.behaviour);

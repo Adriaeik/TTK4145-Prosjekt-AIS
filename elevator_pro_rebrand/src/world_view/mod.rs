@@ -54,6 +54,7 @@ pub enum ElevatorBehaviour {
     Idle,
     Moving,
     DoorOpen,
+    Error,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

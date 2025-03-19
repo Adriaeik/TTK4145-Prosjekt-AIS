@@ -41,13 +41,15 @@ pub async fn run_cost_algorithm(json_str: String) -> String {
 }
 
 
-pub async fn create_hall_request_json(wv: Vec<u8>) -> String {
+pub async fn create_hall_request_json(wv: Vec<u8>) -> Option<String> {
     let wv_deser = world_view::serial::deserialize_worldview(&wv);
+
 
     let mut states = HashMap::new();
     for elev in wv_deser.elevator_containers.iter() {
         let key = elev.elevator_id.to_string();
-        states.insert(
+        if elev.behaviour != ElevatorBehaviour::Error {
+            states.insert(
             key,
             ElevatorState {
                 behaviour: match elev.behaviour.clone() {
@@ -66,10 +68,14 @@ pub async fn create_hall_request_json(wv: Vec<u8>) -> String {
                 },
                 direction: format!("{:?}", elev.dirn.clone()).to_lowercase(),
                 cabRequests: elev.cab_requests.clone(),
-            },
-        );
+                },
+            );
+        }
     }
 
+    if states.is_empty() {
+        return None
+    }
     let request = HallRequests {
         hallRequests: wv_deser.hall_request,
         states,
@@ -79,7 +85,7 @@ pub async fn create_hall_request_json(wv: Vec<u8>) -> String {
     
     let mut file = File::create("hall_request.json").expect("Failed to create file");
     file.write_all(s.as_bytes()).expect("Failed to write to file");
-    s
+    Some(s)
     // run_cost_algorithm(s.clone()).await
 }
 

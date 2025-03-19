@@ -8,6 +8,8 @@ use tokio::sync::{mpsc, watch};
 use crate::world_view::ElevatorContainer;
 use crate::{world_view::{Dirn, ElevatorBehaviour}, network::local_network, config, print, elevio, elevio::elev as e};
 
+use super::timer::Timer;
+
 
 struct LocalElevTxs {
     call_button: cbc::Sender<elevio::CallButton>,
@@ -224,17 +226,18 @@ async fn read_from_local_elevator(rxs: LocalElevRxs, local_elev_tx: mpsc::Sender
 /// - **Stop button (`SBTN`)**: A placeholder for future functionality to handle stop button messages.
 /// - **Obstruction (`OBSTRX`)**: Sets the `obstruction` field in the elevator container to the 
 ///   received value.
-pub async fn update_elev_container_from_msgs(local_elev_rx: &mut mpsc::Receiver<elevio::ElevMessage>, container: &mut ElevatorContainer) {
+pub async fn update_elev_container_from_msgs(local_elev_rx: &mut mpsc::Receiver<elevio::ElevMessage>, container: &mut ElevatorContainer, cab_call_timer: &mut Timer) {
     loop{
         match local_elev_rx.try_recv() {
             Ok(msg) => {
                 match msg.msg_type {
                     elevio::ElevMsgType::CALLBTN => {
-                        print::info(format!("Callbutton: {:?}", msg.call_button));
                         if let Some(call_btn) = msg.call_button {
+                            print::info(format!("Callbutton: {:?}", call_btn));
                             
                             match call_btn.call_type {
                                 elevio::CallType::INSIDE => {
+                                    cab_call_timer.release_timer();
                                     container.cab_requests[call_btn.floor as usize] = true;
                                 }
                                 elevio::CallType::UP => {
