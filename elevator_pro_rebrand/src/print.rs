@@ -310,12 +310,12 @@ pub fn worldview(worldview: Vec<u8>) {
         wv_deser.master_id
     );
 
-    for (floor, calls) in wv_deser.hall_request.iter().enumerate() {
+    for (floor, calls) in wv_deser.hall_request.iter().enumerate().rev() {
         println!(
             "│ floor:{:<5} │          │ {} {}              │",
             floor,
-            if calls[0] { "🟢" } else { "🔴" }, // Opp
-            if calls[1] { "🟢" } else { "🔴" }  // Ned
+            if calls[1] { "🟢" } else { "🔴" }, // Ned
+            if calls[0] { "🟢" } else { "🔴" }  // Opp
         );
     }
 
@@ -339,12 +339,12 @@ pub fn worldview(worldview: Vec<u8>) {
             pad_text(&Green.paint("Nei").to_string(), 21)
         };
         
-        let tasks_emoji: Vec<String> = elev.cab_requests.iter().enumerate()
+        let tasks_emoji: Vec<String> = elev.cab_requests.iter().enumerate().rev()
             .map(|(floor, task)| format!("{:<2} {}", floor, if *task { "🟢" } else { "🔴" }))
             .collect();
 
-        let call_list_emoji: Vec<String> = elev.tasks.iter().enumerate()
-            .map(|(floor, calls)| format!("{:<2} {} {}", floor, if calls[0] { "🟢" } else { "🔴" }, if calls[1] { "🟢" } else { "🔴" }))
+        let call_list_emoji: Vec<String> = elev.tasks.iter().enumerate().rev()
+            .map(|(floor, calls)| format!("{:<2} {} {}", floor, if calls[1] { "🟢" } else { "🔴" }, if calls[0] { "🟢" } else { "🔴" }))
             .collect();
 
         let task_status = match (elev.dirn, elev.behaviour) {
