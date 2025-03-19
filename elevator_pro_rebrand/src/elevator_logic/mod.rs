@@ -72,13 +72,14 @@ pub async fn handle_elevator(wv_watch_rx: watch::Receiver<Vec<u8>>, elevator_sta
     let mut error_timer = timer::new(Duration::from_secs(5));
     let mut prev_cab_call_timer_stat:bool = false;
     let mut prev_behavior:ElevatorBehaviour = self_container.behaviour;
+
     loop {
         //Les nye data fra heisen, putt de inn i self_container
         let prev_floor = self_container.last_floor_sensor;
         
         self_elevator::update_elev_container_from_msgs(&mut local_elev_rx, &mut self_container, &mut cab_call_timer , &mut error_timer ).await;
-        
 
+        
 
         /*______ START: FSM Events ______ */
         // Hvis du er på ny etasje, 
@@ -89,6 +90,11 @@ pub async fn handle_elevator(wv_watch_rx: watch::Receiver<Vec<u8>>, elevator_sta
 
         if door_timer.timer_timeouted()  && !self_container.obstruction{
             lights::clear_door_open_light(e.clone());
+            // if inside_call og vi moving_towards -> tving cab_call_timer til timout
+            if request::moving_towards_cab_call(&self_container.clone()) {
+                cab_call_timer.release_timer();
+            }
+
             if  cab_call_timer.timer_timeouted() {
 
                 fsm::onDoorTimeout(&mut self_container, e.clone(), &mut cab_call_timer).await;

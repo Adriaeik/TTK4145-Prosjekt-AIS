@@ -23,6 +23,15 @@ fn above(elevator: &ElevatorContainer) -> bool {
     false
 }
 
+fn inside_above(elevator: &ElevatorContainer) -> bool {
+    for floor in (elevator.last_floor_sensor as usize + 1)..elevator.tasks.len() {
+        if elevator.cab_requests[floor] {
+            return true;
+        }
+    }
+    false
+}
+
 fn below(elevator: &ElevatorContainer) -> bool {
     for floor in 0..elevator.last_floor_sensor as usize {
         for btn in 0..2 {
@@ -30,6 +39,15 @@ fn below(elevator: &ElevatorContainer) -> bool {
                 return true;
             }
         }
+        if elevator.cab_requests[floor] {
+            return true;
+        }
+    }
+    false
+}
+
+fn insie_below(elevator: &ElevatorContainer) -> bool {
+    for floor in 0..elevator.last_floor_sensor as usize {
         if elevator.cab_requests[floor] {
             return true;
         }
@@ -58,6 +76,21 @@ fn get_here_dirn(elevator: &ElevatorContainer) -> Dirn {
         return Dirn::Stop;
     }
 
+}
+
+
+pub fn moving_towards_cab_call(elevator: &ElevatorContainer) -> bool {
+    match elevator.dirn {
+        Dirn::Up => {
+            return inside_above(&elevator.clone());
+        },
+        Dirn::Down => {
+            return insie_below(&elevator.clone());
+        },
+        Dirn::Stop => {
+            return false;
+        }
+    }
 }
 
 
