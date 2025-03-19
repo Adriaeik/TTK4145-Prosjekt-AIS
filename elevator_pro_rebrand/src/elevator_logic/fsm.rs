@@ -21,8 +21,7 @@ pub async fn onFloorArrival(elevator: &mut ElevatorContainer, e: Elevator, door_
         elevator.last_floor_sensor = elevator.num_floors-1;
     }
 
-    // Hvis man vil ha bedre modus og lyse der heisen er
-    // lights::set_cab_light(e.clone(), elevator.last_floor_sensor);
+    lights::set_cab_light(e.clone(), elevator.last_floor_sensor);
 
     match elevator.behaviour {
         ElevatorBehaviour::Moving | ElevatorBehaviour::Error => {

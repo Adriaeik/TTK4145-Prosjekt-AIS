@@ -38,8 +38,8 @@ impl Elevator {
         sock.write(&buf).unwrap();
     }
 
-    pub fn floor_indicator(&self, floor: u8, on: bool) {
-        let buf = [3, floor, 0, on as u8];
+    pub fn floor_indicator(&self, floor: u8) {
+        let buf = [3, floor, 0, 0];
         let mut sock = self.socket.lock().unwrap();
         sock.write(&buf).unwrap();
     }

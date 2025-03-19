@@ -18,10 +18,6 @@ use crate::{elevio::elev::Elevator, world_view::{self, ElevatorContainer}};
 pub fn set_hall_lights(wv: Vec<u8>, e: Elevator, container: &ElevatorContainer) {
     let wv_deser = world_view::serial::deserialize_worldview(&wv);
 
-    for (i, on) in container.cab_requests.iter().enumerate() {
-        e.floor_indicator(i as u8, *on);
-    }
-
     for (i, [up, down]) in wv_deser.hall_request.iter().enumerate() {
         let floor = i as u8;
         if floor > e.num_floors {
@@ -35,6 +31,11 @@ pub fn set_hall_lights(wv: Vec<u8>, e: Elevator, container: &ElevatorContainer) 
             e.call_button_light(floor, 0, *up);
         }
     }
+}
+
+/// The function sets the cab light on last_floor_sensor
+pub fn set_cab_light(e: Elevator, last_floor: u8) {
+    e.floor_indicator(last_floor);
 }
 
 /// The function sets the door open light on
