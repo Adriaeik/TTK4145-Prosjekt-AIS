@@ -416,14 +416,55 @@ pub async fn watch_ethernet() {
     }
 }
 
-// / Updates tasks in `wv` to `tasks`
-// / 
-// / ## Returns
-// / `true`: always
-// pub fn publish_tasks(wv: &mut Vec<u8>, tasks: Vec<Task>) -> bool {
-//     let mut wv_deser = serial::deserialize_worldview(&wv);
-//     wv_deser.pending_tasks = tasks;
-//     *wv = serial::serialize_worldview(&wv_deser);
-//     true
-// }
+pub fn merge_wv_after_offline(my_wv: &mut Vec<u8>, read_wv: &Vec<u8>) {
+    let my_wv_deser = world_view::serial::deserialize_worldview(&my_wv);
+    let mut read_wv_deser = world_view::serial::deserialize_worldview(&read_wv);
 
+    // Hvis du blir master på nettverket:
+    if my_wv_deser.master_id < read_wv_deser.master_id {
+        read_wv_deser.hall_request = merge_hall_requests(&read_wv_deser.hall_request, &my_wv_deser.hall_request);
+
+        read_wv_deser.master_id = my_wv_deser.master_id;
+
+        let my_wv_elevs: Vec<ElevatorContainer> = my_wv_deser.elevator_containers;
+
+        // Sjekk hvilke ID-er som allerede finnes i read_wv_deser
+        let existing_ids: std::collections::HashSet<u8> = read_wv_deser
+            .elevator_containers
+            .iter()
+            .map(|e| e.elevator_id)
+            .collect();
+
+        // Legg til nye elevatorer hvis ID-en ikke allerede finnes
+        for elev in my_wv_elevs {
+            if !existing_ids.contains(&elev.elevator_id) {
+                read_wv_deser.elevator_containers.push(elev);
+            }
+        }
+
+    } else {
+        read_wv_deser.hall_request = merge_hall_requests(&read_wv_deser.hall_request, &my_wv_deser.hall_request);
+    }
+
+    *my_wv = world_view::serial::serialize_worldview(&read_wv_deser);
+}
+
+fn merge_hall_requests(hall_req_1: &Vec<[bool; 2]>, hall_req_2: &Vec<[bool; 2]>) -> Vec<[bool; 2]> {
+    let mut merged_hall_req = hall_req_1.clone();
+    //Basically en bitwise OR på begge viewene sin hall_request
+    merged_hall_req
+        .iter_mut()
+        .zip(hall_req_2)
+        .for_each(|(read, my)| {
+            read[0] |= my[0];
+            read[1] |= my[1];
+        });
+    
+    // Hvis gamle array er lengre (din heis har fler etasjer): utvid
+    if hall_req_2.len() > hall_req_1.len() {
+        merged_hall_req
+            .extend_from_slice(&hall_req_2[hall_req_1.len()..]);
+    }
+
+    merged_hall_req
+}

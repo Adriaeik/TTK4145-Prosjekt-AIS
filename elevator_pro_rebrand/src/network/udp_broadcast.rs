@@ -3,6 +3,7 @@
 use crate::config;
 use crate::print;
 use crate::world_view;
+use crate::world_view::world_view_update;
 use super::local_network;
 
 use std::net::SocketAddr;
@@ -39,6 +40,8 @@ pub fn get_udp_timeout() -> &'static AtomicBool {
 /// ## Note
 /// This function is permanently blocking, and should be called asynchronously
 pub async fn start_udp_broadcaster(wv_watch_rx: watch::Receiver<Vec<u8>>) -> tokio::io::Result<()> {
+    let mut prev_network_status = true;
+
     // Sett opp sockets
     let addr: &str = &format!("{}:{}", config::BC_ADDR, config::DUMMY_PORT);
     let addr2: &str = &format!("{}:0", config::BC_LISTEN_ADDR);
@@ -66,7 +69,14 @@ pub async fn start_udp_broadcaster(wv_watch_rx: watch::Receiver<Vec<u8>>) -> tok
 
             // Kun send hvis du har internett-tilkobling
             if world_view::world_view_update::get_network_status().load(Ordering::SeqCst) {
+                // Gi den tid til å lese nye wv fra udp tilfelle den var ute av internett lenge
+                if !prev_network_status {
+                    sleep(Duration::from_millis(500));
+                    prev_network_status = true;
+                }
                 udp_socket.send_to(mesage.as_bytes(), &broadcast_addr).await?;
+            }else {
+                prev_network_status = false;
             }
         }
     }
@@ -88,6 +98,8 @@ pub async fn start_udp_broadcaster(wv_watch_rx: watch::Receiver<Vec<u8>>) -> tok
 /// ## Note
 /// This function is permanently blocking, and should be called asynchronously 
 pub async fn start_udp_listener(wv_watch_rx: watch::Receiver<Vec<u8>>, udp_wv_tx: mpsc::Sender<Vec<u8>>) -> tokio::io::Result<()> {
+    let mut prev_network_status = true;
+    
     //Sett opp sockets
     let self_id = local_network::SELF_ID.load(Ordering::SeqCst);
     let broadcast_listen_addr = format!("{}:{}", config::BC_LISTEN_ADDR, config::DUMMY_PORT);
@@ -133,6 +145,12 @@ pub async fn start_udp_listener(wv_watch_rx: watch::Receiver<Vec<u8>>, udp_wv_tx
                 get_udp_timeout().store(false, Ordering::SeqCst);
                 // println!("Resetter UDP-watchdog");
             }
+            
+            // Hvis du har vert i offline mode: merge worldviews
+            if world_view::world_view_update::get_network_status().load(Ordering::SeqCst) && !prev_network_status {
+                world_view_update::merge_wv_after_offline(&mut my_wv, &read_wv);
+            }
+            prev_network_status = world_view::world_view_update::get_network_status().load(Ordering::SeqCst); 
 
             // Hvis broadcast har lavere ID enn nettverkets tidligere master
             if my_wv[config::MASTER_IDX] >= read_wv[config::MASTER_IDX] {
@@ -143,6 +161,7 @@ pub async fn start_udp_listener(wv_watch_rx: watch::Receiver<Vec<u8>>, udp_wv_tx
                 }
             }
             
+
         }
     }
 }
