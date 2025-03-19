@@ -142,7 +142,7 @@ pub async fn handle_elevator(wv_watch_rx: watch::Receiver<Vec<u8>>, elevator_sta
         // Oppdater prev_behavior dersom statusen endrar seg
         if prev_behavior != self_container.behaviour {
             prev_behavior = self_container.behaviour;
-            println!("Endra status: {:?} -> {:?}", last_behavior, prev_behavior);
+            // println!("Endra status: {:?} -> {:?}", last_behavior, prev_behavior);
         }
 
         // Sett motor til stopp når vi går frå DoorOpen til Error

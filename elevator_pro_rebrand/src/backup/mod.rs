@@ -2,6 +2,7 @@ use std::env;
 use std::net::SocketAddr;
 use std::process::Command;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::io::{self, Write};
 use socket2::{Socket, Domain, Type, Protocol};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -132,6 +133,12 @@ pub async fn run_as_backup() -> world_view::ElevatorContainer {
                         },
                         Ok(n) => {
                             current_wv = buf[..n].to_vec();
+                            // Rydd skjermen og sett markøren øvst
+                            print!("\x1B[2J\x1B[H");
+
+                            // Sørg for at utskrifta skjer umiddelbart
+                            io::stdout().flush().unwrap();
+
                             print::worldview(current_wv.clone());
                         },
                         Err(e) => {
