@@ -118,9 +118,11 @@ pub async fn handle_elevator(wv_watch_rx: watch::Receiver<Vec<u8>>, elevator_sta
             let DBPair = request::choose_direction(&self_container.clone());
             
             if DBPair.behaviour != ElevatorBehaviour::Idle {
+                print::err(format!("Skal nå være: {:?}", DBPair.behaviour));
                 self_container.dirn = DBPair.dirn;
                 self_container.behaviour = DBPair.behaviour;
-                e.motor_direction(self_container.dirn as u8);
+                door_timer.timer_start();
+                e.motor_direction(Dirn::Stop as u8);
             }
         }
         /*______ SLUTT: FSM Events ______ */
