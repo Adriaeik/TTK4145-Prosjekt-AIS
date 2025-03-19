@@ -70,6 +70,13 @@ pub async fn initialize_worldview(self_container : Option< world_view::ElevatorC
 
     // If other elevators are found, merge worldview and add the local elevator
     let mut wv_from_udp_deser = serial::deserialize_worldview(&wv_from_udp);
+    
+    // Check if the network has backed up any cab_requests from you, save them if that is the case
+    let saved_cab_requests: std::collections::HashMap<u8, Vec<bool>> = wv_from_udp_deser.cab_requests_backup.clone();
+    if let Some(saved_requests) = saved_cab_requests.get(&elev_container.elevator_id) {
+        elev_container.cab_requests = saved_requests.clone();
+    }
+    // Add your elevator to the worldview
     wv_from_udp_deser.add_elev(elev_container.clone());
 
     // Set self as master if the current master has a higher ID

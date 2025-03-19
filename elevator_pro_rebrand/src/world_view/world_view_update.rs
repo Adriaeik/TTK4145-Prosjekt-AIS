@@ -14,6 +14,8 @@ use std::collections::HashMap;
 
 use crate::world_view::{get_index_to_container, serial, Dirn, ElevatorBehaviour};
 
+use super::ElevatorContainer;
+
 
 static ONLINE: OnceLock<AtomicBool> = OnceLock::new(); 
 
@@ -199,7 +201,6 @@ pub async fn join_wv_from_tcp_container(wv: &mut Vec<u8>, container: Vec<u8>) ->
         // Master styrer task, ikke overskriv det med slaven sitt forrige WV
 
         //Fjern tatt hall_requests. TODO: bedre? gjør mer forståelig
-        // / NB!!!!!!!!!!! Den blir fjerna mens man er der med døra oppe, men kommer tilbake med en gang døre lukker seg???
         for (idx, [up, down]) in deserialized_wv.hall_request.iter_mut().enumerate() {
             if (deserialized_wv.elevator_containers[i].behaviour == ElevatorBehaviour::DoorOpen) && (deserialized_wv.elevator_containers[i].last_floor_sensor == (idx as u8)) {
                 if deserialized_wv.elevator_containers[i].dirn == Dirn::Up {
@@ -210,8 +211,9 @@ pub async fn join_wv_from_tcp_container(wv: &mut Vec<u8>, container: Vec<u8>) ->
             }
         }
 
-        //Oppdater call_buttons
-        // master::wv_from_slaves::update_call_buttons(&mut deserialized_wv, &deser_container, i).await;
+        // Oppdater cab_request backupen!
+        update_cab_request_backup(&mut deserialized_wv.cab_requests_backup, deserialized_wv.elevator_containers[i].clone());
+
         *wv = serial::serialize_worldview(&deserialized_wv);
         return true;
     } else {
@@ -343,6 +345,20 @@ pub fn update_elev_states(wv: &mut Vec<u8>, container: Vec<u8>) -> bool {
     *wv = world_view::serial::serialize_worldview(&wv_deser);
     true
 }
+
+/// Updates the backup hashmap for cab_requests, så they are remembered on the network in the case of power loss on a node
+/// 
+/// ## Parameters
+/// `backup`: A mutable reference to the backup hashmap in the worldview
+/// `container`: The new ElevatorContainer recieved
+/// 
+/// ## Behaviour
+/// Insert the container's cab_requests in key: container.elevator_id. If no old keys matches the id, a new entry is added. 
+fn update_cab_request_backup(backup: &mut HashMap<u8, Vec<bool>>, container: ElevatorContainer) {
+    backup.insert(container.elevator_id, container.cab_requests);
+}
+
+
 
 /// Monitors the Ethernet connection status asynchronously.
 ///

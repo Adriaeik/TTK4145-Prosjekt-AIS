@@ -3,43 +3,12 @@ pub mod serial;
 
 use serde::{Serialize, Deserialize};
 use tokio::sync::watch;
+use std::collections::HashMap;
 use std::sync::atomic::Ordering;
 use crate::config;
 use crate::print;
 use crate::network::local_network;
 use crate::elevio;
-// use crate::manager::task_allocator::Task;
-
-
-/// Represents the status of a task within the system.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Hash)]
-pub enum TaskStatus {
-    /// The task is waiting to be assigned or executed.
-    PENDING,
-
-    /// The task has been successfully completed.
-    DONE,
-
-    /// The task has started execution, preventing reassignment by the master.
-    STARTED,
-
-    /// The task could not be completed.
-    UNABLE = u8::MAX as isize,    
-}
-impl Default for TaskStatus {
-    fn default() -> Self {
-        TaskStatus::PENDING
-    }
-}
-
-// #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
-// pub enum ElevatorStatus {
-//     UP,
-//     DOWN,
-//     IDLE,
-//     DOOR_OPEN,
-//     ERROR,
-// }
 
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -134,8 +103,8 @@ pub struct WorldView {
     /// - `elevator_containers`: A list of `ElevatorContainer` structures containing
     ///   individual elevator information.
     pub elevator_containers: Vec<ElevatorContainer>, 
-    
-     
+
+    pub cab_requests_backup: HashMap<u8, Vec<bool>>,
 }
 
 
@@ -148,6 +117,7 @@ impl Default for WorldView {
             // pending_tasks: Vec::new(),
             hall_request: vec![[false; 2]; config::DEFAULT_NUM_FLOORS as usize],
             elevator_containers: Vec::new(),
+            cab_requests_backup: HashMap::new(),
         }
     }
 }
