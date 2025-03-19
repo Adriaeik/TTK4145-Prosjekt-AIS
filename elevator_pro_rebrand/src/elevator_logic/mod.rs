@@ -43,7 +43,8 @@ pub async fn run_local_elevator(wv_watch_rx: watch::Receiver<Vec<u8>>, elevator_
             let mut wv = world_view::get_wv(wv_watch_rx);
             loop {
                 world_view::update_wv(wv_watch_rx_c.clone(), &mut wv).await;
-                lights::set_hall_lights(wv.clone(), e.clone());
+                let self_elevator = world_view::extract_self_elevator_container(wv.clone());
+                lights::set_hall_lights(wv.clone(), e.clone(), &self_elevator);
 
                 sleep(config::POLL_PERIOD).await;
             }
