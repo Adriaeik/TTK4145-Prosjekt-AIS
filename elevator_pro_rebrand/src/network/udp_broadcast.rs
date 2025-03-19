@@ -63,7 +63,11 @@ pub async fn start_udp_broadcaster(wv_watch_rx: watch::Receiver<Vec<u8>>) -> tok
             //TODO: Lag bedre delay?
             sleep(config::UDP_PERIOD);
             let mesage = format!("{:?}{:?}", config::KEY_STR, wv).to_string();
-            udp_socket.send_to(mesage.as_bytes(), &broadcast_addr).await?;
+
+            // Kun send hvis du har internett-tilkobling
+            if world_view::world_view_update::get_network_status().load(Ordering::SeqCst) {
+                udp_socket.send_to(mesage.as_bytes(), &broadcast_addr).await?;
+            }
         }
     }
 }
