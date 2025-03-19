@@ -277,10 +277,7 @@ pub fn cosmic_err(fun: String) {
     println!();
 }
 
-
-
-
-/// Logs `wv` in a nice format 
+/// Logs `wv` in a nice format
 pub fn worldview(worldview: Vec<u8>) {
     let print_stat = config::PRINT_WV_ON.lock().unwrap().clone();
     if !print_stat {
@@ -288,102 +285,101 @@ pub fn worldview(worldview: Vec<u8>) {
     }
 
     let wv_deser = serial::deserialize_worldview(&worldview);
-    let mut gen_table = Table::new();
-    gen_table.set_format(*format::consts::FORMAT_CLEAN);
-    let mut table = Table::new();
-    table.set_format(*format::consts::FORMAT_CLEAN);
 
-    // Overskrift i blå feittskrift
-    println!("{}", Purple.bold().paint("WORLD VIEW STATUS"));
+    // Overskrift
+    println!("{}", Purple.bold().paint("┌────────────────────────────────┐"));
+    println!("{}", Purple.bold().paint("│        WORLD VIEW STATUS       │"));
+    println!("{}", Purple.bold().paint("└────────────────────────────────┘"));
 
-    //Legg til generell worldview-info
-    //Funka ikke når jeg brukte fargene på lik måte som under. gudene vet hvorfor
-    gen_table.add_row(Row::new(vec![
-        Cell::new("Num heiser").with_style(Attr::ForegroundColor(color::BRIGHT_BLUE)),
-        Cell::new("MasterID").with_style(Attr::ForegroundColor(color::BRIGHT_BLUE)),
-        Cell::new("Pending tasks").with_style(Attr::ForegroundColor(color::BRIGHT_BLUE)),
-    ]));
+    // Generell info-tabell
+    println!("┌─────────────┬──────────┬────────────────────┐");
+    println!("│ Num heiser  │ MasterID │ Pending tasks      │");
+    println!("├─────────────┼──────────┼────────────────────┤");
 
-    let n_text = format!("{}", wv_deser.get_num_elev()); // Fjern ANSI og bruk prettytable farge
-    let m_id_text = format!("{}", wv_deser.master_id);
-    let task_list = format!("{:?}", wv_deser.hall_request);
+    println!(
+        "│ {:<11} │ {:<8} │                    │",
+        wv_deser.get_num_elev(),
+        wv_deser.master_id
+    );
 
-    gen_table.add_row(Row::new(vec![
-        Cell::new(&n_text).with_style(Attr::ForegroundColor(color::BRIGHT_YELLOW)),
-        Cell::new(&m_id_text).with_style(Attr::ForegroundColor(color::BRIGHT_YELLOW)),
-        Cell::new(&task_list),
-    ]));
+    for (floor, calls) in wv_deser.hall_request.iter().enumerate() {
+        println!(
+            "│ {:<11} │          │ {} {} │",
+            floor,
+            if calls[0] { "✅" } else { "❌" }, // Opp
+            if calls[1] { "✅" } else { "❌" }  // Ned
+        );
+    }
 
-    gen_table.printstd();
+    println!("└─────────────┴──────────┴────────────────────┘");
 
+    // Heisstatus-tabell
+    println!("┌──────┬─────────┬──────────────┬──────────────┬─────────────┬──────────────────────┬───────────────┐");
+    println!("│ ID   │ Dør     │ Obstruksjon  │ Tasks        │ Siste etasje│ Calls (Etg:Call)     │ Elev status   │");
+    println!("├──────┼─────────┼──────────────┼──────────────┼─────────────┼──────────────────────┼───────────────┤");
 
-
-    // Legg til heis-spesifikke deler
-    // Legg til hovudrad (header) med blå feittskrift
-    table.add_row(Row::new(vec![
-        Cell::new(&Blue.bold().paint("ID").to_string()),
-        Cell::new(&Blue.bold().paint("Dør").to_string()),
-        Cell::new(&Blue.bold().paint("Obstruksjon").to_string()),
-        Cell::new(&Blue.bold().paint("Tasks").to_string()),
-        Cell::new(&Blue.bold().paint("Siste etasje").to_string()),
-        Cell::new(&Blue.bold().paint("Calls (Etg:Call)").to_string()),
-        Cell::new(&Blue.bold().paint("Elev status").to_string()),
-    ]));
-
-    // Iterer over alle heisane
     for elev in wv_deser.elevator_containers {
-        // Lag ein fargerik streng for ID
-        let id_text = Yellow.bold().paint(format!("{}", elev.elevator_id)).to_string();
-
-        // Door og obstruction i grøn/raud
+        let id_text = format!("│ {:<4} │", elev.elevator_id);
         let door_status = if elev.behaviour == ElevatorBehaviour::DoorOpen {
-            Yellow.paint("Åpen").to_string()
+            format!(" {:<7} │", Yellow.paint("Åpen"))
         } else {
-            Green.paint("Lukket").to_string()
+            format!(" {:<7} │", Green.paint("Lukket"))
         };
 
         let obstruction_status = if elev.obstruction {
-            Red.paint("Ja").to_string()
+            format!(" {:<12} │", Red.paint("Ja"))
         } else {
-            Green.paint("Nei").to_string()
+            format!(" {:<12} │", Green.paint("Nei"))
         };
 
-        
-        // Farge basert på `to_do` Her skal vi printe tildelt noverande task
-        let task_list = format!("{:?}", elev.cab_requests);
-        // if let Some(task) = elev.cab_requests {
-        //     Yellow.paint(format!("{:?}", task.call.floor)).to_string()
-        // } else {
-        //     Green.paint("None").to_string()
-        // };
+        // Konverter Tasks til emoji-tabell
+        let tasks_emoji = elev.cab_requests
+            .iter()
+            .enumerate()
+            .map(|(floor, task)| format!("{:<2} {}", floor, if *task { "✅" } else { "❌" }))
+            .collect::<Vec<String>>();
 
-        let last_floor = Fixed(69).paint(format!("{}", elev.last_floor_sensor));
-            
-
-        // Vanleg utskrift av calls
-        let call_list = format!("{:?}", elev.tasks);
+        // Konverter Calls til emoji-tabell
+        let call_list_emoji = elev.tasks
+            .iter()
+            .enumerate()
+            .map(|(floor, calls)| format!(
+                "{:<2} {} {}",
+                floor,
+                if calls[0] { "✅" } else { "❌" }, // Opp
+                if calls[1] { "✅" } else { "❌" }  // Ned
+            ))
+            .collect::<Vec<String>>();
 
         let task_stat_list = match (elev.dirn, elev.behaviour) {
-            // (Dirn::Up, _) => Blue.paint("Up"),
-            // (Dirn::Down, _) => Blue.paint("Down"),
-            (_, ElevatorBehaviour::Idle) => Green.paint("Idle"),
-            (_, ElevatorBehaviour::Moving) => Yellow.paint("Moving"),
-            (_, ElevatorBehaviour::DoorOpen) => Purple.paint("Door Open"),
-            (_, ElevatorBehaviour::Error) => Red.paint("Error"),
+            (_, ElevatorBehaviour::Idle) => Green.paint("Idle").to_string(),
+            (_, ElevatorBehaviour::Moving) => Yellow.paint("Moving").to_string(),
+            (_, ElevatorBehaviour::DoorOpen) => Purple.paint("Door Open").to_string(),
+            (_, ElevatorBehaviour::Error) => Red.paint("Error").to_string(),
         };
 
-        table.add_row(Row::new(vec![
-            Cell::new(&id_text),
-            Cell::new(&door_status),
-            Cell::new(&obstruction_status),
-            Cell::new(&task_list),
-            Cell::new(&last_floor),
-            Cell::new(&call_list),
-            Cell::new(&task_stat_list),
-        ]));
+        // Finn max antal rader for Tasks eller Calls
+        let max_rows = std::cmp::max(tasks_emoji.len(), call_list_emoji.len());
+
+        for i in 0..max_rows {
+            let task_entry = tasks_emoji.get(i).cloned().unwrap_or_else(|| "  ".to_string()); // Legg buffer på tomme rader
+            let call_entry = call_list_emoji.get(i).cloned().unwrap_or_else(|| "  ".to_string());
+
+            if i == 0 {
+                println!(
+                    "{}{}{} {:<15} │ {:<11} │ {:<22} │ {:<13} │",
+                    id_text, door_status, obstruction_status, task_entry, elev.last_floor_sensor, call_entry, task_stat_list
+                );
+            } else {
+                println!(
+                    "│      │         │              │ {:<15} │             │ {:<22} │               │",
+                    task_entry, call_entry
+                );
+            }
+        }
+
+        println!("├──────┼─────────┼──────────────┼──────────────┼─────────────┼──────────────────────┼───────────────┤");
     }
 
-    // Skriv ut tabellen med fargar (ANSI-kodar)
-    table.printstd();
-    print!("\n\n");
+    println!("└──────┴─────────┴──────────────┴──────────────┴─────────────┴──────────────────────┴───────────────┘");
 }
