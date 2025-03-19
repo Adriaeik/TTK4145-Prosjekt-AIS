@@ -88,6 +88,7 @@ pub fn join_wv(mut my_wv: Vec<u8>, master_wv: Vec<u8>) -> Vec<u8> {
         master_view.unsent_hall_request = my_view.unsent_hall_request.clone();
         //Hvis ny master:
         if my_wv_deserialised.master_id < master_wv_deserialised.master_id {
+            print::err("ERAHDSIAHD".to_string());
             master_view.unsent_hall_request = merge_hall_requests(&master_view.unsent_hall_request, &my_wv_deserialised.hall_request);
         }
         master_view.cab_requests = my_view.cab_requests.clone();
