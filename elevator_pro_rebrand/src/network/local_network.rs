@@ -157,7 +157,6 @@ pub async fn update_wv_watch(mut mpsc_rxs: MpscRxs, worldview_watch_tx: watch::S
         match mpsc_rxs.new_wv_after_offline.try_recv() {
             Ok(wv) => {
                 worldview_serialised = wv;
-                print::worldview(worldview_serialised.clone());
                 let _ = worldview_watch_tx.send(worldview_serialised.clone());
             },
             Err(_) => {},
