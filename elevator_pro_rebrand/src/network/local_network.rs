@@ -153,6 +153,15 @@ pub async fn update_wv_watch(mut mpsc_rxs: MpscRxs, worldview_watch_tx: watch::S
             },
             Err(_) => {},
         }
+
+        match mpsc_rxs.new_wv_after_offline.try_recv() {
+            Ok(wv) => {
+                worldview_serialised = wv;
+                print::worldview(worldview_serialised.clone());
+                let _ = worldview_watch_tx.send(worldview_serialised.clone());
+            },
+            Err(_) => {},
+        }
         
         
         
@@ -217,7 +226,7 @@ pub struct MpscTxs {
     // pub pending_tasks: mpsc::Sender<Vec<Task>>,
     pub delegated_tasks: mpsc::Sender<HashMap<u8, Vec<[bool; 2]>>>,
     pub elevator_states: mpsc::Sender<Vec<u8>>,
-    pub mpsc_buffer_ch5: mpsc::Sender<Vec<u8>>,
+    pub new_wv_after_offline: mpsc::Sender<Vec<u8>>,
     pub mpsc_buffer_ch6: mpsc::Sender<Vec<u8>>,
     pub mpsc_buffer_ch7: mpsc::Sender<Vec<u8>>,
     pub mpsc_buffer_ch8: mpsc::Sender<Vec<u8>>,
@@ -242,7 +251,7 @@ pub struct MpscRxs {
     // pub pending_tasks: mpsc::Receiver<Vec<Task>>,
     pub delegated_tasks: mpsc::Receiver<HashMap<u8, Vec<[bool; 2]>>>,
     pub elevator_states: mpsc::Receiver<Vec<u8>>,
-    pub mpsc_buffer_ch5: mpsc::Receiver<Vec<u8>>,
+    pub new_wv_after_offline: mpsc::Receiver<Vec<u8>>,
     pub mpsc_buffer_ch6: mpsc::Receiver<Vec<u8>>,
     pub mpsc_buffer_ch7: mpsc::Receiver<Vec<u8>>,
     pub mpsc_buffer_ch8: mpsc::Receiver<Vec<u8>>,
@@ -284,7 +293,7 @@ impl Mpscs {
                 sent_tcp_container: tx_sent_tcp_container,
                 delegated_tasks: tx_buf3,
                 elevator_states: tx_buf4,
-                mpsc_buffer_ch5: tx_buf5,
+                new_wv_after_offline: tx_buf5,
                 mpsc_buffer_ch6: tx_buf6,
                 mpsc_buffer_ch7: tx_buf7,
                 mpsc_buffer_ch8: tx_buf8,
@@ -298,7 +307,7 @@ impl Mpscs {
                 sent_tcp_container: rx_sent_tcp_container,
                 delegated_tasks: rx_buf3,
                 elevator_states: rx_buf4,
-                mpsc_buffer_ch5: rx_buf5,
+                new_wv_after_offline: rx_buf5,
                 mpsc_buffer_ch6: rx_buf6,
                 mpsc_buffer_ch7: rx_buf7,
                 mpsc_buffer_ch8: rx_buf8,

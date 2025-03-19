@@ -394,7 +394,7 @@ fn update_cab_request_backup(backup: &mut HashMap<u8, Vec<bool>>, container: Ele
 /// });
 /// # }
 /// ```
-pub async fn watch_ethernet(wv_watch_rx: watch::Receiver<Vec<u8>>) {
+pub async fn watch_ethernet(wv_watch_rx: watch::Receiver<Vec<u8>>, new_wv_after_offline_tx: mpsc::Sender<Vec<u8>>) {
     let mut last_net_status = false;
     let mut net_status;
     loop {
@@ -419,10 +419,7 @@ pub async fn watch_ethernet(wv_watch_rx: watch::Receiver<Vec<u8>>) {
                 let mut wv = world_view::get_wv(wv_watch_rx.clone());
                 let self_elev = world_view::extract_self_elevator_container(wv.clone());
                 wv = init::initialize_worldview(Some(self_elev)).await;
-
-                //Send til update_wv
-                print::worldview(wv.clone());
-
+                let _ = new_wv_after_offline_tx.send(wv).await;
                 print::ok("Vi er online".to_string());
             }
             else {
