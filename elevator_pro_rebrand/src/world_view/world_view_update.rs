@@ -62,7 +62,7 @@ pub fn join_wv_from_udp(wv: &mut Vec<u8>, master_wv: Vec<u8>) -> bool {
 /// - Ensures that `tasks_status` retains only tasks present in `tasks`.
 /// - If the local elevator is missing in `master_wv`, it is added to `master_wv`.
 pub fn join_wv(mut my_wv: Vec<u8>, master_wv: Vec<u8>) -> Vec<u8> {
-    let my_wv_deserialised = serial::deserialize_worldview(&my_wv);
+    let mut my_wv_deserialised = serial::deserialize_worldview(&my_wv);
     let mut master_wv_deserialised = serial::deserialize_worldview(&master_wv);
     
     
@@ -86,10 +86,9 @@ pub fn join_wv(mut my_wv: Vec<u8>, master_wv: Vec<u8>) -> Vec<u8> {
         // Update call buttons and task statuses
         // master_view.calls = my_view.calls.clone();
         master_view.unsent_hall_request = my_view.unsent_hall_request.clone();
-        //Hvis ny master:
-        if my_wv_deserialised.master_id < master_wv_deserialised.master_id {
+        //Hvis anti-ny master (du blir master):
+        if my_wv_deserialised.master_id > master_wv_deserialised.master_id {
             print::err("ERAHDSIAHD".to_string());
-            master_view.unsent_hall_request = merge_hall_requests(&master_view.unsent_hall_request, &my_wv_deserialised.hall_request);
         }
         master_view.cab_requests = my_view.cab_requests.clone();
 
@@ -110,6 +109,7 @@ pub fn join_wv(mut my_wv: Vec<u8>, master_wv: Vec<u8>) -> Vec<u8> {
 
     } else if let Some(i_org) = my_self_index {
         // If the local elevator is missing in master_wv, add it
+        my_wv_deserialised.elevator_containers[i_org].unsent_hall_request = merge_hall_requests(&my_wv_deserialised.elevator_containers[i_org].unsent_hall_request, &my_wv_deserialised.hall_request);
         master_wv_deserialised.add_elev(my_wv_deserialised.elevator_containers[i_org].clone());
     }
 
