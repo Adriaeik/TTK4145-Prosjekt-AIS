@@ -145,7 +145,7 @@ pub async fn run_as_backup() -> world_view::ElevatorContainer {
             _ => {
                 retries += 1;
                 eprintln!("Kunne ikkje koble til master, retry {}.", retries);
-                if retries > 3 {
+                if retries > 50 {
                     eprintln!("Master feila, promoterer backup til master!");
                     // Her kan failover-logikken setjast i gang, t.d. køyre master-logikken.
                     return world_view::extract_self_elevator_container(current_wv);

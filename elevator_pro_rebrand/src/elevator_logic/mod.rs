@@ -69,13 +69,14 @@ pub async fn handle_elevator(wv_watch_rx: watch::Receiver<Vec<u8>>, elevator_sta
 
     let mut door_timer = timer::new(Duration::from_secs(3));
     let mut cab_call_timer = timer::new(Duration::from_secs(10));
-    let mut error_timer = timer::new(Duration::from_secs(10));
+    let mut error_timer = timer::new(Duration::from_secs(5));
     let mut prev_cab_call_timer_stat:bool = false;
-
+    let mut prev_behavior:ElevatorBehaviour = self_container.behaviour;
     loop {
         //Les nye data fra heisen, putt de inn i self_container
         let prev_floor = self_container.last_floor_sensor;
-        self_elevator::update_elev_container_from_msgs(&mut local_elev_rx, &mut self_container, &mut cab_call_timer).await;
+        
+        self_elevator::update_elev_container_from_msgs(&mut local_elev_rx, &mut self_container, &mut cab_call_timer , &mut error_timer ).await;
         
 
 
@@ -101,7 +102,7 @@ pub async fn handle_elevator(wv_watch_rx: watch::Receiver<Vec<u8>>, elevator_sta
             // error_timer.timer_start();
 
         }
-
+        
         
         // fsm::onIdle ?
         if self_container.behaviour == ElevatorBehaviour::Idle {
@@ -126,7 +127,20 @@ pub async fn handle_elevator(wv_watch_rx: watch::Receiver<Vec<u8>>, elevator_sta
         } else {
             prev_cab_call_timer_stat = false;
         }
-        
+
+        // Lagre tidlegare status før oppdatering
+        let last_behavior = prev_behavior;
+
+        // Oppdater prev_behavior dersom statusen endrar seg
+        if prev_behavior != self_container.behaviour {
+            prev_behavior = self_container.behaviour;
+            println!("Endra status: {:?} -> {:?}", last_behavior, prev_behavior);
+        }
+
+        // Sett motor til stopp når vi går frå DoorOpen til Error
+        if last_behavior == ElevatorBehaviour::DoorOpen && prev_behavior == ElevatorBehaviour::Error {
+            self_container.dirn = Dirn::Stop;
+        }
         // println!("Motor dir: {:?}, Elev behaviour: {:?}", self_container.dirn, self_container.behaviour);
         
         //Send til update_wv -> nye self_container
