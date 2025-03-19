@@ -45,7 +45,7 @@ pub fn get_self_ip() -> Result<IpAddr, local_ip_address::Error> {
             ip
         }
         Err(e) => {
-            print::warn(format!("Fant ikke IP i get_self_ip() -> Vi er offline: {}", e));
+            // print::warn(format!("Fant ikke IP i get_self_ip() -> Vi er offline: {}", e));
             return Err(e);
         }
     };
