@@ -148,7 +148,6 @@ pub async fn start_udp_listener(wv_watch_rx: watch::Receiver<Vec<u8>>, udp_wv_tx
                 }
                 
                 // Hvis du har vert i offline mode: merge worldviews
-                println!("På nettverk");
                 if !prev_network_status {
                     print::err("Kom tilbake på nett".to_string());
                     world_view_update::merge_wv_after_offline(&mut my_wv, &read_wv);
@@ -168,7 +167,6 @@ pub async fn start_udp_listener(wv_watch_rx: watch::Receiver<Vec<u8>>, udp_wv_tx
                 
             }
         } else {
-            println!("Av nettverk");
             prev_network_status = false;
             sleep(config::OFFLINE_PERIOD);
         }
