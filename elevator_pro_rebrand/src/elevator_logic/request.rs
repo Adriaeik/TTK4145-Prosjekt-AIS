@@ -151,6 +151,20 @@ pub fn should_stop(elevator: &ElevatorContainer) -> bool {
     }
 }
 
+pub fn was_outside(elevator: &ElevatorContainer) -> bool {
+    let floor = elevator.last_floor_sensor as usize;
+    
+    match elevator.dirn {
+        Dirn::Down => {
+            elevator.tasks[floor][1] || !below(elevator)
+        }
+        Dirn::Up => {
+            elevator.tasks[floor][0] || !above(elevator)
+        }
+        Dirn::Stop => true,
+    }
+}
+
 
 pub fn clear_at_current_floor(elevator: &mut ElevatorContainer) {
     match elevator.dirn {

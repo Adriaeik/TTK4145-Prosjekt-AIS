@@ -79,13 +79,15 @@ pub async fn handle_elevator(wv_watch_rx: watch::Receiver<Vec<u8>>, elevator_sta
         
         self_elevator::update_elev_container_from_msgs(&mut local_elev_rx, &mut self_container, &mut cab_call_timer , &mut error_timer ).await;
 
-        
-
         /*______ START: FSM Events ______ */
         // Hvis du er på ny etasje, 
         if prev_floor != self_container.last_floor_sensor {
             fsm::onFloorArrival(&mut self_container, e.clone(), &mut door_timer, &mut cab_call_timer).await;
             error_timer.timer_start();
+            //skal ignorere cab_call_timer visst oppdraget kom fra ein insidebtn
+            if !request::was_outside(&self_container){
+                cab_call_timer.release_timer();
+            }
         }
 
         if door_timer.timer_timeouted()  && !self_container.obstruction{
