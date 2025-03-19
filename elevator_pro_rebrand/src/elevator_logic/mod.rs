@@ -6,7 +6,6 @@ mod self_elevator;
 
 use std::time::Duration;
 
-use timer::Timer;
 use tokio::task::yield_now;
 use tokio::sync::mpsc;
 use tokio::sync::watch;
@@ -19,7 +18,6 @@ use crate::print;
 use crate::world_view;
 use crate::world_view::Dirn;
 use crate::world_view::ElevatorBehaviour;
-use crate::world_view::ElevatorContainer;
 
 
 pub async fn run_local_elevator(wv_watch_rx: watch::Receiver<Vec<u8>>, elevator_states_tx: mpsc::Sender<Vec<u8>>) {
@@ -71,18 +69,27 @@ pub async fn handle_elevator(wv_watch_rx: watch::Receiver<Vec<u8>>, elevator_sta
     self_container.dirn = Dirn::Down;
 
     let mut door_timer = timer::new(Duration::from_secs(3));
-    let mut cab_call_timer = timer::new(Duration::from_secs(5));
-    let mut error_timer = timer::new(Duration::from_secs(6));
+    let mut cab_call_timer = timer::new(Duration::from_secs(10));
+    let mut error_timer = timer::new(Duration::from_secs(5));
+    let mut prev_cab_call_timer_stat:bool = false;
     let mut prev_behavior:ElevatorBehaviour = self_container.behaviour;
 
     loop {
         //Les nye data fra heisen, putt de inn i self_container
         let prev_floor = self_container.last_floor_sensor;
+        
         self_elevator::update_elev_container_from_msgs(&mut local_elev_rx, &mut self_container, &mut cab_call_timer , &mut error_timer ).await;
 
         /*______ START: FSM Events ______ */
         // Hvis du er på ny etasje, 
-        check_new_floor(prev_floor, &mut self_container, &e, &mut door_timer, &mut cab_call_timer, &mut error_timer).await;
+        if prev_floor != self_container.last_floor_sensor {
+            fsm::onFloorArrival(&mut self_container, e.clone(), &mut door_timer, &mut cab_call_timer).await;
+            error_timer.timer_start();
+            //skal ignorere cab_call_timer visst oppdraget kom fra ein insidebtn
+            if !request::was_outside(&self_container){
+                cab_call_timer.release_timer();
+            }
+        }
 
         if door_timer.timer_timeouted()  && !self_container.obstruction{
             lights::clear_door_open_light(e.clone());
@@ -99,7 +106,11 @@ pub async fn handle_elevator(wv_watch_rx: watch::Receiver<Vec<u8>>, elevator_sta
         if !cab_call_timer.timer_timeouted()|| self_container.behaviour == ElevatorBehaviour::Idle {
             error_timer.timer_start();
         }
+        if error_timer.timer_timeouted() && !prev_cab_call_timer_stat {
+            print::cosmic_err("Feil på travel!!!!".to_string());
+            // error_timer.timer_start();
 
+        }
         
         
         // fsm::onIdle ?
@@ -122,7 +133,10 @@ pub async fn handle_elevator(wv_watch_rx: watch::Receiver<Vec<u8>>, elevator_sta
             e.motor_direction(self_container.dirn as u8);  
         }
         if error_timer.timer_timeouted() {
+            prev_cab_call_timer_stat = true;
             self_container.behaviour = ElevatorBehaviour::Error;
+        } else {
+            prev_cab_call_timer_stat = false;
         }
 
         // Lagre tidlegare status før oppdatering
@@ -147,18 +161,6 @@ pub async fn handle_elevator(wv_watch_rx: watch::Receiver<Vec<u8>>, elevator_sta
         sleep(config::POLL_PERIOD).await;
         if world_view::update_wv(wv_watch_rx.clone(), &mut wv).await{
             self_container = world_view::extract_self_elevator_container(wv.clone());
-        }
-    }
-}
-
-async fn check_new_floor(prev_floor: u8, self_container: &mut ElevatorContainer, e: &Elevator, door_timer: &mut Timer, cab_call_timer: &mut Timer, error_timer: &mut Timer){
-    // Hvis du er på ny etasje, 
-    if prev_floor != self_container.last_floor_sensor {
-        fsm::onFloorArrival(self_container, e.clone(), door_timer, cab_call_timer).await;
-        error_timer.timer_start();
-        //skal ignorere cab_call_timer visst oppdraget kom fra ein insidebtn
-        if !request::was_outside(&self_container){
-            cab_call_timer.release_timer();
         }
     }
 }
