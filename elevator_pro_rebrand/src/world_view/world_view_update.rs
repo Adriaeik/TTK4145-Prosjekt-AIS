@@ -183,6 +183,10 @@ pub async fn join_wv_from_tcp_container(wv: &mut Vec<u8>, container: Vec<u8>) ->
                 }
             }
         }
+        
+        if world_view::is_master(wv.clone()) {
+            deserialized_wv.elevator_containers[i].unsent_hall_request = vec![[false; 2]; deserialized_wv.elevator_containers[i].num_floors as usize];
+        }
 
         //Oppdater statuser
         deserialized_wv.elevator_containers[i].cab_requests = deser_container.cab_requests;
@@ -330,6 +334,7 @@ pub fn update_elev_states(wv: &mut Vec<u8>, container: Vec<u8>) -> bool {
     if let Some(i) = idx {
         wv_deser.elevator_containers[i].cab_requests = container_deser.cab_requests;
         wv_deser.elevator_containers[i].dirn = container_deser.dirn;
+        wv_deser.elevator_containers[i].obstruction = container_deser.obstruction;
         wv_deser.elevator_containers[i].behaviour = container_deser.behaviour;
         wv_deser.elevator_containers[i].last_floor_sensor = container_deser.last_floor_sensor;
         wv_deser.elevator_containers[i].unsent_hall_request = container_deser.unsent_hall_request;

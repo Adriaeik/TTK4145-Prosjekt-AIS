@@ -1,4 +1,6 @@
-use crate::{elevio::elev, world_view::{Dirn, ElevatorBehaviour, ElevatorContainer}};
+use std::u8::{self, MIN};
+
+use crate::{elevio::elev, print, world_view::{Dirn, ElevatorBehaviour, ElevatorContainer}};
 
 #[derive(Debug, Clone, Copy)]
 pub struct DirnBehaviourPair {
@@ -9,7 +11,7 @@ pub struct DirnBehaviourPair {
 /////Requests
 fn above(elevator: &ElevatorContainer) -> bool {
     for floor in (elevator.last_floor_sensor as usize + 1)..elevator.tasks.len() {
-        for btn in 0..1 {
+        for btn in 0..2 {
             if elevator.tasks[floor][btn] {
                 return true;
             }
@@ -22,8 +24,8 @@ fn above(elevator: &ElevatorContainer) -> bool {
 }
 
 fn below(elevator: &ElevatorContainer) -> bool {
-    for floor in 0..(elevator.last_floor_sensor) as usize {
-        for btn in 0..1 {
+    for floor in 0..elevator.last_floor_sensor as usize {
+        for btn in 0..2 {
             if elevator.tasks[floor][btn] {
                 return true;
             }
@@ -36,7 +38,7 @@ fn below(elevator: &ElevatorContainer) -> bool {
 }
 
 fn here(elevator: &ElevatorContainer) -> bool {
-    for btn in 0..1 {
+    for btn in 0..2 {
         if elevator.tasks[elevator.last_floor_sensor as usize][btn] {
             return true;
         }
@@ -73,12 +75,16 @@ pub fn choose_direction(elevator: &ElevatorContainer) -> DirnBehaviourPair {
         }
         Dirn::Stop => {
             if here(elevator) {
+                print::err(1.to_string());
                 DirnBehaviourPair { dirn: Dirn::Stop, behaviour: ElevatorBehaviour::DoorOpen }
             } else if above(elevator) {
+                print::err(2.to_string());
                 DirnBehaviourPair { dirn: Dirn::Up, behaviour: ElevatorBehaviour::Moving }
             } else if below(elevator) {
+                print::err(3.to_string());
                 DirnBehaviourPair { dirn: Dirn::Down, behaviour: ElevatorBehaviour::Moving }
             } else {
+                // print::err(4.to_string());
                 DirnBehaviourPair { dirn: Dirn::Stop, behaviour: ElevatorBehaviour::Idle }
             }
         }

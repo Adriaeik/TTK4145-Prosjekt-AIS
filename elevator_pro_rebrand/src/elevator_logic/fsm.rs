@@ -16,6 +16,7 @@ use super::{lights, timer};
 
 
 pub async fn onFloorArrival(elevator: &mut ElevatorContainer, e: Elevator, door_timer: &mut timer::Timer) {
+    // Ved init between floors: last_floor = 255, sett den til høyeste etasje for å slippe index error
     if elevator.last_floor_sensor > elevator.num_floors {
         elevator.last_floor_sensor = elevator.num_floors-1;
     }
