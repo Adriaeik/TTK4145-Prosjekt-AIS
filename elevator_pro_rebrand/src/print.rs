@@ -5,6 +5,7 @@ use crate::elevio;
 use ansi_term::Colour::{Blue, Green, Red, Yellow, Purple, Fixed};
 use prettytable::{Table, Row, Cell, format, Attr, color};
 
+use unicode_width::UnicodeWidthStr;
 
 /// Prints a message in a specified color to the terminal.
 ///
@@ -277,7 +278,14 @@ pub fn cosmic_err(fun: String) {
     println!();
 }
 
-/// Logs `wv` in a nice format
+/// Hjelpefunksjon for å sikre at kolonner har fast breidde
+fn pad_text(text: &str, width: usize) -> String {
+    let visible_width = UnicodeWidthStr::width(text);
+    let padding = width.saturating_sub(visible_width);
+    format!("{}{}", text, " ".repeat(padding))
+}
+
+/// Logger `wv` i eit fint tabellformat
 pub fn worldview(worldview: Vec<u8>) {
     let print_stat = config::PRINT_WV_ON.lock().unwrap().clone();
     if !print_stat {
@@ -304,7 +312,7 @@ pub fn worldview(worldview: Vec<u8>) {
 
     for (floor, calls) in wv_deser.hall_request.iter().enumerate() {
         println!(
-            "│ {:<11} │          │ {} {} │",
+            "│ floor:{:<5} │          │ {} {}              │",
             floor,
             if calls[0] { "✅" } else { "❌" }, // Opp
             if calls[1] { "✅" } else { "❌" }  // Ned
@@ -314,72 +322,59 @@ pub fn worldview(worldview: Vec<u8>) {
     println!("└─────────────┴──────────┴────────────────────┘");
 
     // Heisstatus-tabell
-    println!("┌──────┬─────────┬──────────────┬──────────────┬─────────────┬──────────────────────┬───────────────┐");
-    println!("│ ID   │ Dør     │ Obstruksjon  │ Tasks        │ Siste etasje│ Calls (Etg:Call)     │ Elev status   │");
-    println!("├──────┼─────────┼──────────────┼──────────────┼─────────────┼──────────────────────┼───────────────┤");
+    println!("┌──────┬──────────┬──────────────┬──────────────┬─────────────┬──────────────────────┬───────────────┐");
+    println!("│ ID   │ Dør      │ Obstruksjon  │ Tasks        │ Siste etasje│ Calls (Etg:Call)     │ Elev status   │");
+    println!("├──────┼──────────┼──────────────┼──────────────┼─────────────┼──────────────────────┼───────────────┤");
 
-    for elev in wv_deser.elevator_containers {
-        let id_text = format!("│ {:<4} │", elev.elevator_id);
-        let door_status = if elev.behaviour == ElevatorBehaviour::DoorOpen {
-            format!(" {:<7} │", Yellow.paint("Åpen"))
+    for elev in &wv_deser.elevator_containers {
+        let id_text = pad_text(&format!("{}", elev.elevator_id), 4);
+        let door_text = if elev.behaviour == ElevatorBehaviour::DoorOpen {
+            pad_text(&Yellow.paint("Open").to_string(), 17)
         } else {
-            format!(" {:<7} │", Green.paint("Lukket"))
+            pad_text(&Green.paint("Lukka").to_string(), 17)
         };
-
-        let obstruction_status = if elev.obstruction {
-            format!(" {:<12} │", Red.paint("Ja"))
+        let obstruction_text = if elev.obstruction {
+            pad_text(&Red.paint("Ja").to_string(), 21)
         } else {
-            format!(" {:<12} │", Green.paint("Nei"))
+            pad_text(&Green.paint("Nei").to_string(), 21)
         };
-
-        // Konverter Tasks til emoji-tabell
-        let tasks_emoji = elev.cab_requests
-            .iter()
-            .enumerate()
+        
+        let tasks_emoji: Vec<String> = elev.cab_requests.iter().enumerate()
             .map(|(floor, task)| format!("{:<2} {}", floor, if *task { "✅" } else { "❌" }))
-            .collect::<Vec<String>>();
+            .collect();
 
-        // Konverter Calls til emoji-tabell
-        let call_list_emoji = elev.tasks
-            .iter()
-            .enumerate()
-            .map(|(floor, calls)| format!(
-                "{:<2} {} {}",
-                floor,
-                if calls[0] { "✅" } else { "❌" }, // Opp
-                if calls[1] { "✅" } else { "❌" }  // Ned
-            ))
-            .collect::<Vec<String>>();
+        let call_list_emoji: Vec<String> = elev.tasks.iter().enumerate()
+            .map(|(floor, calls)| format!("{:<2} {} {}", floor, if calls[0] { "✅" } else { "❌" }, if calls[1] { "✅" } else { "❌" }))
+            .collect();
 
-        let task_stat_list = match (elev.dirn, elev.behaviour) {
-            (_, ElevatorBehaviour::Idle) => Green.paint("Idle").to_string(),
-            (_, ElevatorBehaviour::Moving) => Yellow.paint("Moving").to_string(),
-            (_, ElevatorBehaviour::DoorOpen) => Purple.paint("Door Open").to_string(),
-            (_, ElevatorBehaviour::Error) => Red.paint("Error").to_string(),
+        let task_status = match (elev.dirn, elev.behaviour) {
+            (_, ElevatorBehaviour::Idle) => pad_text(&Green.paint("Idle").to_string(), 22),
+            (_, ElevatorBehaviour::Moving) => pad_text(&Yellow.paint("Moving").to_string(), 22),
+            (_, ElevatorBehaviour::DoorOpen) => pad_text(&Purple.paint("Door Open").to_string(), 22),
+            (_, ElevatorBehaviour::Error) => pad_text(&Red.paint("Error").to_string(), 22),
         };
 
-        // Finn max antal rader for Tasks eller Calls
         let max_rows = std::cmp::max(tasks_emoji.len(), call_list_emoji.len());
 
         for i in 0..max_rows {
-            let task_entry = tasks_emoji.get(i).cloned().unwrap_or_else(|| "  ".to_string()); // Legg buffer på tomme rader
+            let task_entry = tasks_emoji.get(i).cloned().unwrap_or_else(|| "  ".to_string());
             let call_entry = call_list_emoji.get(i).cloned().unwrap_or_else(|| "  ".to_string());
 
             if i == 0 {
                 println!(
-                    "{}{}{} {:<15} │ {:<11} │ {:<22} │ {:<13} │",
-                    id_text, door_status, obstruction_status, task_entry, elev.last_floor_sensor, call_entry, task_stat_list
+                    "│ {} │ {} │ {} │ {:<11} │ {:<11} │ {:<18} │ {} │",
+                    id_text, door_text, obstruction_text, task_entry, elev.last_floor_sensor, call_entry, task_status
                 );
             } else {
                 println!(
-                    "│      │         │              │ {:<15} │             │ {:<22} │               │",
+                    "│      │          │              │ {:<11} │             │ {:<18} │               │",
                     task_entry, call_entry
                 );
             }
         }
 
-        println!("├──────┼─────────┼──────────────┼──────────────┼─────────────┼──────────────────────┼───────────────┤");
+        println!("├──────┼──────────┼──────────────┼──────────────┼─────────────┼──────────────────────┼───────────────┤");
     }
 
-    println!("└──────┴─────────┴──────────────┴──────────────┴─────────────┴──────────────────────┴───────────────┘");
+    println!("└──────┴──────────┴──────────────┴──────────────┴─────────────┴──────────────────────┴───────────────┘");
 }
