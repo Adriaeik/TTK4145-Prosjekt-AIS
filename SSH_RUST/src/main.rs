@@ -84,7 +84,7 @@ fn main() {
                 // Hopp over programstart om `--only_elev` er sett
                 if !only_elev {
                     let command = format!(
-                        "sshpass -p '{}' ssh -X student@{} 'export DISPLAY=:0 && gnome-terminal -- bash -c \"cd ~/fuckers/TTK4145-Prosjekt-AIS/Byrokratiet_i_tokio_ny && cargo run -- {} {}; exec bash\"'",
+                        "sshpass -p '{}' ssh -X student@{} 'export DISPLAY=:0 && gnome-terminal -- bash -c \"cd ~/fuckers/TTK4145-Prosjekt-AIS/elevator_pro_rebrand && cargo run -- {} {}; exec bash\"'",
                         ssh_password, ip_address, role, id
                     );
                     
