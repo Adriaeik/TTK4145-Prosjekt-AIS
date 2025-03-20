@@ -60,7 +60,7 @@ fn main() {
                         .expect("Feil ved oppdatering av repo");
                 }
                 // drep pågåande program
-                let kill_command = format!("pkill -f {}", "Byrokratiet_i_tokio_ny"); // Erstatt med korrekt prosessnavn
+                let kill_command = format!("pkill -f {}", "elevator_pro_rebrand");
                 println!("\nDreper evt. pågåande program: \n \t  {}", kill_command);
                 let _ = Command::new("sh")
                     .arg("-c")
