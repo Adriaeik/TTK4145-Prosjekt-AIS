@@ -76,7 +76,7 @@ pub async fn tcp_handler(
         IS_MASTER.store(true, Ordering::SeqCst);
         /* Mens du er master: Motta sockets til slaver, start handle_slave i ny task*/
         while world_view::is_master(wv.clone()) {
-            if world_view_update::get_network_status().load(Ordering::SeqCst) {
+            if world_view_update::read_network_status() {
                 while let Ok((socket, addr)) = socket_rx.try_recv() {
                     print::info(format!("Ny slave tilkobla: {}", addr));
 
@@ -118,7 +118,7 @@ pub async fn tcp_handler(
         let mut new_master = false;
         while !world_view::is_master(wv.clone()) && master_accepted_tcp {
                 
-            if world_view_update::get_network_status().load(Ordering::SeqCst) {
+            if world_view_update::read_network_status() {
                 if let Some(ref mut s) = stream {
                     if new_master {
                         print::slave(format!("Fått ny master"));
@@ -149,7 +149,7 @@ async fn connect_to_master(wv_watch_rx: watch::Receiver<Vec<u8>>, tcp_to_master_
     let wv = world_view::get_wv(wv_watch_rx.clone());
 
     // Sjekker at vi har internett før vi prøver å koble til
-    if world_view_update::get_network_status().load(Ordering::SeqCst) {
+    if world_view_update::read_network_status() {
         let master_ip = format!("{}.{}:{}", config::NETWORK_PREFIX, wv[config::MASTER_IDX], config::PN_PORT);
         print::info(format!("Prøver å koble på: {} i TCP_listener()", master_ip));
 
@@ -179,7 +179,7 @@ async fn connect_to_master(wv_watch_rx: watch::Receiver<Vec<u8>>, tcp_to_master_
 pub async fn listener_task(socket_tx: mpsc::Sender<(TcpStream, SocketAddr)>) {
     let self_ip = format!("{}.{}", config::NETWORK_PREFIX, local_network::SELF_ID.load(Ordering::SeqCst));
     // Ved første init, vent til vi er sikre på at vi har internett
-    while !world_view_update::get_network_status().load(Ordering::SeqCst) {
+    while !world_view_update::read_network_status() {
         tokio::time::sleep(config::TCP_PERIOD).await;
     }
 
@@ -197,7 +197,7 @@ pub async fn listener_task(socket_tx: mpsc::Sender<(TcpStream, SocketAddr)>) {
 
     /* Når listener accepter ny tilkobling -> send socket og addr til tcp_handler gjennom socket_tx */
     loop {
-        if world_view_update::get_network_status().load(Ordering::SeqCst) {
+        if world_view_update::read_network_status() {
             sleep(Duration::from_millis(100)).await;
             match listener.accept().await {
                 Ok((socket, addr)) => {

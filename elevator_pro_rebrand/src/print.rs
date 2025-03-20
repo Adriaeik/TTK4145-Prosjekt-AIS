@@ -1,9 +1,7 @@
 use std::io::Write;
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 use crate::{config, world_view::{Dirn, ElevatorBehaviour, serial}};
-use crate::elevio;
-use ansi_term::Colour::{Blue, Green, Red, Yellow, Purple, Fixed};
-use prettytable::{Table, Row, Cell, format, Attr, color};
+use ansi_term::Colour::{Green, Red, Yellow, Purple};
 
 use unicode_width::UnicodeWidthStr;
 

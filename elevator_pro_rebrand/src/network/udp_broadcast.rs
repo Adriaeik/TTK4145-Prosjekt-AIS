@@ -67,7 +67,7 @@ pub async fn start_udp_broadcaster(wv_watch_rx: watch::Receiver<Vec<u8>>) -> tok
             let mesage = format!("{:?}{:?}", config::KEY_STR, wv).to_string();
 
             // Kun send hvis du har internett-tilkobling
-            if world_view::world_view_update::get_network_status().load(Ordering::SeqCst) {
+            if world_view::world_view_update::read_network_status() {
                 // Gi den tid til å lese nye wv fra udp tilfelle den var ute av internett lenge
                 if !prev_network_status {
                     sleep(Duration::from_millis(500));

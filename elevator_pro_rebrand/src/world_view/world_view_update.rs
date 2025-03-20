@@ -1,37 +1,35 @@
 //! Help functions to update local worldview
+use super::{serial, ElevatorContainer, Dirn, ElevatorBehaviour, get_index_to_container};
 
-// use crate::elevator_logic::master::wv_from_slaves::update_call_buttons;
-use crate::{init, world_view};
-use crate::{config, print, ip_help_functions::{self}};
-use crate::network::local_network;
-use crate::elevio;
-// use crate::manager::task_allocator::Task;
+use crate::{init, config, print, ip_help_functions, world_view, network::local_network};
 
 use tokio::sync::{mpsc, watch};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::OnceLock;
 use std::collections::HashMap;
 
-use crate::world_view::{get_index_to_container, serial, Dirn, ElevatorBehaviour};
-
-use super::ElevatorContainer;
-
-
 static ONLINE: OnceLock<AtomicBool> = OnceLock::new(); 
 
-/// Retrieves the current network status as an atomic boolean.
+/// Reads and returns a clone of the current network status
 ///
-/// This function returns a reference to a static `AtomicBool`
+/// This function returns a copy of the network status the moment it was read.
 /// that represents whether the system is online or offline.
 ///
 /// # Returns
-/// A reference to an `AtomicBool`:
+/// A bool`:
 /// - `true` if the system is online.
 /// - `false` if the system is offline.
-///
-/// The initial value is `false` until explicitly changed.
-pub fn get_network_status() -> &'static AtomicBool {
-    ONLINE.get_or_init(|| AtomicBool::new(false))
+/// 
+/// # Note
+/// - The initial value is `false` until explicitly changed. 
+/// - The returned value is only a clone of the atomic boolean's value at read-time. The function should be called every time you need to check the online-status
+pub fn read_network_status() -> bool {
+    ONLINE.get_or_init(|| AtomicBool::new(false)).load(Ordering::SeqCst)
+}
+
+/// This function sets the network status
+fn set_network_status(status: bool) {
+    ONLINE.get_or_init(|| AtomicBool::new(false)).store(status, Ordering::SeqCst);
 }
 
 
@@ -317,7 +315,18 @@ pub fn clear_from_sent_tcp(wv: &mut Vec<u8>, tcp_container: Vec<u8>) -> bool {
     }
 }
 
-
+/// This function allocates tasks from the given map to the corresponding elevator_container's tasks vector
+/// 
+/// # Parameters
+/// `wv`: A mutable reference to a serialized worldview
+///  
+/// # Behavior
+/// - Iterates through every elevator_container in the worldview
+/// - If any tasks in the map matches the elevators ID, it sets the elevators tasks equal to the map's tasks
+/// 
+/// # Return
+/// true
+/// 
 pub fn distribute_tasks(wv: &mut Vec<u8>, map: HashMap<u8, Vec<[bool; 2]>>) -> bool {
     let mut wv_deser = world_view::serial::deserialize_worldview(&wv.clone());
 
@@ -425,7 +434,7 @@ pub async fn watch_ethernet(wv_watch_rx: watch::Receiver<Vec<u8>>, new_wv_after_
             else {
                 print::warn("Vi er offline".to_string());
             }
-            get_network_status().store(net_status, Ordering::SeqCst);
+            set_network_status(net_status);
             last_net_status = net_status;
         }
     }

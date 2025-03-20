@@ -44,9 +44,9 @@ pub const TCP_PER_U64: u64 = 10; // i millisekunder
 pub const UDP_PERIOD: Duration = Duration::from_millis(TCP_PER_U64);
 /// Period between sending of TCP messages to master-node
 pub const TCP_PERIOD: Duration = Duration::from_millis(TCP_PER_U64);
-
+/// General period at 10 ms
 pub const POLL_PERIOD: Duration = Duration::from_millis(10);
-
+/// Period used to sleep before rechecking network status when you are offline
 pub const OFFLINE_PERIOD: Duration = Duration::from_millis(100);
 
 /// Timeout duration of slave-nodes

@@ -8,17 +8,20 @@ use std::sync::atomic::Ordering;
 use crate::config;
 use crate::print;
 use crate::network::local_network;
-use crate::elevio;
 
 
+#[allow(missing_docs)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+/// Struct describing direction an elevator is taking calls in.
 pub enum Dirn {
     Down = -1,
     Stop = 0,
     Up = 1,
 }
 
+#[allow(missing_docs)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+/// Struct describing the current behaviour of an elevator
 pub enum ElevatorBehaviour {
     Idle,
     Moving,
@@ -26,43 +29,45 @@ pub enum ElevatorBehaviour {
     Error,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct LocalElevatorState {
-    behaviour: ElevatorBehaviour,
-    floor: i32,
-    direction: Dirn,
-    cab_requests: Vec<bool>,
-}
-
-
-
 
 /// Represents the state of an elevator, including tasks, status indicators, and movement.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ElevatorContainer {
-    /// Unique identifier for the elevator.
-    pub elevator_id: u8, // Default: ERROR_ID
+    /// Unique identifier for the elevator.  
+    /// Default: [config::ERROR_ID]
+    pub elevator_id: u8,
 
+    /// The number of floors the elevator can access  
+    /// Default: [config::DEFAULT_NUM_FLOORS]
     pub num_floors: u8,
 
-    /// List of external call requests.
-    // pub calls: Vec<elevio::CallButton>, // Default: empty vector
+    /// Vector of hall requests not yet sent to master over TCP  
+    /// Default: full of \[false, false\], length [config::DEFAULT_NUM_FLOORS]
     pub unsent_hall_request: Vec<[bool; 2]>,
 
-    /// List of assigned tasks for the elevator.
+    /// Vector of cab_requests.  
+    /// Default: full of false, length [config::DEFAULT_NUM_FLOORS]
     pub cab_requests: Vec<bool>,
 
+    /// Vector of hall_requests given to this elevator from the manager.  
+    /// Default: full of \[false, false\], length [config::DEFAULT_NUM_FLOORS]
     pub tasks: Vec<[bool; 2]>, 
 
-    pub dirn: Dirn,
+    /// [Dirn]  
+    ///  Default: [Dirn::Stop]
+    pub dirn: Dirn, 
 
-    pub behaviour: ElevatorBehaviour,
+    /// The current behaviour of the elevator  
+    /// Default: [ElevatorBehaviour::Idle]
+    pub behaviour: ElevatorBehaviour, 
 
-    /// Indicates whether the elevator detects an obstruction.
-    pub obstruction: bool, // Default: false
+    /// Indicates whether the elevator detects an obstruction.  
+    /// Default: false
+    pub obstruction: bool, 
 
-    /// The last detected floor sensor position.
-    pub last_floor_sensor: u8, // Default: 255 (undefined)
+    /// The last detected floor sensor position.  
+    /// Default: 255
+    pub last_floor_sensor: u8,
 }
 
 
@@ -71,16 +76,13 @@ impl Default for ElevatorContainer {
         Self {
             elevator_id: config::ERROR_ID,
             num_floors: config::DEFAULT_NUM_FLOORS,
-            // calls: Vec::new(),
             unsent_hall_request: vec![[false; 2]; config::DEFAULT_NUM_FLOORS as usize],
             cab_requests: vec![false; config::DEFAULT_NUM_FLOORS as usize],
             tasks: vec![[false, false]; config::DEFAULT_NUM_FLOORS as usize],
-            // task: None,
-            // status: ElevatorStatus::IDLE,
             dirn: Dirn::Stop,
             behaviour: ElevatorBehaviour::Idle,
             obstruction: false,
-            last_floor_sensor: 255, // Spesifikk verdi for sensor
+            last_floor_sensor: 255, 
         }
     }
 }
@@ -92,18 +94,18 @@ impl Default for ElevatorContainer {
 /// the master elevator's ID, and the call buttons pressed outside the elevators.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct WorldView {
-    /// - `n`: Number of elevators in the system.
+    /// Number of elevators in the system.
     n: u8, 
-    /// - `master_id`: The ID of the master elevator.
+    /// The ID of the master elevator.
     pub master_id: u8, 
-    /// - `pending_tasks`: A list of call buttons pressed outside elevators.
-    // pub pending_tasks: Vec<Task>, 
+    /// A vector contining statuses on all hall requests  
     pub hall_request: Vec<[bool; 2]>,
 
-    /// - `elevator_containers`: A list of `ElevatorContainer` structures containing
+    /// A list of `ElevatorContainer` structures containing
     ///   individual elevator information.
     pub elevator_containers: Vec<ElevatorContainer>, 
-
+    
+    /// A HashMap backing up cab_call statuses for all elevators, mapping them to their IDs
     pub cab_requests_backup: HashMap<u8, Vec<bool>>,
 }
 

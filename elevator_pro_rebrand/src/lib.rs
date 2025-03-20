@@ -24,6 +24,7 @@ pub mod init;
 /// Print functions with color coding
 pub mod print;
 
+/// Responsible for calculating cost and distribute tasks
 pub mod manager;
 
 /// Network communication via UDP and TCP.
@@ -45,5 +46,6 @@ pub mod elevio;
 /// Elevator control logic and task handling.
 pub mod elevator_logic;
 
+/// Responsible for creating and running the backup-instnce
 pub mod backup;
 
