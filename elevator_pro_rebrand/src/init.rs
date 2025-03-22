@@ -41,7 +41,6 @@ pub async fn initialize_worldview(self_container : Option< world_view::ElevatorC
     } else {
         // Opprett ein standard ElevatorContainer med ein initial placeholder-task
         let mut container = ElevatorContainer::default();
-        container.cab_requests[0] = true;
         container
     };
 
