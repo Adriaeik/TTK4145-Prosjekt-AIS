@@ -28,14 +28,7 @@ pub mod print;
 pub mod manager;
 
 /// Network communication via UDP and TCP.
-pub mod network {
-    /// Sends and receives messages using UDP broadcast.
-    pub mod udp_broadcast;
-    /// Handles discovery and management of the local network.
-    pub mod local_network;
-    /// TCP communication with other nodes.
-    pub mod tcp_network;
-}
+pub mod network;
 
 /// Management of the system's world view.
 pub mod world_view;

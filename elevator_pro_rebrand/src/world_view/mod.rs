@@ -1,4 +1,3 @@
-pub mod world_view_update;
 pub mod serial;
 
 use serde::{Serialize, Deserialize};
@@ -7,7 +6,7 @@ use std::collections::HashMap;
 use std::sync::atomic::Ordering;
 use crate::config;
 use crate::print;
-use crate::network::local_network;
+use crate::network::{status, local_network};
 
 
 #[allow(missing_docs)]
@@ -286,7 +285,7 @@ pub async fn update_wv(wv_watch_rx: watch::Receiver<Vec<u8>>, wv: &mut Vec<u8>) 
 /// - `true` if the current system's `SELF_ID` matches the value at `MASTER_IDX` in the worldview.
 /// - `false` otherwise.
 pub fn is_master(wv: Vec<u8>) -> bool {
-    return local_network::SELF_ID.load(Ordering::SeqCst) == wv[config::MASTER_IDX];
+    return status::SELF_ID.load(Ordering::SeqCst) == wv[config::MASTER_IDX];
 }
 
 // /// Retrieves the latest elevator tasks from the system.
@@ -340,7 +339,7 @@ pub fn extract_elevator_container(wv: Vec<u8>, id: u8) -> Option<ElevatorContain
 ///
 /// **Note:** This function internally calls `extract_elevator_container` to retrieve the correct elevator container.
 pub fn extract_self_elevator_container(wv: Vec<u8>) -> Option<ElevatorContainer> {
-    let id = local_network::SELF_ID.load(Ordering::SeqCst);
+    let id = status::SELF_ID.load(Ordering::SeqCst);
     extract_elevator_container(wv, id)
 }
 

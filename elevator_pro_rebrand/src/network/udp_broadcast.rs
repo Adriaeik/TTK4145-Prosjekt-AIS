@@ -1,6 +1,7 @@
 //! ## Håndterer UDP-logikk i systemet
 
 use crate::config;
+use crate::network;
 use crate::print;
 use crate::world_view;
 use super::local_network;
@@ -39,11 +40,10 @@ pub fn get_udp_timeout() -> &'static AtomicBool {
 /// ## Note
 /// This function is permanently blocking, and should be called asynchronously
 pub async fn start_udp_broadcaster(wv_watch_rx: watch::Receiver<Vec<u8>>) -> tokio::io::Result<()> {
-    use crate::world_view::world_view_update;
-    while !world_view_update::read_network_status() {
+    while !network::status::read_network_status() {
         
     }
-    let mut prev_network_status = world_view_update::read_network_status();
+    let mut prev_network_status = network::status::read_network_status();
 
     // Sett opp sockets
     let addr: &str = &format!("{}:{}", config::BC_ADDR, config::DUMMY_PORT);
@@ -65,13 +65,13 @@ pub async fn start_udp_broadcaster(wv_watch_rx: watch::Receiver<Vec<u8>>) -> tok
         world_view::update_wv(wv_watch_rx_clone, &mut wv).await;
 
         // Hvis du er master, broadcast worldview
-        if local_network::SELF_ID.load(Ordering::SeqCst) == wv[config::MASTER_IDX] {
+        if network::status::SELF_ID.load(Ordering::SeqCst) == wv[config::MASTER_IDX] {
             //TODO: Lag bedre delay?
             sleep(config::UDP_PERIOD);
             let mesage = format!("{:?}{:?}", config::KEY_STR, wv).to_string();
 
             // Kun send hvis du har internett-tilkobling
-            if world_view::world_view_update::read_network_status() {
+            if network::status::read_network_status() {
                 // Gi den tid til å lese nye wv fra udp tilfelle den var ute av internett lenge
                 if !prev_network_status {
                     sleep(Duration::from_millis(500));
@@ -101,12 +101,11 @@ pub async fn start_udp_broadcaster(wv_watch_rx: watch::Receiver<Vec<u8>>) -> tok
 /// ## Note
 /// This function is permanently blocking, and should be called asynchronously 
 pub async fn start_udp_listener(wv_watch_rx: watch::Receiver<Vec<u8>>, udp_wv_tx: mpsc::Sender<Vec<u8>>) -> tokio::io::Result<()> {
-    use crate::world_view::world_view_update;
-    while !world_view_update::read_network_status() {
+    while !network::status::read_network_status() {
         
     }
     //Sett opp sockets
-    let self_id = local_network::SELF_ID.load(Ordering::SeqCst);
+    let self_id = network::status::SELF_ID.load(Ordering::SeqCst);
     let broadcast_listen_addr = format!("{}:{}", config::BC_LISTEN_ADDR, config::DUMMY_PORT);
     let socket_addr: SocketAddr = broadcast_listen_addr.parse().expect("Ugyldig adresse");
     let socket_temp = Socket::new(Domain::IPV4, Type::DGRAM, None)?;
@@ -175,8 +174,7 @@ pub async fn start_udp_listener(wv_watch_rx: watch::Receiver<Vec<u8>>, udp_wv_tx
 /// If the atomic bool is true when it wakes up, the watchdog has detected a timeout, as it is set false each time a UDP broadcast is recieved from the master.
 /// If a timeout is detected, it signals that connection to master has failed.
 pub async fn udp_watchdog(connection_to_master_failed_tx: mpsc::Sender<bool>) {
-    use crate::world_view::world_view_update;
-    while !world_view_update::read_network_status() {
+    while !network::status::read_network_status() {
         
     }
     loop {
