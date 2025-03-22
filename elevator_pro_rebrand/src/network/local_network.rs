@@ -84,7 +84,7 @@ pub async fn update_wv_watch(mut mpsc_rxs: MpscRxs, worldview_watch_tx: watch::S
             Err(_) => {}, 
         }
         /*_____Update worldview when tcp to master has failed_____ */
-        match mpsc_rxs.tcp_to_master_failed.try_recv() {
+        match mpsc_rxs.connection_to_master_failed.try_recv() {
             Ok(_) => {
                 wv_edited_I = abort_network(&mut worldview_serialised);
             },
@@ -187,7 +187,7 @@ pub struct MpscTxs {
     /// Sends a UDP worldview packet.
     pub udp_wv: mpsc::Sender<Vec<u8>>,
     /// Notifies if the TCP connection to the master has failed.
-    pub tcp_to_master_failed: mpsc::Sender<bool>,
+    pub connection_to_master_failed: mpsc::Sender<bool>,
     /// Sends elevator containers recieved from slaves on TCP.
     pub container: mpsc::Sender<Vec<u8>>,
     /// Requests the removal of a container by ID.
@@ -212,7 +212,7 @@ pub struct MpscRxs {
     /// Receives a UDP worldview packet.
     pub udp_wv: mpsc::Receiver<Vec<u8>>,
     /// Receives a notification if the TCP connection to the master has failed.
-    pub tcp_to_master_failed: mpsc::Receiver<bool>,
+    pub connection_to_master_failed: mpsc::Receiver<bool>,
     /// Receives elevator containers recieved from slaves on TCP.
     pub container: mpsc::Receiver<Vec<u8>>,
     /// Receives requests to remove a container by ID.
@@ -242,7 +242,7 @@ impl Mpscs {
     /// Creates a new `Mpscs` instance with initialized channels.
     pub fn new() -> Self {
         let (tx_udp, rx_udp) = mpsc::channel(300);
-        let (tx_tcp_to_master_failed, rx_tcp_to_master_failed) = mpsc::channel(300);
+        let (tx_connection_to_master_failed, rx_connection_to_master_failed) = mpsc::channel(300);
         let (tx_container, rx_container) = mpsc::channel(300);
         let (tx_remove_container, rx_remove_container) = mpsc::channel(300);
         let (tx_sent_tcp_container, rx_sent_tcp_container) = mpsc::channel(300);
@@ -259,7 +259,7 @@ impl Mpscs {
         Mpscs {
             txs: MpscTxs {
                 udp_wv: tx_udp,
-                tcp_to_master_failed: tx_tcp_to_master_failed,
+                connection_to_master_failed: tx_connection_to_master_failed,
                 container: tx_container,
                 remove_container: tx_remove_container,
                 sent_tcp_container: tx_sent_tcp_container,
@@ -273,7 +273,7 @@ impl Mpscs {
             },
             rxs: MpscRxs {
                 udp_wv: rx_udp,
-                tcp_to_master_failed: rx_tcp_to_master_failed,
+                connection_to_master_failed: rx_connection_to_master_failed,
                 container: rx_container,
                 remove_container: rx_remove_container,
                 sent_tcp_container: rx_sent_tcp_container,

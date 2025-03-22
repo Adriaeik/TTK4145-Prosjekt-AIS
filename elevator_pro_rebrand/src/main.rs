@@ -55,9 +55,9 @@ async fn main() {
     let udp_wv_tx = main_mpscs.txs.udp_wv;
     let remove_container_tx = main_mpscs.txs.remove_container;
     let container_tx = main_mpscs.txs.container;
-    let tcp_to_master_failed_tx_clone = main_mpscs.txs.tcp_to_master_failed.clone();
+    let connection_to_master_failed_tx_clone = main_mpscs.txs.connection_to_master_failed.clone();
     let sent_tcp_container_tx = main_mpscs.txs.sent_tcp_container;
-    let tcp_to_master_failed_tx = main_mpscs.txs.tcp_to_master_failed;
+    let connection_to_master_failed_tx = main_mpscs.txs.connection_to_master_failed;
     let new_wv_after_offline_tx = main_mpscs.txs.new_wv_after_offline;
     
     /* SLUTT ----------- Init av channels brukt til oppdatering av lokal worldview ---------------------- */
@@ -137,7 +137,7 @@ async fn main() {
         let wv_watch_rx = watches.rxs.wv.clone();
         let _tcp_task = tokio::spawn(async move {
             print::info("Starter å TCPe".to_string());
-            let _ = tcp_network::tcp_handler(wv_watch_rx, remove_container_tx, container_tx, tcp_to_master_failed_tx, sent_tcp_container_tx, socket_rx).await;
+            let _ = tcp_network::tcp_handler(wv_watch_rx, remove_container_tx, container_tx, connection_to_master_failed_tx, sent_tcp_container_tx, socket_rx).await;
         });
     }
 
@@ -145,7 +145,7 @@ async fn main() {
     {
         let _udp_watchdog = tokio::spawn(async move {
             print::info("Starter udp watchdog".to_string());
-            let _ = udp_broadcast::udp_watchdog(tcp_to_master_failed_tx_clone).await;
+            let _ = udp_broadcast::udp_watchdog(connection_to_master_failed_tx_clone).await;
         });
     }
 

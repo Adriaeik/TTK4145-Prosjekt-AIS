@@ -74,7 +74,7 @@ pub async fn listener_task(socket_tx: mpsc::Sender<(TcpStream, SocketAddr)>) {
 /// # Parameters
 /// `wv_watch_rx`: Reciever on watch the worldview is being sent on in the system   
 /// `remove_container_tx`: mpsc Sender used to notify worldview updater if a slave should be removed  
-/// `tcp_to_master_failed`: Sender on mpsc channel signaling if tcp connection to master has failed   
+/// `connection_to_master_failed`: Sender on mpsc channel signaling if connection to master has failed   
 /// `sent_tcp_container_tx`: mpsc Sender for notifying worldview updater what data has been sent to master    
 /// `container_tx`: mpsc Sender used pass recieved slave-messages to the worldview_updater  
 /// `socket_rx`: Reciever on mpsc channel recieving new TcpStreams and SocketAddress from the TCP listener   
@@ -92,7 +92,7 @@ pub async fn tcp_handler(
     wv_watch_rx: watch::Receiver<Vec<u8>>, 
     remove_container_tx: mpsc::Sender<u8>, 
     container_tx: mpsc::Sender<Vec<u8>>, 
-    tcp_to_master_failed_tx: mpsc::Sender<bool>, 
+    connection_to_master_failed_tx: mpsc::Sender<bool>, 
     sent_tcp_container_tx: mpsc::Sender<Vec<u8>>, 
     mut socket_rx: mpsc::Receiver<(TcpStream, SocketAddr)>
 ) 
@@ -108,7 +108,7 @@ pub async fn tcp_handler(
         
         //mista master
         IS_MASTER.store(false, Ordering::SeqCst);
-        tcp_while_slave(&mut wv, wv_watch_rx.clone(), tcp_to_master_failed_tx.clone(), sent_tcp_container_tx.clone()).await;
+        tcp_while_slave(&mut wv, wv_watch_rx.clone(), connection_to_master_failed_tx.clone(), sent_tcp_container_tx.clone()).await;
         
         //ny master
     }
@@ -235,7 +235,7 @@ async fn tcp_while_master(wv: &mut Vec<u8>, wv_watch_rx: watch::Receiver<Vec<u8>
 /// # Parameters
 /// `wv`: A mutable refrence to the current serialized worldview  
 /// `wv_watch_rx`: Reciever on watch the worldview is being sent on in the system  
-/// `tcp_to_master_failed`: Sender on mpsc channel signaling if tcp connection to master has failed   
+/// `connection_to_master_failed`: Sender on mpsc channel signaling if connection to master has failed   
 /// `sent_tcp_container_tx`: mpsc Sender for notifying worldview updater what data has been sent to master  
 /// 
 /// 
@@ -244,11 +244,11 @@ async fn tcp_while_master(wv: &mut Vec<u8>, wv_watch_rx: watch::Receiver<Vec<u8>
 /// While the system is a slave on the network and connection to the master is valid:
 /// - Send TCP message to the master
 /// - Check for new master on the system
-async fn tcp_while_slave(wv: &mut Vec<u8>, wv_watch_rx: watch::Receiver<Vec<u8>>, tcp_to_master_failed_tx: mpsc::Sender<bool>, sent_tcp_container_tx: mpsc::Sender<Vec<u8>>) {
+async fn tcp_while_slave(wv: &mut Vec<u8>, wv_watch_rx: watch::Receiver<Vec<u8>>, connection_to_master_failed_tx: mpsc::Sender<bool>, sent_tcp_container_tx: mpsc::Sender<Vec<u8>>) {
     /* Try to connect with master over TCP */
     let mut master_accepted_tcp = false;
     let mut stream:Option<TcpStream> = None;
-    if let Some(s) = connect_to_master(wv_watch_rx.clone(), tcp_to_master_failed_tx.clone()).await {
+    if let Some(s) = connect_to_master(wv_watch_rx.clone(), connection_to_master_failed_tx.clone()).await {
         println!("Master accepted the TCP-connection");
         master_accepted_tcp = true;
         stream = Some(s);
@@ -264,7 +264,7 @@ async fn tcp_while_slave(wv: &mut Vec<u8>, wv_watch_rx: watch::Receiver<Vec<u8>>
         if world_view_update::read_network_status() {
             if let Some(ref mut s) = stream {
                 /* Send TCP message to master */
-                send_tcp_message(tcp_to_master_failed_tx.clone(), sent_tcp_container_tx.clone(), s, wv.clone()).await;
+                send_tcp_message(connection_to_master_failed_tx.clone(), sent_tcp_container_tx.clone(), s, wv.clone()).await;
                 if new_master {
                     print::slave(format!("New master on the network"));
                     master_accepted_tcp = false;
@@ -290,7 +290,7 @@ async fn tcp_while_slave(wv: &mut Vec<u8>, wv_watch_rx: watch::Receiver<Vec<u8>>
 /// 
 /// # Parameters
 /// `wv_watch_rx`: Reciever on watch the worldview is being sent on in the system   
-/// `tcp_to_master_failed`: Sender on mpsc channel signaling if tcp connection to master has failed
+/// `connection_to_master_failed`: Sender on mpsc channel signaling if connection to master has failed
 /// 
 /// # Return
 /// `Some(TcpStream)`: Connection to master successfull, TcpStream is the stream to the master
@@ -299,8 +299,8 @@ async fn tcp_while_slave(wv: &mut Vec<u8>, wv_watch_rx: watch::Receiver<Vec<u8>>
 /// # Behavior
 /// The functions tries to connect to the current master, based on the master_id in the worldview. 
 /// If the connection is successfull, it returns the stream, otherwise it returns None.
-/// If the connection failed, it sends a signal to the worldview updater over `tcp_to_master_failed_tx` indicating that the connection failed.
-async fn connect_to_master(wv_watch_rx: watch::Receiver<Vec<u8>>, tcp_to_master_failed_tx: mpsc::Sender<bool>) -> Option<TcpStream> {
+/// If the connection failed, it sends a signal to the worldview updater over `connection_to_master_failed_tx` indicating that the connection failed.
+async fn connect_to_master(wv_watch_rx: watch::Receiver<Vec<u8>>, connection_to_master_failed_tx: mpsc::Sender<bool>) -> Option<TcpStream> {
     let wv = world_view::get_wv(wv_watch_rx.clone());
 
     /* Check if we are online */
@@ -318,9 +318,9 @@ async fn connect_to_master(wv_watch_rx: watch::Receiver<Vec<u8>>, tcp_to_master_
             Err(e) => {
                 print::err(format!("Failed to connect to master over tcp: {}", e));
 
-                match tcp_to_master_failed_tx.send(true).await {
+                match connection_to_master_failed_tx.send(true).await {
                     Ok(_) => print::info("Notified that connection to master failed".to_string()),
-                    Err(err) => print::err(format!("Error while sending message on tcp_to_master_failed: {}", err)),
+                    Err(err) => print::err(format!("Error while sending message on connection_to_master_failed: {}", err)),
                 }
                 None
             }
@@ -411,7 +411,7 @@ async fn read_from_stream(remove_container_tx: mpsc::Sender<u8>, stream: &mut Tc
 /// Function that sends tcp message to master
 /// 
 /// # Parameters
-/// `tcp_to_master_failed_tx`: mpsc Sender for signaling to worldview updater that connection to master failed  
+/// `connection_to_master_failed_tx`: mpsc Sender for signaling to worldview updater that connection to master failed  
 /// `sent_tcp_container_tx`: mpsc Sender for notifying worldview updater what data has been sent to master  
 /// `stream`: The TcpStream to the master  
 /// `wv`: The current worldview in serial state  
@@ -421,8 +421,8 @@ async fn read_from_stream(remove_container_tx: mpsc::Sender<u8>, stream: &mut Tc
 /// The function writes the following on the stream's transmission-buffer:
 /// - Length of the message
 /// - The message  
-/// After this, it flushes the stream, and sends the sent data over `ent_tcp_container_tx`. If writing to the stream fails, it signals on `tcp_to_master_failed_tx`
-async fn send_tcp_message(tcp_to_master_failed_tx: mpsc::Sender<bool>, sent_tcp_container_tx: mpsc::Sender<Vec<u8>>, stream: &mut TcpStream, wv: Vec<u8>) {
+/// After this, it flushes the stream, and sends the sent data over `ent_tcp_container_tx`. If writing to the stream fails, it signals on `connection_to_master_failed_tx`
+async fn send_tcp_message(connection_to_master_failed_tx: mpsc::Sender<bool>, sent_tcp_container_tx: mpsc::Sender<Vec<u8>>, stream: &mut TcpStream, wv: Vec<u8>) {
     let self_elev_container = match world_view::extract_self_elevator_container(wv) {
         Some(container) => container,
         None => {
@@ -438,11 +438,11 @@ async fn send_tcp_message(tcp_to_master_failed_tx: mpsc::Sender<bool>, sent_tcp_
 
     /* Send the message */
     if let Err(_) = stream.write_all(&len).await {
-        let _ = tcp_to_master_failed_tx.send(true).await;
+        let _ = connection_to_master_failed_tx.send(true).await;
     } else if let Err(_) = stream.write_all(&self_elev_serialized).await {
-        let _ = tcp_to_master_failed_tx.send(true).await; 
+        let _ = connection_to_master_failed_tx.send(true).await; 
     } else if let Err(_) = stream.flush().await {
-        let _ = tcp_to_master_failed_tx.send(true).await; 
+        let _ = connection_to_master_failed_tx.send(true).await; 
     } else {
         let _ = sent_tcp_container_tx.send(self_elev_serialized).await;
     }
