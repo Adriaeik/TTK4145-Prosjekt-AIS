@@ -20,7 +20,26 @@ use crate::world_view::Dirn;
 use crate::world_view::ElevatorBehaviour;
 use crate::world_view::ElevatorContainer;
 
-
+/// Initializes and runs the local elevator logic as a set of async tasks.
+///
+/// This function performs the following:
+/// - Initializes the local elevator instance and communication channels.
+/// - Spawns one async task to handle elevator state and behavior (`handle_elevator`).
+/// - Spawns another task to continuously update the hall request lights based on world view state.
+/// - Keeps the main task alive indefinitely via an infinite `yield_now` loop.
+///
+/// # Parameters
+/// - `wv_watch_rx`: A `watch::Receiver` that provides the latest serialized world view.
+/// - `elevator_states_tx`: A `mpsc::Sender` used to send the local elevator state back to the system.
+///
+/// # Behavior
+/// - Runs all logic asynchronously and non-blocking.
+/// - Continues operation until externally cancelled or interrupted.
+/// - Each spawned task operates independently of the main loop.
+///
+/// # Note
+/// The hall light updater task continuously reads the world view and sets the hall lights based on
+/// the current state of the local elevator. Failure to extract the local container results in a warning.
 pub async fn run_local_elevator(wv_watch_rx: watch::Receiver<Vec<u8>>, elevator_states_tx: mpsc::Sender<Vec<u8>>) {
     let (local_elev_tx, local_elev_rx) = mpsc::channel::<ElevMessage>(100);
     
@@ -64,8 +83,32 @@ pub async fn run_local_elevator(wv_watch_rx: watch::Receiver<Vec<u8>>, elevator_
 }
 
 
-
-
+/// Main event loop for handling local elevator logic, state transitions, and communication.
+///
+/// This function implements the core elevator state machine and handles:
+/// - Receiving updates from local hardware (buttons, floor sensors, etc.)
+/// - Executing FSM transitions based on current state and events
+/// - Managing timers for door state, cab call delays, and error detection
+/// - Updating direction and motor control
+/// - Sending updated elevator state to the rest of the system
+/// - Applying updates from the world view (task assignments, shared state)
+///
+/// # Parameters
+/// - `wv_watch_rx`: A `watch::Receiver` used to access the latest global world view.
+/// - `elevator_states_tx`: A `mpsc::Sender` used to transmit updated local elevator state.
+/// - `local_elev_rx`: A `mpsc::Receiver` that receives elevator hardware messages.
+/// - `e`: Handle representing the elevator hardware interface (for lights, motor, etc.)
+///
+/// # Behavior
+/// - Blocks in a loop, continuously reacting to inputs and updating state.
+/// - Relies on helper functions for modular FSM logic and safety mechanisms.
+/// - Polls the world view and local state at a fixed interval (`config::POLL_PERIOD`).
+///
+/// # Notes
+/// - The function will attempt to initialize the elevator state by waiting for it
+///   to reach the closest floor in downward direction (via `fsm::onInit`).
+/// - If the elevator starts on floor 0, special care must be taken (known crash case).
+/// - Errors are handled internally via timers and behavior transitions.
 pub async fn handle_elevator(wv_watch_rx: watch::Receiver<Vec<u8>>, elevator_states_tx: mpsc::Sender<Vec<u8>>, mut local_elev_rx: mpsc::Receiver<elevio::ElevMessage>, e: Elevator) {
     
     let mut wv = world_view::get_wv(wv_watch_rx.clone());
@@ -149,6 +192,26 @@ pub async fn handle_elevator(wv_watch_rx: watch::Receiver<Vec<u8>>, elevator_sta
     }
 }
 
+/// Updates the local elevator container's task-related fields based on the latest world view.
+///
+/// This function attempts to extract the elevator container corresponding to `SELF_ID` from
+/// the given serialized world view. If found, it updates `tasks` and `unsent_hall_request`
+/// in the local container. If extraction fails, the local values are left unchanged,
+/// and a warning is printed.
+///
+/// # Parameters
+/// - `self_container`: A mutable reference to the local elevator container to be updated.
+/// - `wv`: A serialized world view (`Vec<u8>`) to extract the container from.
+///
+/// # Behavior
+/// - Safe to call repeatedly.
+/// - Only updates the two mentioned fields if a valid container is found.
+/// - Prints a warning if no container is found.
+///
+/// # Example
+/// ```ignore
+/// update_tasks_and_hall_requests(&mut local_container, serialized_worldview).await;
+/// ```
 async fn update_tasks_and_hall_requests(self_container: &mut ElevatorContainer, wv: Vec<u8>){
     if let Some(task_container) = world_view::extract_self_elevator_container(wv) {
         self_container.tasks = task_container.tasks;
@@ -158,6 +221,26 @@ async fn update_tasks_and_hall_requests(self_container: &mut ElevatorContainer, 
     }
 }
 
+/// Continuously attempts to extract the local elevator container from the world view until successful.
+///
+/// This function loops until it successfully extracts the container for `SELF_ID` from the
+/// current world view received over a `watch::Receiver`. It prints a warning for each failed
+/// attempt and waits 100 milliseconds between retries.
+///
+/// # Parameters
+/// - `wv_rx`: A watch channel receiver providing the latest serialized world view (`Vec<u8>`).
+///
+/// # Returns
+/// - A fully initialized `ElevatorContainer` once it is successfully extracted.
+///
+/// # Notes
+/// - This function does not return until a valid container is available.
+/// - It is suitable for running inside a long-lived async task.
+///
+/// # Example
+/// ```ignore
+/// let container = await_valid_self_container(wv_rx).await;
+/// ```
 async fn await_valid_self_container(wv_rx: watch::Receiver<Vec<u8>>) -> ElevatorContainer {
     loop {
         let wv = world_view::get_wv(wv_rx.clone());
@@ -172,6 +255,23 @@ async fn await_valid_self_container(wv_rx: watch::Receiver<Vec<u8>>) -> Elevator
 
 
 // Hjelpefunksjona til loopen
+/// Handles floor arrival updates when a new floor sensor reading is detected.
+///
+/// If the current floor (`last_floor_sensor`) is different from the previous floor,
+/// this function calls the floor arrival state handler and starts the error timer.
+/// If the request came from an inside button, the cab call timer is also released.
+///
+/// # Parameters
+/// - `self_container`: The mutable elevator container representing the local elevator.
+/// - `e`: Elevator identifier or handle.
+/// - `prev_floor`: Mutable reference to the previously seen floor.
+/// - `door_timer`: Timer used to control door timing.
+/// - `cab_call_timer`: Timer tracking inside requests.
+/// - `error_timer`: Timer for detecting inactivity or errors.
+///
+/// # Behavior
+/// - Updates the previous floor value.
+/// - Triggers door and cab call logic based on sensor input.
 pub async fn handle_floor_sensor_update(
     self_container: &mut ElevatorContainer,
     e: Elevator,
@@ -192,7 +292,22 @@ pub async fn handle_floor_sensor_update(
     }
 }
 
-
+/// Handles door timeout logic and clears the door light when appropriate.
+///
+/// If the door timer has expired and no obstruction is detected, this function clears
+/// the door open light. If the elevator is moving toward a cab call, the cab call timer
+/// is released. If the cab call timer has also expired, the system proceeds to handle
+/// the door timeout state transition.
+///
+/// # Parameters
+/// - `self_container`: Mutable reference to the elevator's internal state.
+/// - `e`: Elevator identifier or hardware handle used to control lights and motors.
+/// - `door_timer`: Timer that tracks how long the door has been open.
+/// - `cab_call_timer`: Timer used to delay door close for cab calls.
+///
+/// # Behavior
+/// - Clears door light after timeout.
+/// - Handles door-close logic via finite state machine if cab call timer is also expired.
 async fn handle_door_timeout_and_lights(
     self_container: &mut ElevatorContainer,
     e: Elevator,
@@ -212,6 +327,20 @@ async fn handle_door_timeout_and_lights(
     }
 }
 
+/// Monitors elevator activity and triggers error behavior after a timeout period.
+///
+/// If no cab call has timed out or the elevator is idle, the error timer is restarted.
+/// If the error timer itself has expired and a cab call was previously active,
+/// the elevator enters an error state and logs a critical error message.
+///
+/// # Parameters
+/// - `self_container`: Reference to the elevator state being monitored.
+/// - `cab_call_timer`: Timer tracking how long a cab call has been pending.
+/// - `error_timer`: Mutable timer for detecting inactivity or system faults.
+/// - `prev_cab_call_timer_stat`: Whether the cab call timer had previously expired.
+///
+/// # Behavior
+/// - Triggers an error state if prolonged inactivity or failure is detected.
 fn handle_error_timeout(
     self_container: &ElevatorContainer,
     cab_call_timer: &timer::Timer,
@@ -227,7 +356,22 @@ fn handle_error_timeout(
     }
 }
 
-
+/// Attempts to transition the elevator from idle to active movement if a request is pending.
+///
+/// If the elevator is currently idle, the system chooses a new direction and behavior
+/// using the request logic. If a non-idle state is chosen, the elevator's direction
+/// and behavior are updated, the door timer is started, and the motor is stopped
+/// in preparation for movement or door logic.
+///
+/// # Parameters
+/// - `self_container`: Mutable reference to the elevator's current state.
+/// - `e`: Elevator handle or control interface.
+/// - `door_timer`: Timer used to delay transitions or prepare door actions.
+///
+/// # Behavior
+/// - Only operates when the elevator is in an idle state.
+/// - Initializes direction and behavior when transitioning out of idle.
+/// - Starts door timer and stops the motor to stabilize before further action.
 fn handle_idle_state(
     self_container: &mut ElevatorContainer,
     e: Elevator,
@@ -246,12 +390,37 @@ fn handle_idle_state(
     }
 }
 
+/// Updates the motor direction if the elevator is not in the DoorOpen state.
+///
+/// This function sends the current direction (`dirn`) to the motor controller
+/// only if the elevator is not in the `DoorOpen` state.
+///
+/// # Parameters
+/// - `self_container`: Reference to the current elevator state.
+/// - `e`: Elevator interface used to send motor direction commands.
+///
+/// # Behavior
+/// - Prevents motor updates while the door is open.
+/// - Useful for ensuring motor is only active during appropriate states.
 pub fn update_motor_direction_if_needed(self_container: &ElevatorContainer, e: &Elevator) {
     if self_container.behaviour != ElevatorBehaviour::DoorOpen {
         e.motor_direction(self_container.dirn as u8);
     }
 }
 
+/// Updates the elevator state based on the error timer's status.
+///
+/// If the error timer has expired, the elevator transitions into the `Error` state
+/// and the `prev_cab_call_timer_stat` flag is set. Otherwise, the flag is cleared.
+///
+/// # Parameters
+/// - `self_container`: Mutable reference to the elevator state.
+/// - `error_timer`: Timer that tracks potential error conditions.
+/// - `prev_cab_call_timer_stat`: Mutable flag to track whether the system was previously in a faultable state.
+///
+/// # Behavior
+/// - Sets elevator to `Error` if timer has expired.
+/// - Updates a boolean tracking previous timer state.
 pub fn update_error_state(
     self_container: &mut ElevatorContainer,
     error_timer: &timer::Timer,
@@ -265,6 +434,20 @@ pub fn update_error_state(
     }
 }
 
+/// Tracks and logs changes to the elevator's behavior state.
+///
+/// Compares the current elevator behavior to a previously stored value.
+/// If the state has changed, logs the transition and updates `prev_behavior`.
+///
+/// # Parameters
+/// - `self_container`: Reference to the current elevator state.
+/// - `prev_behavior`: Mutable reference to the last recorded behavior state.
+///
+/// # Returns
+/// - The previous behavior before the update (if any).
+///
+/// # Behavior
+/// - Detects and logs behavior transitions for debugging or system monitoring.
 pub fn track_behavior_change(
     self_container: &ElevatorContainer,
     prev_behavior: &mut ElevatorBehaviour,
@@ -279,6 +462,18 @@ pub fn track_behavior_change(
     last_behavior
 }
 
+/// Forces the elevator to stop the motor when transitioning from DoorOpen to Error state.
+///
+/// If the behavior transition is specifically from `DoorOpen` to `Error`, the elevator
+/// direction is set to `Stop` to ensure the motor halts immediately.
+///
+/// # Parameters
+/// - `self_container`: Mutable reference to the elevator state.
+/// - `last_behavior`: The previous elevator behavior before the transition.
+/// - `current_behavior`: The current elevator behavior after the transition.
+///
+/// # Behavior
+/// - Stops the motor only for the specific transition from `DoorOpen` → `Error`.
 pub fn stop_motor_on_dooropen_to_error(
     self_container: &mut ElevatorContainer,
     last_behavior: ElevatorBehaviour,
