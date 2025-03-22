@@ -60,7 +60,7 @@ async fn handle_backup_client(mut stream: TcpStream, rx: watch::Receiver<Vec<u8>
             start_backup_terminal();
             break;
         }
-        sleep(Duration::from_millis(1000)).await;
+        sleep(config::BACKUP_SEND_INTERVAL).await;
     }
 }
 
@@ -100,7 +100,7 @@ pub async fn start_backup_server(wv_watch_rx: watch::Receiver<Vec<u8>>) {
     loop {
         let new_wv = world_view::get_wv(wv_watch_rx.clone());
         tx.send(new_wv).expect("Failed to send to the backup-client");
-        sleep(Duration::from_millis(1000)).await;
+        sleep(config::BACKUP_WORLDVIEW_REFRESH_INTERVAL).await;
     }
 }
 
@@ -140,13 +140,12 @@ pub async fn run_as_backup() -> Option<world_view::ElevatorContainer> {
                             break;
                         }
                     }
-                    sleep(Duration::from_millis(500)).await;
                 }
             },
             _ => {
                 retries += 1;
                 eprintln!("Failed to connect to master, retry {}.", retries);
-                if retries > 50 {
+                if retries > config::BACKUP_FAILOVER_THRESHOLD {
                     eprintln!("Master failed, promoting backup to master!");
                     // Her kan failover-logikken setjast i gang, t.d. køyre master-logikken.
                     match world_view::extract_self_elevator_container(current_wv) {
@@ -160,6 +159,6 @@ pub async fn run_as_backup() -> Option<world_view::ElevatorContainer> {
                 }
             }
         }
-        sleep(Duration::from_secs(1)).await;
+        sleep(config::BACKUP_RETRY_DELAY).await;
     }
 }

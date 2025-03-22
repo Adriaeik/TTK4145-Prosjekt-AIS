@@ -48,22 +48,30 @@ pub const TCP_PERIOD: Duration = Duration::from_millis(TCP_PER_U64);
 pub const POLL_PERIOD: Duration = Duration::from_millis(10);
 /// Period used to sleep before rechecking network status when you are offline
 pub const OFFLINE_PERIOD: Duration = Duration::from_millis(100);
-
-/// Timeout duration of slave-nodes
-pub const SLAVE_TIMEOUT: Duration = Duration::from_millis(100);
-
-/// Timeout duration of master-nodes
-pub const MASTER_TIMEOUT: Duration = Duration::from_secs(50); // 5 sekunder før failover
-
-/// Timeout duration of backup-nodes
-pub const BACKUP_TIMEOUT: Duration = Duration::from_secs(50); // 5 sekunder før failover
-
 /// Size used for buffer when reading UDP broadcasts
 pub const UDP_BUFFER: usize = u16::MAX as usize;
 
 /// Time in seconds an elevator has to complete a task before its considered failed by master
 pub const TASK_TIMEOUT: u64 = 100;
 
+
+/// Timeout duration of slave-nodes
+pub const SLAVE_TIMEOUT: Duration = Duration::from_millis(100);
+
+/// Timeout duration of master-nodes
+pub const MASTER_TIMEOUT: Duration = Duration::from_millis(50000); // 5 sekunder før failover
+
+/// How often to send worldview to backup client.
+pub const BACKUP_SEND_INTERVAL: Duration = Duration::from_millis(100); // 1 Hz
+
+/// How often to refresh worldview for backup clients.
+pub const BACKUP_WORLDVIEW_REFRESH_INTERVAL: Duration = Duration::from_millis(100); // 1 Hz
+
+/// Number of seconds to wait between each retry attempt to connect to master.
+pub const BACKUP_RETRY_DELAY: Duration = Duration::from_millis(200);
+
+/// How many failed attempts before we promote backup to master.
+pub const BACKUP_FAILOVER_THRESHOLD: u32 = 50;
 
 
 
