@@ -21,6 +21,7 @@ struct HallRequests {
     states: HashMap<String, ElevatorState>,
 }
 // Function to execute the algorithm
+
 pub async fn run_cost_algorithm(json_str: String) -> String {
     let cost_path = env::current_dir()
         .unwrap()
@@ -30,16 +31,16 @@ pub async fn run_cost_algorithm(json_str: String) -> String {
         .join("hall_request_assigner")
         .join("hall_request_assigner");
 
-    let output = Command::new(cost_path)
+    let output = Command::new("sudo")
+        .arg(cost_path)
         .arg("--input")
-        .arg(json_str) 
+        .arg(json_str)
         .output()
         .await
         .expect("Failed to start algorithm");
 
     String::from_utf8_lossy(&output.stdout).into_owned()
 }
-
 
 pub async fn create_hall_request_json(wv: Vec<u8>) -> Option<String> {
     let wv_deser = world_view::serial::deserialize_worldview(&wv);
