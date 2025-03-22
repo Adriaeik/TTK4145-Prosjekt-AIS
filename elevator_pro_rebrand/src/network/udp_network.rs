@@ -79,10 +79,10 @@ pub async fn start_udp_broadcaster(wv_watch_rx: watch::Receiver<Vec<u8>>) -> tok
                 // Send your worldview on UDP broadcast
                 match udp_socket.send_to(mesage.as_bytes(), &broadcast_addr).await {
                     Ok(_) => {
-                        print::ok(format!("Sent udp broadcast!"));
+                        // print::ok(format!("Sent udp broadcast!"));
                     },
                     Err(e) => {
-                        print::err(format!("Error while sending UDP: {}", e));
+                        // print::err(format!("Error while sending UDP: {}", e));
                     }
                 }
 
