@@ -99,7 +99,6 @@ pub async fn handle_elevator(wv_watch_rx: watch::Receiver<Vec<u8>>, elevator_sta
     let mut prev_floor = self_container.last_floor_sensor;
     
     loop {
-        println!("START__________________________________________________________________________");
         /*OBS OBS!! krasjer når vi starter i 0 etasje..... uff da */
         //Les nye data fra heisen, putt de inn i self_container
         
@@ -216,7 +215,7 @@ pub async fn handle_elevator(wv_watch_rx: watch::Receiver<Vec<u8>>, elevator_sta
         }
         yield_now().await;
         sleep(config::POLL_PERIOD).await;
-        println!("SLUTT__________________________________________________________________________");
+
         
         
     }
