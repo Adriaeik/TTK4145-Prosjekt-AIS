@@ -219,6 +219,8 @@ pub async fn handle_stop_button(
         if self_container.stop {
             self_container.behaviour = ElevatorBehaviour::Error; 
             e.motor_direction(Dirn::Stop as u8);
+        } else {
+            self_container.behaviour = ElevatorBehaviour::Idle;
         }
         *prev_stop_btn = self_container.stop;
     }
