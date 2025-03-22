@@ -14,6 +14,7 @@ use elevatorpro::print;
 #[tokio::main]
 async fn main() {
     // Sjekk om programmet startes som backup, retunerer true visst den blei det
+    init::build_cost_fn().await;
     // vi starter i bacup med å skrive "cargo r -- backup"
     let mut is_backup = init::parse_args();
     

@@ -1,11 +1,11 @@
 
 
-use std::{sync::atomic::Ordering, net::SocketAddr, time::Duration, borrow::Cow, env};
+use std::{borrow::Cow, env, io::IsTerminal, net::SocketAddr, sync::atomic::Ordering, time::Duration};
 use tokio::{time::{Instant, timeout}, net::UdpSocket};
 use socket2::{Domain, Socket, Type};
 use local_ip_address::local_ip;
 use crate::{config, elevio, /*manager::task_allocator::Task,*/ network::local_network, print, ip_help_functions::ip2id, world_view::{self, serial, ElevatorContainer, WorldView}};
-
+use tokio::process::Command;
 
 /// ### Initializes the worldview on startup
 ///
@@ -282,5 +282,30 @@ pub fn get_terminal_command() -> (String, Vec<String>) {
         ("cmd".to_string(), vec!["/C".to_string(), "start".to_string()])
     } else {
         ("gnome-terminal".to_string(), vec!["--".to_string()])
+    }
+}
+
+
+
+/// Køyre byggeskriptet i ny terminal og dreper seg sjølv visst det feila
+pub async fn build_cost_fn() {
+
+    let output = Command::new("bash")
+        .arg("build.sh")
+        .current_dir("libs/Project_resources/cost_fns/hall_request_assigner")
+        .output()
+        .await
+        .expect("Klarte ikkje starte build.sh");
+
+    println!("stdout: {}", String::from_utf8_lossy(&output.stdout));
+    eprintln!("stderr: {}", String::from_utf8_lossy(&output.stderr));
+
+    if output.status.success() {
+        println!("✅ build.sh fullført OK");
+    } else {
+        eprintln!("⚠️  build.sh feila! Prøv å bygg manuelt i ny terminal:");
+        eprintln!("1. cd libs/Project_resources/cost_fns/hall_request_assigner");
+        eprintln!("2. bash build.sh");
+        panic!("❌ Klarte ikkje å bygge hall_request_assigner");
     }
 }
