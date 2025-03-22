@@ -104,8 +104,8 @@ pub async fn handle_elevator(wv_watch_rx: watch::Receiver<Vec<u8>>, elevator_sta
         //Les nye data fra heisen, putt de inn i self_container
         
         self_elevator::update_elev_container_from_msgs(&mut local_elev_rx, &mut self_container, &mut cab_call_timer , &mut error_timer ).await;
-        
         let _ = elevator_states_tx.send(world_view::serial::serialize_elev_container(&self_container)).await;    
+        
         /*______ START: FSM Events ______ */
         // Hvis du er på ny etasje, 
         if prev_floor != self_container.last_floor_sensor {
@@ -131,13 +131,13 @@ pub async fn handle_elevator(wv_watch_rx: watch::Receiver<Vec<u8>>, elevator_sta
                 cab_call_timer.release_timer();
             }
             if prev_floor != self_container.last_floor_sensor {println!("linje 111:: last_floor_sensor:: {}",self_container.last_floor_sensor);}
-            
-            
+
+
             if  cab_call_timer.timer_timeouted() {
-                
+
                 fsm::onDoorTimeout(&mut self_container, e.clone(), &mut cab_call_timer).await;
                 if prev_floor != self_container.last_floor_sensor {println!("linje 117:: last_floor_sensor:: {}",self_container.last_floor_sensor)};
-                
+
             }
         }
         if !cab_call_timer.timer_timeouted()|| self_container.behaviour == ElevatorBehaviour::Idle {
@@ -176,16 +176,16 @@ pub async fn handle_elevator(wv_watch_rx: watch::Receiver<Vec<u8>>, elevator_sta
         } else {
             prev_cab_call_timer_stat = false;
         }
-        
+
         // Lagre tidlegare status før oppdatering
         let last_behavior = prev_behavior;
-        
+
         // Oppdater prev_behavior dersom statusen endrar seg
         if prev_behavior != self_container.behaviour {
             prev_behavior = self_container.behaviour;
             println!("Endra status: {:?} -> {:?}", last_behavior, prev_behavior);
         }
-        
+
         // Sett motor til stopp når vi går frå DoorOpen til Error
         if last_behavior == ElevatorBehaviour::DoorOpen && prev_behavior == ElevatorBehaviour::Error {
             self_container.dirn = Dirn::Stop;
@@ -204,7 +204,7 @@ pub async fn handle_elevator(wv_watch_rx: watch::Receiver<Vec<u8>>, elevator_sta
                 // setter tillstande VI! bestemmer
                 {
                     self_container.last_floor_sensor = prev_floor;
-                    // self_container.behaviour = temp_behaviour;
+                    self_container.behaviour = temp_behaviour;
                     self_container.dirn = temp_dirn;
                 }
             } else {
