@@ -1,9 +1,10 @@
 //! Handles messages on internal channels regarding changes in worldview
+mod update_wv;
 
 use crate::print;
-use crate::config;
+
 // use crate::manager::task_allocator::Task;
-use crate::world_view::world_view_update::{ 
+use update_wv::{ 
     join_wv_from_udp, 
     abort_network, 
     join_wv_from_tcp_container, 
@@ -15,41 +16,10 @@ use crate::world_view::world_view_update::{
 use crate::world_view::{self, serial};
 
 use tokio::sync::{mpsc, watch};
-use local_ip_address::local_ip;
-use std::net::IpAddr;
-use std::sync::atomic::AtomicU8;
 use std::collections::HashMap;
 
 
 
-/// Atomic bool storing self ID, standard inited as config::ERROR_ID
-pub static SELF_ID: AtomicU8 = AtomicU8::new(config::ERROR_ID); // Startverdi 255
-
-/// Returns the local IPv4 address of the machine as `IpAddr`.
-///
-/// If no local IPv4 address is found, returns `local_ip_address::Error`.
-///
-/// # Example
-/// ```
-/// use elevatorpro::network::local_network::get_self_ip;
-///
-/// match get_self_ip() {
-///     Ok(ip) => println!("Local IP: {}", ip), // IP retrieval successful
-///     Err(e) => println!("Failed to get IP: {:?}", e), // No local IP available
-/// }
-/// ```
-pub fn get_self_ip() -> Result<IpAddr, local_ip_address::Error> {
-    let ip = match local_ip() {
-        Ok(ip) => {
-            ip
-        }
-        Err(e) => {
-            // print::warn(format!("Fant ikke IP i get_self_ip() -> Vi er offline: {}", e));
-            return Err(e);
-        }
-    };
-    Ok(ip)
-}
 
 
 /// The function that updates the worldview watch.

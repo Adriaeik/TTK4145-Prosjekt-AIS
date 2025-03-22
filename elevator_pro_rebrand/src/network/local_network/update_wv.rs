@@ -1,36 +1,10 @@
-//! Help functions to update local worldview
-use super::{serial, ElevatorContainer, Dirn, ElevatorBehaviour, get_index_to_container};
+use crate::world_view::{serial, ElevatorContainer, Dirn, ElevatorBehaviour};
 
-use crate::{init, config, print, ip_help_functions, world_view, network::local_network};
+use crate::{print, world_view, network::{local_network, status}};
 
 use tokio::sync::{mpsc, watch};
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::OnceLock;
+use std::sync::atomic::Ordering;
 use std::collections::HashMap;
-
-static ONLINE: OnceLock<AtomicBool> = OnceLock::new(); 
-
-/// Reads and returns a clone of the current network status
-///
-/// This function returns a copy of the network status the moment it was read.
-/// that represents whether the system is online or offline.
-///
-/// # Returns
-/// A bool`:
-/// - `true` if the system is online.
-/// - `false` if the system is offline.
-/// 
-/// # Note
-/// - The initial value is `false` until explicitly changed. 
-/// - The returned value is only a clone of the atomic boolean's value at read-time. The function should be called every time you need to check the online-status
-pub fn read_network_status() -> bool {
-    ONLINE.get_or_init(|| AtomicBool::new(false)).load(Ordering::SeqCst)
-}
-
-/// This function sets the network status
-fn set_network_status(status: bool) {
-    ONLINE.get_or_init(|| AtomicBool::new(false)).store(status, Ordering::SeqCst);
-}
 
 
 /// Calls join_wv. See [join_wv]
@@ -64,8 +38,8 @@ pub fn join_wv(mut my_wv: Vec<u8>, master_wv: Vec<u8>) -> Vec<u8> {
     let mut master_wv_deserialised = serial::deserialize_worldview(&master_wv);
     
     
-    let my_self_index = world_view::get_index_to_container(local_network::SELF_ID.load(Ordering::SeqCst) , my_wv);
-    let master_self_index = world_view::get_index_to_container(local_network::SELF_ID.load(Ordering::SeqCst) , master_wv);
+    let my_self_index = world_view::get_index_to_container(status::SELF_ID.load(Ordering::SeqCst) , my_wv);
+    let master_self_index = world_view::get_index_to_container(status::SELF_ID.load(Ordering::SeqCst) , master_wv);
     
     
     if let (Some(i_org), Some(i_new)) = (my_self_index, master_self_index) {
@@ -137,9 +111,9 @@ pub fn join_wv(mut my_wv: Vec<u8>, master_wv: Vec<u8>) -> Vec<u8> {
 /// ```
 pub fn abort_network(wv: &mut Vec<u8>) -> bool {
     let mut deserialized_wv = serial::deserialize_worldview(wv);
-    deserialized_wv.elevator_containers.retain(|elevator| elevator.elevator_id == local_network::SELF_ID.load(Ordering::SeqCst));
+    deserialized_wv.elevator_containers.retain(|elevator| elevator.elevator_id == status::SELF_ID.load(Ordering::SeqCst));
     deserialized_wv.set_num_elev(deserialized_wv.elevator_containers.len() as u8);
-    deserialized_wv.master_id = local_network::SELF_ID.load(Ordering::SeqCst);
+    deserialized_wv.master_id = status::SELF_ID.load(Ordering::SeqCst);
     *wv = serial::serialize_worldview(&deserialized_wv);
     true
 }
@@ -282,7 +256,7 @@ pub fn remove_container(wv: &mut Vec<u8>, id: u8) -> bool {
 /// ```
 pub fn clear_from_sent_tcp(wv: &mut Vec<u8>, tcp_container: Vec<u8>) -> bool {
     let mut deserialized_wv = serial::deserialize_worldview(&wv);
-    let self_idx = world_view::get_index_to_container(local_network::SELF_ID.load(Ordering::SeqCst) , wv.clone());
+    let self_idx = world_view::get_index_to_container(status::SELF_ID.load(Ordering::SeqCst) , wv.clone());
     let tcp_container_des = serial::deserialize_elev_container(&tcp_container);
 
     // Lagre task-IDen til alle sendte tasks. 
@@ -342,7 +316,7 @@ pub fn distribute_tasks(wv: &mut Vec<u8>, map: HashMap<u8, Vec<[bool; 2]>>) -> b
 }
 
 
-
+/// Updates states to the elevator in wv with same ID as container 
 pub fn update_elev_states(wv: &mut Vec<u8>, container: Vec<u8>) -> bool {
     let mut wv_deser = world_view::serial::deserialize_worldview(&wv.clone());
     let container_deser = world_view::serial::deserialize_elev_container(&container);
@@ -376,96 +350,31 @@ fn update_cab_request_backup(backup: &mut HashMap<u8, Vec<bool>>, container: Ele
 
 
 
-/// Monitors the Ethernet connection status asynchronously.
-///
-/// This function continuously checks whether the device has a valid network connection.
-/// It determines connectivity by verifying that the device's IP matches the expected network prefix.
-/// The network status is stored in a shared atomic boolean [get_network_status()].
-///
-/// ## Behavior
-/// - Retrieves the device's IP address using `utils::get_self_ip()`.
-/// - Extracts the root IP using `utils::get_root_ip()` and compares it to `config::NETWORK_PREFIX`.
-/// - Updates the network status (`true` if connected, `false` if disconnected).
-/// - Prints status changes:  
-///   - `"Vi er online"` when connected.  
-///   - `"Vi er offline"` when disconnected.
-///
-/// ## Note
-/// This function runs in an infinite loop and should be spawned as an asynchronous task.
-///
-/// ## Example
-/// ```
-/// use tokio;
-/// # #[tokio::test]
-/// # async fn test_watch_ethernet() {
-/// tokio::spawn(async {
-///     watch_ethernet().await;
-/// });
-/// # }
-/// ```
-pub async fn watch_ethernet(wv_watch_rx: watch::Receiver<Vec<u8>>, new_wv_after_offline_tx: mpsc::Sender<Vec<u8>>) {
-    let mut last_net_status = false;
-    let mut net_status;
-    loop {
-        let ip = local_network::get_self_ip();
 
-        match ip {
-            Ok(ip) => {
-                if ip_help_functions::get_root_ip(ip) == config::NETWORK_PREFIX {
-                    net_status = true;
-                }
-                else {
-                    net_status = false   
-                }
-            }
-            Err(_) => {
-                net_status = false
-            }
-        }
 
-        if last_net_status != net_status {  
-            if net_status {
-                let mut wv = world_view::get_wv(wv_watch_rx.clone());
-                let self_elev = world_view::extract_self_elevator_container(wv.clone());
-                wv = init::initialize_worldview(self_elev).await;
-                let _ = new_wv_after_offline_tx.send(wv).await;
-                print::ok("Vi er online".to_string());
-            }
-            else {
-                print::warn("Vi er offline".to_string());
-            }
-            set_network_status(net_status);
-            last_net_status = net_status;
-        }
-    }
-}
-
+/// Merges local worldview with networks worldview after being offline
+/// 
+/// # Parameters
+/// `my_wv`: Mutable reference to the local worldview
+/// `read_wv`: Reference to the networks worldview
 pub fn merge_wv_after_offline(my_wv: &mut Vec<u8>, read_wv: &Vec<u8>) {
     let my_wv_deser = world_view::serial::deserialize_worldview(&my_wv);
     let mut read_wv_deser = world_view::serial::deserialize_worldview(&read_wv);
 
-    // Hvis du blir master på nettverket:
+    /* If you become the new master on the system */
     if my_wv_deser.master_id < read_wv_deser.master_id {
-        print::err("blir master...".to_string());
-
-        println!("Forrige master sine calls: {:?}, mine calls: {:?}", read_wv_deser.hall_request, my_wv_deser.hall_request);
-
         read_wv_deser.hall_request = merge_hall_requests(&read_wv_deser.hall_request, &my_wv_deser.hall_request);
-
-        println!("calls etter merge: {:?}", read_wv_deser.hall_request);
-
         read_wv_deser.master_id = my_wv_deser.master_id;
-
         let my_wv_elevs: Vec<ElevatorContainer> = my_wv_deser.elevator_containers;
 
-        // Sjekk hvilke ID-er som allerede finnes i read_wv_deser
+        /* Map the IDs in the networks worldview */
         let existing_ids: std::collections::HashSet<u8> = read_wv_deser
             .elevator_containers
             .iter()
             .map(|e| e.elevator_id)
             .collect();
 
-        // Legg til nye elevatorer hvis ID-en ikke allerede finnes
+        /* Add elevators you had which the network didnt know about (yourself) */
         for elev in my_wv_elevs {
             if !existing_ids.contains(&elev.elevator_id) {
                 read_wv_deser.elevator_containers.push(elev);
@@ -479,6 +388,37 @@ pub fn merge_wv_after_offline(my_wv: &mut Vec<u8>, read_wv: &Vec<u8>) {
     *my_wv = world_view::serial::serialize_worldview(&read_wv_deser);
 }
 
+/// Function to merge hall requests
+/// 
+/// # Parameters
+/// `hall_req_1`: Reference to one hall request vector  
+/// `hall_req_2`: Reference to other hall request vector
+/// 
+/// # Return
+/// The merged hall request vector
+/// 
+/// # Behavior
+/// The function merges the requests by performing an element-wise OR operation on all indexes.
+/// If one vector is longer than the other, the shorter one is treated as if it had all extra values set to false.
+/// 
+/// # Example
+/// ```
+/// use elevatorpro::world_view::world_view_update::merge_hall_requests;
+/// 
+/// let hall_req_1 = vec![[true, false], [false, false]];
+/// let hall_req_2 = vec![[false, true], [false, true]];
+/// let merged_vec = merge_hall_requests(&hall_req_1, &hall_req_2);
+/// 
+/// assert_eq!(merged_vec, vec![[true, true], [false, true]]);
+/// 
+/// 
+/// let hall_req_3 = vec![[true, false], [false, false], [true, false]];
+/// let merged_vec_2 = merge_hall_requests(&hall_req_3, &merged_vec);
+/// 
+/// assert_eq!(merged_vec_2, vec![[true, true], [false, true], [true, false]]);
+/// 
+/// ```
+/// 
 fn merge_hall_requests(hall_req_1: &Vec<[bool; 2]>, hall_req_2: &Vec<[bool; 2]>) -> Vec<[bool; 2]> {
     let mut merged_hall_req = hall_req_1.clone();
     //Basically en bitwise OR på begge viewene sin hall_request

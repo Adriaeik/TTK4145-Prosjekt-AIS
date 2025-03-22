@@ -5,6 +5,7 @@ use tokio::process::Command;
 use std::sync::atomic::Ordering;
 use tokio::sync::{mpsc, watch};
 
+use crate::network;
 use crate::world_view::ElevatorContainer;
 use crate::{world_view::{Dirn, ElevatorBehaviour}, network::local_network, config, print, elevio, elevio::elev as e};
 
@@ -47,7 +48,7 @@ impl LocalElevChannels {
 
 /// ### Henter ut lokal IP adresse
 fn get_ip_address() -> String {
-    let self_id = local_network::SELF_ID.load(Ordering::SeqCst);
+    let self_id = network::status::SELF_ID.load(Ordering::SeqCst);
     format!("{}.{}", config::NETWORK_PREFIX, self_id)
 }
 

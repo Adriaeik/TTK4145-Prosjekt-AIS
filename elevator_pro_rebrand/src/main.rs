@@ -2,7 +2,7 @@ use tokio::sync::mpsc;
 use tokio::net::TcpStream;
 use std::{net::SocketAddr};
 
-use elevatorpro::{backup, elevator_logic, manager, network::{local_network, tcp_network, udp_broadcast}, world_view::{self, world_view_update}};
+use elevatorpro::{backup, elevator_logic, manager, network::{self, local_network, tcp_network, udp_broadcast}, world_view};
 use elevatorpro::init;
 use elevatorpro::print;
 
@@ -67,7 +67,7 @@ async fn main() {
         let wv_watch_rx = watches.rxs.wv.clone();
         let _network_status_watcher_task = tokio::spawn(async move {
             print::info("Starter å passe på nettverket".to_string());
-            let _ = world_view_update::watch_ethernet(wv_watch_rx, new_wv_after_offline_tx).await;
+            let _ = network::status::watch_ethernet(wv_watch_rx, new_wv_after_offline_tx).await;
         });
     }
     /* SLUTT ----------- Task for å overvake Nettverksstatus ---------------------- */
