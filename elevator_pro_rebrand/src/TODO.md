@@ -49,3 +49,6 @@ Ein god gitter pusher alltid ✅
 - taper alle Calls når vi kobler oss tibake på nettverket etter packet loss
 
 - Jævlig rar errorbugg som er vanskelig å finne eit mønster til..
+- den fjerener for fort når det er i samme etasje
+
+DET VIRKER SOM Å PRINTE BACKUP SAKTARE FIKSA VELDIG MYKJE!!??
