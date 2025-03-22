@@ -16,35 +16,15 @@ async fn main() {
     // Sjekk om programmet startes som backup, retunerer true visst den blei det
     init::build_cost_fn().await;
     // vi starter i bacup med å skrive "cargo r -- backup"
-    let mut is_backup = init::parse_args();
+    let is_backup = init::parse_args();
     
     let mut self_container: Option< world_view::ElevatorContainer> = None;
     if is_backup {
         println!("Starter backup-prosess...");
         self_container = Some(backup::run_as_backup().await);
-
-        is_backup = false;
-        //TODO: Visst vi er backup. så skal vi subscribe på TCP porten til år hovukode og den sender oss wv over TCP. 
-        //TODO: vi skal så monitore connection, og printe WV med 
-        /*
-                 //Task som printer worldview
-                let _print_task = tokio::spawn(async move {
-                    let mut wv = utils::get_wv(chs_print.clone());
-                    loop {
-                        let chs_clone = chs_print.clone();
-                        if utils::update_wv(chs_clone, &mut wv).await {
-                            world_view::print_wv(wv.clone());
-                            tokio::time::sleep(Duration::from_millis(500)).await;
-                        }
-                    }
-                });
-
-         */
-        //TODO: (*TIL slutt*) Dersom vi tapar connection til master skal vi ta vare på ferdige oppgåver og starte med desse i WV slik at dei ikkje går tapt
-        // Når det er fullført så brytes denne løkka og vi vil automatisk 
     }
 
-    // 🚀 Hvis vi ikke er backup, starter vi som master!
+    // Hvis vi ikke er backup, starter vi som master! eller om vi kjem ut, så tar vi over
 
 
     // Vanlig hovedprosess starter her:

@@ -71,6 +71,10 @@ pub async fn tcp_handler(
                         mut socket_rx: mpsc::Receiver<(TcpStream, SocketAddr)>
                     ) 
 {
+    use crate::world_view::world_view_update;
+    while !world_view_update::read_network_status() {
+        
+    }
     let mut wv = world_view::get_wv(wv_watch_rx.clone());
     loop {
         IS_MASTER.store(true, Ordering::SeqCst);

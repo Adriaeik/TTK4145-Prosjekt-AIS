@@ -303,24 +303,27 @@ pub fn is_master(wv: Vec<u8>) -> bool {
 //     elev_task_rx.borrow().clone()
 // }
 
-/// Retrieves a clone of the `ElevatorContainer` with the specified `id` from the provided worldview.
+
+/// Extracts the elevator container with the specified `id` from the given serialized worldview.
 ///
-/// This function deserializes the provided worldview (`wv`), filters the elevator containers based on the given `id`,
-/// and returns a clone of the matching `ElevatorContainer`. If no matching elevator is found, the behavior is undefined.
+/// This function deserializes the provided worldview, filters out elevator containers
+/// that do not match the given `id`, and returns the first matching result if available.
 ///
 /// ## Parameters
-/// - `wv`: The latest worldview in serialized state.
-/// - `id`: The `id` of the elevator container to extract.
+/// - `wv`: A `Vec<u8>` representing the serialized worldview.
+/// - `id`: The elevator ID to search for.
 ///
 /// ## Returns
-/// - A clone of the `ElevatorContainer` with the specified `id`, or the first match found.
+/// - `Some(ElevatorContainer)` if a container with the given `id` is found.
+/// - `None` if no matching elevator container exists in the worldview.
 ///
-/// **Note:** If no elevator container with the specified `id` is found, this function will panic due to indexing.
-pub fn extract_elevator_container(wv: Vec<u8>, id: u8) -> ElevatorContainer {
+/// ## Note
+/// If multiple containers have the same `id`, only the first match is returned.
+pub fn extract_elevator_container(wv: Vec<u8>, id: u8) -> Option<ElevatorContainer> {
     let mut deser_wv = serial::deserialize_worldview(&wv);
 
     deser_wv.elevator_containers.retain(|elevator| elevator.elevator_id == id);
-    deser_wv.elevator_containers[0].clone()
+    deser_wv.elevator_containers.get(0).cloned()
 }
 
 /// Retrieves a clone of the `ElevatorContainer` with `SELF_ID` from the latest worldview.
@@ -336,8 +339,9 @@ pub fn extract_elevator_container(wv: Vec<u8>, id: u8) -> ElevatorContainer {
 /// - A clone of the `ElevatorContainer` associated with `SELF_ID`.
 ///
 /// **Note:** This function internally calls `extract_elevator_container` to retrieve the correct elevator container.
-pub fn extract_self_elevator_container(wv: Vec<u8>) -> ElevatorContainer {
-    extract_elevator_container(wv, local_network::SELF_ID.load(Ordering::SeqCst))
+pub fn extract_self_elevator_container(wv: Vec<u8>) -> Option<ElevatorContainer> {
+    let id = local_network::SELF_ID.load(Ordering::SeqCst);
+    extract_elevator_container(wv, id)
 }
 
 

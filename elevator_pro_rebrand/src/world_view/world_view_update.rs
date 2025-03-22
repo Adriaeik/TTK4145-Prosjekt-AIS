@@ -427,7 +427,7 @@ pub async fn watch_ethernet(wv_watch_rx: watch::Receiver<Vec<u8>>, new_wv_after_
             if net_status {
                 let mut wv = world_view::get_wv(wv_watch_rx.clone());
                 let self_elev = world_view::extract_self_elevator_container(wv.clone());
-                wv = init::initialize_worldview(Some(self_elev)).await;
+                wv = init::initialize_worldview(self_elev).await;
                 let _ = new_wv_after_offline_tx.send(wv).await;
                 print::ok("Vi er online".to_string());
             }
