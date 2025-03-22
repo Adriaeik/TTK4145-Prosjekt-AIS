@@ -7,7 +7,7 @@ set -ex
 sudo chmod +x d-json/jsonx.d || true
 
 # Kompilerer prosjektet
-dmd main.d config.d elevator_algorithm.d elevator_state.d optimal_hall_requests.d d-json/jsonx.d -w -g -ofhall_request_assigner
+sudo dmd main.d config.d elevator_algorithm.d elevator_state.d optimal_hall_requests.d d-json/jsonx.d -w -g -ofhall_request_assigner
 
 # Sørg for at kompilert fil kan køyrast
 sudo chmod +x hall_request_assigner
