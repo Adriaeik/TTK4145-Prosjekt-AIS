@@ -44,9 +44,14 @@ pub async fn run_local_elevator(wv_watch_rx: watch::Receiver<Vec<u8>>, elevator_
             let mut wv = world_view::get_wv(wv_watch_rx);
             loop {
                 world_view::update_wv(wv_watch_rx_c.clone(), &mut wv).await;
-                let self_elevator = world_view::extract_self_elevator_container(wv.clone());
-                lights::set_hall_lights(wv.clone(), e.clone(), &self_elevator);
-
+                match world_view::extract_self_elevator_container(wv.clone()) {
+                    Some(self_elevator) => {
+                        lights::set_hall_lights(wv.clone(), e.clone(), &self_elevator);
+                    }
+                    None => {
+                        print::warn(format!("Failed to extract self elevator container"));
+                    }
+                }
                 sleep(config::POLL_PERIOD).await;
             }
         });
@@ -64,7 +69,14 @@ pub async fn run_local_elevator(wv_watch_rx: watch::Receiver<Vec<u8>>, elevator_
 pub async fn handle_elevator(wv_watch_rx: watch::Receiver<Vec<u8>>, elevator_states_tx: mpsc::Sender<Vec<u8>>, mut local_elev_rx: mpsc::Receiver<elevio::ElevMessage>, e: Elevator) {
     
     let mut wv = world_view::get_wv(wv_watch_rx.clone());
-    let mut self_container = world_view::extract_self_elevator_container(wv.clone());
+    let mut self_container = match world_view::extract_self_elevator_container(wv.clone()) {
+        Some(container) => container,
+        None => {
+            print::warn(format!("Failed to extract self elevator container"));
+            return; // eller annan feilhåndtering
+        }
+    };
+    
 
     e.motor_direction(Dirn::Down as u8);
     self_container.behaviour = ElevatorBehaviour::Moving;
@@ -186,14 +198,20 @@ pub async fn handle_elevator(wv_watch_rx: watch::Receiver<Vec<u8>>, elevator_sta
         //Hent nyeste worldview
         if world_view::update_wv(wv_watch_rx.clone(), &mut wv).await{
             let temp_behaviour = self_container.behaviour;
-            let temp_dirn= self_container.dirn;
-            self_container = world_view::extract_self_elevator_container(wv.clone()); //her det blir overskrive
-            // setter tillstande VI! bestemmer
-            {
-                self_container.last_floor_sensor = prev_floor;
-                self_container.behaviour = temp_behaviour;
-                self_container.dirn = temp_dirn;
+            let temp_dirn = self_container.dirn;
+            if let Some(container) = world_view::extract_self_elevator_container(wv.clone()) {
+                self_container = container;
+                // setter tillstande VI! bestemmer
+                {
+                    self_container.last_floor_sensor = prev_floor;
+                    self_container.behaviour = temp_behaviour;
+                    self_container.dirn = temp_dirn;
+                }
+            } else {
+                print::warn(format!("Failed to extract self elevator container – keeping previous value"));
             }
+            
+            
 
         }
         sleep(config::POLL_PERIOD).await;

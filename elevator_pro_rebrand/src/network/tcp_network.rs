@@ -344,9 +344,16 @@ async fn read_from_stream(remove_container_tx: mpsc::Sender<u8>, stream: &mut Tc
 /// ### Sender egen elevator_container til master gjennom stream
 /// Sender på format : `(lengde av container) as u16`, `container`
 pub async fn send_tcp_message(tcp_to_master_failed_tx: mpsc::Sender<bool>, sent_tcp_container_tx: mpsc::Sender<Vec<u8>>, stream: &mut TcpStream, wv: Vec<u8>) {
-    let self_elev_container = world_view::extract_self_elevator_container(wv);
-
+    let self_elev_container = match world_view::extract_self_elevator_container(wv) {
+        Some(container) => container,
+        None => {
+            print::warn(format!("Failed to extract self elevator container"));
+            return;
+        }
+    };
+    
     let self_elev_serialized = serial::serialize_elev_container(&self_elev_container);
+    
     let len = (self_elev_serialized.len() as u16).to_be_bytes(); // Konverter lengde til big-endian bytes    
 
     if let Err(_) = stream.write_all(&len).await {

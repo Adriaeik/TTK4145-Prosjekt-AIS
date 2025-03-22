@@ -111,7 +111,7 @@ pub async fn start_backup_server(wv_watch_rx: watch::Receiver<Vec<u8>>) {
 }
 
 /// Backup-klienten: Koplar seg til backup-serveren, les data kontinuerleg og skriv ut worldview.
-pub async fn run_as_backup() -> world_view::ElevatorContainer {
+pub async fn run_as_backup() -> Option<world_view::ElevatorContainer> {
     println!("Starter backup-klient...");
     let mut current_wv = init::initialize_worldview(None).await;
     let mut retries = 0;
@@ -155,7 +155,14 @@ pub async fn run_as_backup() -> world_view::ElevatorContainer {
                 if retries > 50 {
                     eprintln!("Master feila, promoterer backup til master!");
                     // Her kan failover-logikken setjast i gang, t.d. køyre master-logikken.
-                    return world_view::extract_self_elevator_container(current_wv);
+                    match world_view::extract_self_elevator_container(current_wv) {
+                        Some(container) => return Some(container),
+                        None => {
+                            print::warn(format!("Failed to extract self elevator container"));
+                            return None;
+                        }
+                    }
+                    
                 }
             }
         }
