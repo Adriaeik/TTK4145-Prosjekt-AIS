@@ -210,6 +210,18 @@ pub async fn handle_floor_sensor_update(
 }
 
 
+pub async fn handle_stop_button(
+    self_container: &mut ElevatorContainer,
+    e: Elevator,
+    prev_stop_btn: &mut bool,
+) {
+    if *prev_stop_btn != self_container.stop {
+        self_container.behaviour = ElevatorBehaviour::Error; 
+        e.motor_direction(Dirn::Stop as u8);
+        *prev_stop_btn = self_container.stop;
+    }
+}
+
 /// Handles door timeout logic and clears the door light when appropriate.
 ///
 /// If the door timer has expired and no obstruction is detected, this function clears

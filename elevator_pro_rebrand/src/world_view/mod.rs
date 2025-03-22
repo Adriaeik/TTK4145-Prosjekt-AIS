@@ -63,6 +63,10 @@ pub struct ElevatorContainer {
     /// Default: false
     pub obstruction: bool, 
 
+    /// Indicates wether the stop button is being pressed.
+    /// Default: false
+    pub stop: bool,
+
     /// The last detected floor sensor position.  
     /// Default: 255
     pub last_floor_sensor: u8,
@@ -80,6 +84,7 @@ impl Default for ElevatorContainer {
             dirn: Dirn::Stop,
             behaviour: ElevatorBehaviour::Idle,
             obstruction: false,
+            stop: false,
             last_floor_sensor: 255, 
         }
     }

@@ -261,7 +261,9 @@ pub async fn update_elev_container_from_msgs(local_elev_rx: &mut mpsc::Receiver<
             
                     elevio::ElevMsgType::STOPBTN => {
                         print::info(format!("Stop button: {:?}", msg.stop_button));
-                        // TODO: selvforklarende
+                        if let Some(stop) = msg.stop_button {
+                            container.stop = stop;
+                        }
                     }
             
                     elevio::ElevMsgType::OBSTRX => {
