@@ -27,7 +27,7 @@ pub fn color(msg: String, color: Colour) {
     let print_stat = config::PRINT_ELSE_ON.lock().unwrap().clone();
     
     if print_stat {
-        println!("{}[CUSTOM]:  {}\n", color.paint(""), color.paint(msg));
+        println!("{}{}\n", color.paint("[CUSTOM]:  "), color.paint(msg));
     }
 }
 
@@ -56,7 +56,7 @@ pub fn err(msg: String) {
     let print_stat = config::PRINT_ERR_ON.lock().unwrap().clone();
     
     if print_stat {
-        println!("{}[ERROR]:   {}\n", Red.paint(""), Red.paint(msg));
+        println!("{}{}\n", Red.paint("[ERROR]:   "), Red.paint(msg));
     }
 }
 
@@ -84,7 +84,7 @@ pub fn warn(msg: String) {
     let print_stat = config::PRINT_WARN_ON.lock().unwrap().clone();
     
     if print_stat {
-        println!("{}[WARNING]: {}\n", Yellow.paint(""), Yellow.paint(msg));
+        println!("{}{}\n", Yellow.paint("[WARNING]: "), Yellow.paint(msg));
     }
 }
 
@@ -112,7 +112,7 @@ pub fn ok(msg: String) {
     let print_stat = config::PRINT_OK_ON.lock().unwrap().clone();
 
     if print_stat {
-        println!("{}[OK]:      {}\n", Green.paint(""), Green.paint(msg));
+        println!("{}{}\n", Green.paint("[OK]:      "), Green.paint(msg));
     }
 }
 
@@ -141,7 +141,7 @@ pub fn info(msg: String) {
     
     let light_blue = Colour::RGB(102, 178, 255); 
     if print_stat {
-        println!("{}[INFO]:    {}\n", light_blue.paint(""), light_blue.paint(msg));
+        println!("{}{}\n", light_blue.paint("[INFO]:    "), light_blue.paint(msg));
     }
 }
 
@@ -200,7 +200,7 @@ pub fn slave(msg: String) {
     
     let random = Colour::RGB(153, 76, 0);
     if print_stat {
-        println!("{}[MASTER]:  {}\n", random.paint(""), random.paint(msg));
+        println!("{}{}\n", random.paint("[MASTER]:  "), random.paint(msg));
     }
 }
 
