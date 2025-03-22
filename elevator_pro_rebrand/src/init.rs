@@ -4,7 +4,7 @@ use std::{borrow::Cow, env, net::SocketAddr, sync::atomic::Ordering, time::Durat
 use tokio::{net::UdpSocket, time::{sleep, timeout, Instant}};
 use socket2::{Domain, Socket, Type};
 use local_ip_address::local_ip;
-use crate::{config, ip_help_functions::ip2id, network::{self, local_network}, print, world_view::{self, serial, ElevatorContainer, WorldView}};
+use crate::{config, ip_help_functions::ip2id, network, print, world_view::{self, serial, ElevatorContainer, WorldView}};
 use tokio::process::Command;
 
 /// ### Initializes the worldview on startup
@@ -55,9 +55,9 @@ pub async fn initialize_worldview(self_container : Option< world_view::ElevatorC
     };
 
     // Extract self ID from IP address (last segment of IP)
-    network::status::SELF_ID.store(ip2id(ip), Ordering::SeqCst);
-    elev_container.elevator_id = network::status::SELF_ID.load(Ordering::SeqCst);
-    worldview.master_id = network::status::SELF_ID.load(Ordering::SeqCst);
+    network::set_self_id(ip2id(ip));
+    elev_container.elevator_id = network::read_self_id();
+    worldview.master_id = network::read_self_id();
     worldview.add_elev(elev_container.clone());
 
     // Listen for UDP messages for a short time to detect other elevators
@@ -79,8 +79,8 @@ pub async fn initialize_worldview(self_container : Option< world_view::ElevatorC
     wv_from_udp_deser.add_elev(elev_container.clone());
 
     // Set self as master if the current master has a higher ID
-    if wv_from_udp_deser.master_id > network::status::SELF_ID.load(Ordering::SeqCst) {
-        wv_from_udp_deser.master_id = network::status::SELF_ID.load(Ordering::SeqCst);
+    if wv_from_udp_deser.master_id > network::read_self_id() {
+        wv_from_udp_deser.master_id = network::read_self_id();
     }
 
     // Serialize and return the updated worldview

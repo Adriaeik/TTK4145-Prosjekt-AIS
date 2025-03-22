@@ -12,6 +12,7 @@ use update_wv::{
     clear_from_sent_tcp,
     distribute_tasks,
     update_elev_states,
+    merge_wv_after_offline,
 };
 use crate::world_view::{self, serial};
 
@@ -104,8 +105,8 @@ pub async fn update_wv_watch(mut mpsc_rxs: MpscRxs, worldview_watch_tx: watch::S
         }
         /*_____Update worldview after you reconeccted to internet  */
         match mpsc_rxs.new_wv_after_offline.try_recv() {
-            Ok(wv) => {
-                worldview_serialised = wv;
+            Ok(read_wv) => {
+                merge_wv_after_offline(&mut worldview_serialised, &read_wv);
                 let _ = worldview_watch_tx.send(worldview_serialised.clone());
             },
             Err(_) => {},

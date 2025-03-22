@@ -1,8 +1,8 @@
 use tokio::sync::mpsc;
 use tokio::net::TcpStream;
-use std::{net::SocketAddr};
+use std::net::SocketAddr;
 
-use elevatorpro::{backup, elevator_logic, manager, network::{self, local_network, tcp_network, udp_broadcast}, world_view};
+use elevatorpro::{backup, elevator_logic, manager, network::{self, local_network, tcp_network, udp_network}, world_view};
 use elevatorpro::init;
 use elevatorpro::print;
 
@@ -67,7 +67,7 @@ async fn main() {
         let wv_watch_rx = watches.rxs.wv.clone();
         let _network_status_watcher_task = tokio::spawn(async move {
             print::info("Starter å passe på nettverket".to_string());
-            let _ = network::status::watch_ethernet(wv_watch_rx, new_wv_after_offline_tx).await;
+            let _ = network::watch_ethernet(wv_watch_rx, new_wv_after_offline_tx).await;
         });
     }
     /* SLUTT ----------- Task for å overvake Nettverksstatus ---------------------- */
@@ -119,7 +119,7 @@ async fn main() {
         let wv_watch_rx = watches.rxs.wv.clone();
         let _listen_task = tokio::spawn(async move {
             print::info("Starter å høre etter UDP-broadcast".to_string());
-            let _ = udp_broadcast::start_udp_listener(wv_watch_rx, udp_wv_tx).await;
+            let _ = udp_network::start_udp_listener(wv_watch_rx, udp_wv_tx).await;
         });
     }
 
@@ -128,7 +128,7 @@ async fn main() {
         let wv_watch_rx = watches.rxs.wv.clone();
         let _broadcast_task = tokio::spawn(async move {
             print::info("Starter UDP-broadcaster".to_string());
-            let _ = udp_broadcast::start_udp_broadcaster(wv_watch_rx).await;
+            let _ = udp_network::start_udp_broadcaster(wv_watch_rx).await;
         });
     }
 
@@ -145,7 +145,7 @@ async fn main() {
     {
         let _udp_watchdog = tokio::spawn(async move {
             print::info("Starter udp watchdog".to_string());
-            let _ = udp_broadcast::udp_watchdog(connection_to_master_failed_tx_clone).await;
+            let _ = udp_network::udp_watchdog(connection_to_master_failed_tx_clone).await;
         });
     }
 

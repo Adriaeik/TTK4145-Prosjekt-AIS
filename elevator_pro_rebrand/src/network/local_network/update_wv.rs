@@ -1,8 +1,6 @@
 use crate::world_view::{serial, ElevatorContainer, Dirn, ElevatorBehaviour};
+use crate::{print, world_view, network};
 
-use crate::{print, world_view, network::{local_network, status}};
-
-use tokio::sync::{mpsc, watch};
 use std::sync::atomic::Ordering;
 use std::collections::HashMap;
 
@@ -38,8 +36,8 @@ pub fn join_wv(mut my_wv: Vec<u8>, master_wv: Vec<u8>) -> Vec<u8> {
     let mut master_wv_deserialised = serial::deserialize_worldview(&master_wv);
     
     
-    let my_self_index = world_view::get_index_to_container(status::SELF_ID.load(Ordering::SeqCst) , my_wv);
-    let master_self_index = world_view::get_index_to_container(status::SELF_ID.load(Ordering::SeqCst) , master_wv);
+    let my_self_index = world_view::get_index_to_container(network::read_self_id() , my_wv);
+    let master_self_index = world_view::get_index_to_container(network::read_self_id() , master_wv);
     
     
     if let (Some(i_org), Some(i_new)) = (my_self_index, master_self_index) {
@@ -111,9 +109,9 @@ pub fn join_wv(mut my_wv: Vec<u8>, master_wv: Vec<u8>) -> Vec<u8> {
 /// ```
 pub fn abort_network(wv: &mut Vec<u8>) -> bool {
     let mut deserialized_wv = serial::deserialize_worldview(wv);
-    deserialized_wv.elevator_containers.retain(|elevator| elevator.elevator_id == status::SELF_ID.load(Ordering::SeqCst));
+    deserialized_wv.elevator_containers.retain(|elevator| elevator.elevator_id == network::read_self_id());
     deserialized_wv.set_num_elev(deserialized_wv.elevator_containers.len() as u8);
-    deserialized_wv.master_id = status::SELF_ID.load(Ordering::SeqCst);
+    deserialized_wv.master_id = network::read_self_id();
     *wv = serial::serialize_worldview(&deserialized_wv);
     true
 }
@@ -256,7 +254,7 @@ pub fn remove_container(wv: &mut Vec<u8>, id: u8) -> bool {
 /// ```
 pub fn clear_from_sent_tcp(wv: &mut Vec<u8>, tcp_container: Vec<u8>) -> bool {
     let mut deserialized_wv = serial::deserialize_worldview(&wv);
-    let self_idx = world_view::get_index_to_container(status::SELF_ID.load(Ordering::SeqCst) , wv.clone());
+    let self_idx = world_view::get_index_to_container(network::read_self_id() , wv.clone());
     let tcp_container_des = serial::deserialize_elev_container(&tcp_container);
 
     // Lagre task-IDen til alle sendte tasks. 
