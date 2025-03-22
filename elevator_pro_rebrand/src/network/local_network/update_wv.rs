@@ -386,7 +386,6 @@ pub fn merge_wv_after_offline(my_wv: &mut Vec<u8>, read_wv: &Vec<u8>) {
 /// 
 fn merge_hall_requests(hall_req_1: &Vec<[bool; 2]>, hall_req_2: &Vec<[bool; 2]>) -> Vec<[bool; 2]> {
     let mut merged_hall_req = hall_req_1.clone();
-    //Basically en bitwise OR på begge viewene sin hall_request
     merged_hall_req
         .iter_mut()
         .zip(hall_req_2)
@@ -395,7 +394,6 @@ fn merge_hall_requests(hall_req_1: &Vec<[bool; 2]>, hall_req_2: &Vec<[bool; 2]>)
             read[1] |= my[1];
         });
     
-    // Hvis gamle array er lengre (din heis har fler etasjer): utvid
     if hall_req_2.len() > hall_req_1.len() {
         merged_hall_req
             .extend_from_slice(&hall_req_2[hall_req_1.len()..]);

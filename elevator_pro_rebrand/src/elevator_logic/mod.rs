@@ -127,13 +127,11 @@ async fn handle_elevator(wv_watch_rx: watch::Receiver<Vec<u8>>, elevator_states_
 
 
     // self_container.dirn = Dirn::Stop;
-    let mut prev_behavior:ElevatorBehaviour = self_container.behaviour;
+    let mut prev_behavior: ElevatorBehaviour = self_container.behaviour;
     let mut prev_floor: u8 = self_container.last_floor_sensor;
+    let mut prev_stop_btn: bool = self_container.stop;
     
-    loop {
-        /*OBS OBS!! krasjer når vi starter i 0 etasje..... uff da */
-        //Les nye data fra heisen, putt de inn i self_container
-        
+    loop {        
         self_elevator::update_elev_container_from_msgs(&mut local_elev_rx, &mut self_container, &mut timers.cab_priority , &mut timers.error ).await;
         
         /*======================================================================*/
@@ -153,6 +151,12 @@ async fn handle_elevator(wv_watch_rx: watch::Receiver<Vec<u8>>, elevator_states_
             &timers.door,
             &mut timers.cab_priority,
         ).await;
+
+        fsm::handle_stop_button(
+            &mut self_container, 
+            e.clone(), 
+            &mut prev_stop_btn
+        ).await;
         
         fsm::handle_error_timeout(
             &self_container,
@@ -161,8 +165,11 @@ async fn handle_elevator(wv_watch_rx: watch::Receiver<Vec<u8>>, elevator_states_
             timers.prev_cab_priority_timeout,
         );
         
-        // fsm::onIdle ?
-        fsm::handle_idle_state(&mut self_container, e.clone(), &mut timers.door);
+        fsm::handle_idle_state(
+            &mut self_container, 
+            e.clone(), 
+            &mut timers.door
+        );
         /*======================================================================*/
         /*                           END: FSM Events                            */
         /*======================================================================*/
