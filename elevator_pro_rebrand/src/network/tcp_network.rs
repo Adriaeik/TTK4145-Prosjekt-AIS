@@ -11,30 +11,40 @@ use super::local_network;
 /// The value is initialized as false
 pub static IS_MASTER: AtomicBool = AtomicBool::new(false);
 
-/// ### TcpWatchdog
-/// 
-/// Håndterer timeout på TCP connections hos master, og lesing fra slave
+/// Handles timeout on TCP connection at master, and reading from slave
 struct TcpWatchdog {
     timeout: Duration,
 }
 
 impl TcpWatchdog {
-    /// Starter en asynkron løkke der vi veksler mellom å lese fra stream og sjekke for timeout.
+    /// Starts a loop where reading from stream and checking for timeout runs asynchronously
+    /// 
+    /// # Parameters
+    /// `stream`: The TCP-stream to be read from
+    /// `remove_container_tx`: mpsc Sender used to notify the worldview updater if a slave should be remover  
+    /// `container_tx`: mpsc Sender used to pass recieved slave-messages to the worldview_updater  
+    /// 
+    /// # Behavior
+    /// The function loops:
+    /// - Calculate time before a timeout occures
+    /// - Asynchronously select between:
+    ///     - Sending the data successfully recieved on the TCP stream over `container_tx`
+    ///     - Sending the ID of the slave on `remove_container_tx` on timeout event
     async fn start_reading_from_slave(&self, mut stream: TcpStream, remove_container_tx: mpsc::Sender<u8>, container_tx: mpsc::Sender<Vec<u8>>) {
         let mut last_success = Instant::now();
 
         loop {
-            // Kalkulerer hvor lang tid vi har igjen før timeout inntreffer.
+            /* Calculate how long until timout occures */
             let remaining = self.timeout
                 .checked_sub(last_success.elapsed())
                 .unwrap_or(Duration::from_secs(0));
 
-            // Lager en sleep-future basert på gjenværende tid.
+            /* Creates a sleep-future based on remaining time before timeout */
             let sleep_fut = sleep(remaining);
             tokio::pin!(sleep_fut);
 
             tokio::select! {
-                // Forsøker å lese fra stream med de nødvendige parameterne.
+                /* Tries to read from stream */
                 result = read_from_stream(remove_container_tx.clone(), &mut stream) => {
                     match result {
                         Some(msg) => {
@@ -46,11 +56,11 @@ impl TcpWatchdog {
                         }
                     }
                 }
-                // Triggeres dersom ingen melding er mottatt innen timeout‑tiden.
+                /* Triggers if no message is recieved within the timeout-duration */
                 _ = &mut sleep_fut => {
-                    print::err(format!("Timeout: Ingen melding mottatt innen {:?}", self.timeout));
-                    let id = ip_help_functions::ip2id(stream.peer_addr().expect("Peer har ingen IP?").ip());
-                    print::info(format!("Stenger stream til slave {}", id));
+                    print::err(format!("Timeout: No message recieved within: {:?}", self.timeout));
+                    let id = ip_help_functions::ip2id(stream.peer_addr().expect("Peer has no IP?").ip());
+                    print::info(format!("Closing stream to slave {}", id));
                     let _ = remove_container_tx.send(id).await;
                     let _ = stream.shutdown().await;
                     break;
@@ -62,6 +72,25 @@ impl TcpWatchdog {
 
 
 // ### Håndterer TCP-connections
+/// Function that handles TCP-connections in the system
+/// 
+/// # Parameters
+/// `wv_watch_rx`: Reciever on watch the worldview is being sent on in the system   
+/// `remove_container_tx`: mpsc Sender used to notify worldview updater if a slave should be removed  
+/// `tcp_to_master_failed`: Sender on mpsc channel signaling if tcp connection to master has failed   
+/// `sent_tcp_container_tx`: mpsc Sender for notifying worldview updater what data has been sent to master    
+/// `container_tx`: mpsc Sender used pass recieved slave-messages to the worldview_updater  
+/// `socket_rx`: Reciever on mpsc channel recieving new TcpStreams and SocketAddress from the TCP listener   
+/// 
+/// # Behavior
+/// The function loops:
+/// - Call and await [tcp_while_master].
+/// - Call and await [tcp_while_slave].
+/// 
+/// # Note
+/// - If the function is called without internet connection, it will not do anything before internet connection is back up again.  
+/// - The function is dependant on [listener_task] to be running for the master-behavior to work as excpected.
+/// 
 pub async fn tcp_handler(
                         wv_watch_rx: watch::Receiver<Vec<u8>>, 
                         remove_container_tx: mpsc::Sender<u8>, 
@@ -89,13 +118,26 @@ pub async fn tcp_handler(
 }
 
 
+/// Function that handles TCP while you are master on the system
+/// 
+/// # Parameters
+/// `wv`: A mutable refrence to the current serialized worldview   
+/// `wv_watch_rx`: Reciever on watch the worldview is being sent on in the system   
+/// `socket_rx`: Reciever on mpsc channel recieving new TcpStreams and SocketAddress from the TCP listener   
+/// `remove_container_tx`: mpsc Sender used to notify worldview updater if a slave should be removed   
+/// `container_tx`: mpsc Sender used pass recieved slave-messages to the worldview_updater  
+/// 
+/// # Behavior
+/// While the system is master on the network:
+/// - Recieve new TcpStreams on `socket_rx`.  
+/// - If a new TcpStream is recieved, it starts [TcpWatchdog::start_reading_from_slave] on the stream 
 async fn tcp_while_master(wv: &mut Vec<u8>, wv_watch_rx: watch::Receiver<Vec<u8>>, socket_rx: &mut mpsc::Receiver<(TcpStream, SocketAddr)>, remove_container_tx: mpsc::Sender<u8>, container_tx: mpsc::Sender<Vec<u8>>) {
     /* While you are master */
     while world_view::is_master(wv.clone()) {
         /* Check if you are online */
         if world_view_update::read_network_status() {
-            /* Revieve TCP-sockets to newly connected slaves */
-            while let Ok((socket, addr)) = socket_rx.try_recv() {
+            /* Revieve TCP-streams to newly connected slaves */
+            while let Ok((stream, addr)) = socket_rx.try_recv() {
                 print::info(format!("New slave connected: {}", addr));
 
                 let remove_container_tx_clone = remove_container_tx.clone();
@@ -105,7 +147,7 @@ async fn tcp_while_master(wv: &mut Vec<u8>, wv_watch_rx: watch::Receiver<Vec<u8>
                         timeout: Duration::from_millis(config::TCP_TIMEOUT),
                     };
                     /* Start handling the slave. Also has watchdog function to detect timeouts on messages */
-                    tcp_watchdog.start_reading_from_slave(socket, remove_container_tx_clone, container_tx_clone).await;
+                    tcp_watchdog.start_reading_from_slave(stream, remove_container_tx_clone, container_tx_clone).await;
                 });
                 /* Make sure other tasks are able to run */
                 tokio::task::yield_now().await; 
@@ -121,10 +163,10 @@ async fn tcp_while_master(wv: &mut Vec<u8>, wv_watch_rx: watch::Receiver<Vec<u8>
 /// This function handles tcp connection while you are a slave on the system
 /// 
 /// # Parameters
-/// `wv`: A mutable refrence to the current serialized worldview
-/// `wv_watch_rx`: Reciever on watch the worldview is being sent on in the system
-/// `tcp_to_master_failed`: Sender on mpsc channel signaling if tcp connection to master has failed 
-/// `sent_tcp_container_tx`: mpsc Sender for notifying worldview updater what data has been sent to master
+/// `wv`: A mutable refrence to the current serialized worldview  
+/// `wv_watch_rx`: Reciever on watch the worldview is being sent on in the system  
+/// `tcp_to_master_failed`: Sender on mpsc channel signaling if tcp connection to master has failed   
+/// `sent_tcp_container_tx`: mpsc Sender for notifying worldview updater what data has been sent to master  
 /// 
 /// 
 /// # Behavior
@@ -137,11 +179,11 @@ async fn tcp_while_slave(wv: &mut Vec<u8>, wv_watch_rx: watch::Receiver<Vec<u8>>
     let mut master_accepted_tcp = false;
     let mut stream:Option<TcpStream> = None;
     if let Some(s) = connect_to_master(wv_watch_rx.clone(), tcp_to_master_failed_tx.clone()).await {
-        println!("Master accepta tilkobling");
+        println!("Master accepted the TCP-connection");
         master_accepted_tcp = true;
         stream = Some(s);
     } else {
-        println!("Master accepta IKKE tilkobling");
+        println!("Master adid not accept the TCP-connection");
     }
 
     let mut prev_master: u8;
@@ -177,7 +219,7 @@ async fn tcp_while_slave(wv: &mut Vec<u8>, wv_watch_rx: watch::Receiver<Vec<u8>>
 /// Attempts to connect to master over TCP
 /// 
 /// # Parameters
-/// `wv_watch_rx`: Reciever on watch the worldview is being sent on in the system 
+/// `wv_watch_rx`: Reciever on watch the worldview is being sent on in the system   
 /// `tcp_to_master_failed`: Sender on mpsc channel signaling if tcp connection to master has failed
 /// 
 /// # Return
@@ -282,7 +324,7 @@ pub async fn listener_task(socket_tx: mpsc::Sender<(TcpStream, SocketAddr)>) {
 /// Function to read message from slave
 /// 
 /// # Parameters
-/// `remove_container_tx`: mpsc Sender for channel used to indicate a slave should be removed at worldview updater
+/// `remove_container_tx`: mpsc Sender for channel used to indicate a slave should be removed at worldview updater  
 /// `stream`: the stream to read from
 /// 
 /// # Return
@@ -352,10 +394,10 @@ async fn read_from_stream(remove_container_tx: mpsc::Sender<u8>, stream: &mut Tc
 /// Function that sends tcp message to master
 /// 
 /// # Parameters
-/// `tcp_to_master_failed_tx`: mpsc Sender for signaling to worldview updater that connection to master failed
-/// `sent_tcp_container_tx`: mpsc Sender for notifying worldview updater what data has been sent to master
-/// `stream`: The TcpStream to the master
-/// `wv`: The current worldview in serial state
+/// `tcp_to_master_failed_tx`: mpsc Sender for signaling to worldview updater that connection to master failed  
+/// `sent_tcp_container_tx`: mpsc Sender for notifying worldview updater what data has been sent to master  
+/// `stream`: The TcpStream to the master  
+/// `wv`: The current worldview in serial state  
 /// 
 /// # Behavior
 /// The functions extracts the systems own elevatorcontainer from the worldview.  
