@@ -48,7 +48,7 @@ impl LocalElevChannels {
 
 /// ### Henter ut lokal IP adresse
 fn get_ip_address() -> String {
-    let self_id = network::status::SELF_ID.load(Ordering::SeqCst);
+    let self_id = network::SELF_ID.load(Ordering::SeqCst);
     format!("{}.{}", config::NETWORK_PREFIX, self_id)
 }
 

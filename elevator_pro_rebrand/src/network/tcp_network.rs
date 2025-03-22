@@ -28,11 +28,11 @@ pub static IS_MASTER: AtomicBool = AtomicBool::new(false);
 /// 
 pub async fn listener_task(socket_tx: mpsc::Sender<(TcpStream, SocketAddr)>) {
     /* On first init. make sure the system is online so no errors occures while setting up the listener */
-    while !network::status::read_network_status() {
+    while !network::read_network_status() {
         tokio::time::sleep(config::TCP_PERIOD).await;
     }
     
-    let self_ip = format!("{}.{}", config::NETWORK_PREFIX, network::status::SELF_ID.load(Ordering::SeqCst));
+    let self_ip = format!("{}.{}", config::NETWORK_PREFIX, network::SELF_ID.load(Ordering::SeqCst));
     /* Bind the listener on port [config::PN_PORT] */
     let listener = match TcpListener::bind(format!("{}:{}", self_ip, config::PN_PORT)).await {
         Ok(l) => {
@@ -47,7 +47,7 @@ pub async fn listener_task(socket_tx: mpsc::Sender<(TcpStream, SocketAddr)>) {
 
     loop {
         /* Check if you are online */
-        if network::status::read_network_status() {
+        if network::read_network_status() {
             sleep(Duration::from_millis(100)).await;
             /* Accept new connections */
             match listener.accept().await {
@@ -96,7 +96,7 @@ pub async fn tcp_handler(
     mut socket_rx: mpsc::Receiver<(TcpStream, SocketAddr)>
 ) 
 {
-    while !network::status::read_network_status() {
+    while !network::read_network_status() {
         
     }
     let mut wv = world_view::get_wv(wv_watch_rx.clone());
@@ -203,7 +203,7 @@ async fn tcp_while_master(wv: &mut Vec<u8>, wv_watch_rx: watch::Receiver<Vec<u8>
     /* While you are master */
     while world_view::is_master(wv.clone()) {
         /* Check if you are online */
-        if network::status::read_network_status() {
+        if network::read_network_status() {
             /* Revieve TCP-streams to newly connected slaves */
             while let Ok((stream, addr)) = socket_rx.try_recv() {
                 print::info(format!("New slave connected: {}", addr));
@@ -259,7 +259,7 @@ async fn tcp_while_slave(wv: &mut Vec<u8>, wv_watch_rx: watch::Receiver<Vec<u8>>
     /* While you are slave and tcp-connection to master is good */
     while !world_view::is_master(wv.clone()) && master_accepted_tcp {
         /* Check if you are online */
-        if network::status::read_network_status() {
+        if network::read_network_status() {
             if let Some(ref mut s) = stream {
                 /* Send TCP message to master */
                 send_tcp_message(connection_to_master_failed_tx.clone(), sent_tcp_container_tx.clone(), s, wv.clone()).await;
@@ -302,7 +302,7 @@ async fn connect_to_master(wv_watch_rx: watch::Receiver<Vec<u8>>, connection_to_
     let wv = world_view::get_wv(wv_watch_rx.clone());
 
     /* Check if we are online */
-    if network::status::read_network_status() {
+    if network::read_network_status() {
         let master_ip = format!("{}.{}:{}", config::NETWORK_PREFIX, wv[config::MASTER_IDX], config::PN_PORT);
         print::info(format!("Trying to connect to : {} in connect_to_master()", master_ip));
 
