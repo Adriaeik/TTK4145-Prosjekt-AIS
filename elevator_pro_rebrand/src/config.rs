@@ -46,7 +46,7 @@ pub const UDP_PERIOD: Duration = Duration::from_millis(TCP_PER_U64);
 pub const TCP_PERIOD: Duration = Duration::from_millis(TCP_PER_U64);
 /// General period at 10 ms
 pub const POLL_PERIOD: Duration = Duration::from_millis(10);
-/// Period used to sleep before rechecking network status when you are offline
+/// Period used to sleep before rechecking network status when you are offline 
 pub const OFFLINE_PERIOD: Duration = Duration::from_millis(100);
 /// Size used for buffer when reading UDP broadcasts
 pub const UDP_BUFFER: usize = u16::MAX as usize;
@@ -58,8 +58,13 @@ pub const TASK_TIMEOUT: u64 = 100;
 /// Timeout duration of slave-nodes
 pub const SLAVE_TIMEOUT: Duration = Duration::from_millis(100);
 
-/// Timeout duration of master-nodes
+/// Timeout duration for the master node.
+/// This defines how long the backup waits before taking over as master
+/// if no connection to the current master is established.
 pub const MASTER_TIMEOUT: Duration = Duration::from_millis(50000); // 5 sekunder før failover
+
+/// Timeout duration of backup-nodes
+pub const BACKUP_TIMEOUT: Duration = Duration::from_millis(50000); // 5 sekunder før failover
 
 /// How often to send worldview to backup client.
 pub const BACKUP_SEND_INTERVAL: Duration = Duration::from_millis(100); // 1 Hz
