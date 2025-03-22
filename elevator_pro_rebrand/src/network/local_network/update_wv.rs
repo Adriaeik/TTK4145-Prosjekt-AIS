@@ -47,22 +47,14 @@ pub fn join_wv(mut my_wv: Vec<u8>, master_wv: Vec<u8>) -> Vec<u8> {
         
         
         // Synchronize elevator status
-        // master_view.status = my_view.status;
         master_view.dirn = my_view.dirn;
         master_view.behaviour = my_view.behaviour;
         master_view.obstruction = my_view.obstruction;
         master_view.last_floor_sensor = my_view.last_floor_sensor;
-        
-        // Update call buttons and task statuses
-        // master_view.calls = my_view.calls.clone();
         master_view.unsent_hall_request = my_view.unsent_hall_request.clone();
-        //Hvis anti-ny master (du blir master):
-        if my_wv_deserialised.master_id > master_wv_deserialised.master_id {
-            print::err("ERAHDSIAHD".to_string());
-        }
         master_view.cab_requests = my_view.cab_requests.clone();
 
-        // Call buttons synchronization is handled through TCP reliability
+        // Hall request buttons synchronization is handled through TCP reliability
 
     } else if let Some(i_org) = my_self_index {
         // If the local elevator is missing in master_wv, add it

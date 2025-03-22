@@ -48,8 +48,8 @@ pub async fn start_udp_broadcaster(wv_watch_rx: watch::Receiver<Vec<u8>>) -> tok
     let addr: &str = &format!("{}:{}", config::BC_ADDR, config::DUMMY_PORT);
     let addr2: &str = &format!("{}:0", config::BC_LISTEN_ADDR);
 
-    let broadcast_addr: SocketAddr = addr.parse().expect("ugyldig adresse"); // UDP-broadcast adresse
-    let socket_addr: SocketAddr = addr2.parse().expect("Ugyldig adresse");
+    let broadcast_addr: SocketAddr = addr.parse().expect("Invalid address"); // UDP-broadcast adresse
+    let socket_addr: SocketAddr = addr2.parse().expect("Invalid addresse");
     let socket = Socket::new(Domain::IPV4, Type::DGRAM, None)?;
     
     socket.set_nonblocking(true)?;
@@ -106,7 +106,7 @@ pub async fn start_udp_listener(wv_watch_rx: watch::Receiver<Vec<u8>>, udp_wv_tx
     //Sett opp sockets
     let self_id = network::read_self_id();
     let broadcast_listen_addr = format!("{}:{}", config::BC_LISTEN_ADDR, config::DUMMY_PORT);
-    let socket_addr: SocketAddr = broadcast_listen_addr.parse().expect("Ugyldig adresse");
+    let socket_addr: SocketAddr = broadcast_listen_addr.parse().expect("Invalid address");
     let socket_temp = Socket::new(Domain::IPV4, Type::DGRAM, None)?;
     
     socket_temp.set_nonblocking(true).expect("Failed to set non-blocking");

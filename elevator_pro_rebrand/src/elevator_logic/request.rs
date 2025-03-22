@@ -129,7 +129,6 @@ pub fn choose_direction(elevator: &ElevatorContainer) -> DirnBehaviourPair {
             } else if below(elevator) {
                 DirnBehaviourPair { dirn: Dirn::Down, behaviour: ElevatorBehaviour::Moving }
             } else {
-                // print::err(4.to_string());
                 DirnBehaviourPair { dirn: Dirn::Stop, behaviour: ElevatorBehaviour::Idle }
             }
         }

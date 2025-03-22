@@ -20,24 +20,25 @@ static BACKUP_STARTED: AtomicBool = AtomicBool::new(false);
 pub fn create_reusable_listener(port: u16) -> TcpListener {
     let addr: SocketAddr = format!("0.0.0.0:{}", port)
         .parse()
-        .expect("Ugyldig adresse");
+        .expect("Invalid address");
     let socket = Socket::new(Domain::IPV4, Type::STREAM, Some(Protocol::TCP))
-        .expect("Klarte ikkje opprette socket");
-    socket.set_nonblocking(true).expect("msg");
+        .expect("Couldnt create socket");
+    socket.set_nonblocking(true)
+        .expect("Couldnt set non blocking");
     socket.set_reuse_address(true)
-        .expect("Klarte ikkje setje reuse_address");
+        .expect("Couldnt set reuse_address");
     socket.bind(&addr.into())
-        .expect("Klarte ikkje binde socketen");
+        .expect("Couldnt bind the socket");
     socket.listen(128)
-        .expect("Klarte ikkje lytte på socketen");
+        .expect("Couldnt listen on the socket");
     TcpListener::from_std(socket.into())
-        .expect("Klarte ikkje opprette TcpListener")
+        .expect("Couldnt create TcpListener")
 }
 
 /// Startar backup-terminalen i eit nytt terminalvindu – berre om han ikkje allereie er starta.
 fn start_backup_terminal() {
     if !BACKUP_STARTED.load(Ordering::SeqCst) {
-        let current_exe = env::current_exe().expect("Klarte ikkje hente ut den kjørbare fila");
+        let current_exe = env::current_exe().expect("Couldnt extract the executable");
         // Eksempel med gnome-terminal og --geometry for å spesifisere vindaugets storleik.
         let _child = Command::new("gnome-terminal")
             .arg("--geometry=400x24")
@@ -80,7 +81,7 @@ async fn handle_backup_client(mut stream: TcpStream, rx: watch::Receiver<Vec<u8>
 /// ## Note
 /// This function is permanently blocking, and should be ran asynchronously 
 pub async fn start_backup_server(wv_watch_rx: watch::Receiver<Vec<u8>>) {
-    println!("Backup-serveren startar...");
+    println!("Backup-server starting...");
     
     // Bruk ein gjennbrukbar listener.
     let listener = create_reusable_listener(config::BCU_PORT);
@@ -96,7 +97,7 @@ pub async fn start_backup_server(wv_watch_rx: watch::Receiver<Vec<u8>>) {
             let (socket, _) = listener
                 .accept()
                 .await
-                .expect("Klarte ikkje akseptere backup-kopling");
+                .expect("Failed to accept backup-connection");
             handle_backup_client(socket, rx.clone()).await;
         }
     });
@@ -104,14 +105,14 @@ pub async fn start_backup_server(wv_watch_rx: watch::Receiver<Vec<u8>>) {
     // Oppdater kontinuerleg worldview til backup-klientane.
     loop {
         let new_wv = world_view::get_wv(wv_watch_rx.clone());
-        tx.send(new_wv).expect("Klarte ikkje sende til backup-klientane");
+        tx.send(new_wv).expect("Failed to send to the backup-client");
         sleep(Duration::from_millis(1000)).await;
     }
 }
 
-/// Backup-klienten: Koplar seg til backup-serveren, les data kontinuerleg og skriv ut worldview.
+
 pub async fn run_as_backup() -> Option<world_view::ElevatorContainer> {
-    println!("Starter backup-klient...");
+    println!("Starting backup-client...");
     let mut current_wv = init::initialize_worldview(None).await;
     let mut retries = 0;
     
@@ -127,7 +128,7 @@ pub async fn run_as_backup() -> Option<world_view::ElevatorContainer> {
                 loop {
                     match stream.read(&mut buf).await {
                         Ok(0) => {
-                            eprintln!("Master koplinga vart avslutta.");
+                            eprintln!("Master connection has ended.");
                             break;
                         },
                         Ok(n) => {
@@ -141,7 +142,7 @@ pub async fn run_as_backup() -> Option<world_view::ElevatorContainer> {
                             print::worldview(current_wv.clone());
                         },
                         Err(e) => {
-                            eprintln!("Lesefeil frå master: {}", e);
+                            eprintln!("Error while reading from master: {}", e);
                             break;
                         }
                     }
@@ -150,9 +151,9 @@ pub async fn run_as_backup() -> Option<world_view::ElevatorContainer> {
             },
             _ => {
                 retries += 1;
-                eprintln!("Kunne ikkje koble til master, retry {}.", retries);
+                eprintln!("Failed to connect to master, retry {}.", retries);
                 if retries > 50 {
-                    eprintln!("Master feila, promoterer backup til master!");
+                    eprintln!("Master failed, promoting backup to master!");
                     // Her kan failover-logikken setjast i gang, t.d. køyre master-logikken.
                     match world_view::extract_self_elevator_container(current_wv) {
                         Some(container) => return Some(container),
