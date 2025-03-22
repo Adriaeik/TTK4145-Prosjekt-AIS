@@ -83,7 +83,7 @@ pub async fn handle_elevator(wv_watch_rx: watch::Receiver<Vec<u8>>, elevator_sta
 
     // self_container.dirn = Dirn::Stop;
     let mut prev_behavior:ElevatorBehaviour = self_container.behaviour;
-    let mut prev_floor = self_container.last_floor_sensor;
+    let mut prev_floor: u8 = self_container.last_floor_sensor;
     
     loop {
         /*OBS OBS!! krasjer når vi starter i 0 etasje..... uff da */
@@ -93,42 +93,29 @@ pub async fn handle_elevator(wv_watch_rx: watch::Receiver<Vec<u8>>, elevator_sta
         
         /*______ START: FSM Events ______ */
         // Hvis du er på ny etasje, 
-        if prev_floor != self_container.last_floor_sensor {
-            fsm::onFloorArrival(&mut self_container, e.clone(), &mut door_timer, &mut cab_call_timer).await;
-            error_timer.timer_start();
-            //skal ignorere cab_call_timer visst oppdraget kom fra ein insidebtn
-            if !request::was_outside(&self_container){
-                cab_call_timer.release_timer();
-            }
-            println!("linje 101:: last_floor_sensor:: {}",self_container.last_floor_sensor);
-            prev_floor = self_container.last_floor_sensor;
-        }
-        
-        if door_timer.timer_timeouted()  && !self_container.obstruction {
-            lights::clear_door_open_light(e.clone());
-            // if inside_call og vi moving_towards -> tving cab_call_timer til timout
-            if request::moving_towards_cab_call(&self_container.clone()) {
-                cab_call_timer.release_timer();
-            }
-            if prev_floor != self_container.last_floor_sensor {println!("linje 111:: last_floor_sensor:: {}",self_container.last_floor_sensor);}
-            
-            
-            if  cab_call_timer.timer_timeouted() {
+        handle_floor_sensor_update(
+            &mut self_container,
+            e.clone(),
+            &mut prev_floor,
+            &mut door_timer,
+            &mut cab_call_timer,
+            &mut error_timer,
+        ).await;        
 
-                fsm::onDoorTimeout(&mut self_container, e.clone(), &mut cab_call_timer).await;
-                if prev_floor != self_container.last_floor_sensor {println!("linje 117:: last_floor_sensor:: {}",self_container.last_floor_sensor)};
-                
-            }
-        }
-        if !cab_call_timer.timer_timeouted()|| self_container.behaviour == ElevatorBehaviour::Idle {
-            error_timer.timer_start();
-        }
-        if error_timer.timer_timeouted() && !prev_cab_call_timer_stat {
-            print::cosmic_err("Feil på travel!!!!".to_string());
-            // error_timer.timer_start();
-            
-        }
         
+        handle_door_timeout_and_lights(
+            &mut self_container,
+            e.clone(),
+            &door_timer,
+            &mut cab_call_timer,
+        ).await;
+        
+        handle_error_timeout(
+            &self_container,
+            &cab_call_timer,
+            &mut error_timer,
+            prev_cab_call_timer_stat,
+        );
         
         // fsm::onIdle ?
         if self_container.behaviour == ElevatorBehaviour::Idle {
@@ -205,6 +192,82 @@ async fn await_valid_self_container(wv_rx: watch::Receiver<Vec<u8>>) -> Elevator
         } else {
             print::warn(format!("Failed to extract self elevator container, retrying..."));
             sleep(Duration::from_millis(100)).await;
+        }
+    }
+}
+
+
+// Hjelpefunksjona til loopen
+pub async fn handle_floor_sensor_update(
+    self_container: &mut ElevatorContainer,
+    e: Elevator,
+    prev_floor: &mut u8,
+    door_timer: &mut timer::Timer,
+    cab_call_timer: &mut timer::Timer,
+    error_timer: &mut timer::Timer,
+) {
+    if *prev_floor != self_container.last_floor_sensor {
+        fsm::onFloorArrival(self_container, e, door_timer, cab_call_timer).await;
+        error_timer.timer_start();
+
+        // Skal ignorere cab_call_timer viss oppdraget kom frå ein inside-knapp
+        if !request::was_outside(self_container) {
+            cab_call_timer.release_timer();
+        }
+        *prev_floor = self_container.last_floor_sensor;
+    }
+}
+
+
+async fn handle_door_timeout_and_lights(
+    self_container: &mut ElevatorContainer,
+    e: Elevator,
+    door_timer: &timer::Timer,
+    cab_call_timer: &mut timer::Timer,
+) {
+    if door_timer.timer_timeouted() && !self_container.obstruction {
+        lights::clear_door_open_light(e.clone());
+
+        if request::moving_towards_cab_call(&self_container.clone()) {
+            cab_call_timer.release_timer();
+        }
+
+        if cab_call_timer.timer_timeouted() {
+            fsm::onDoorTimeout(self_container, e.clone(), cab_call_timer).await;
+        }
+    }
+}
+
+fn handle_error_timeout(
+    self_container: &ElevatorContainer,
+    cab_call_timer: &timer::Timer,
+    error_timer: &mut timer::Timer,
+    prev_cab_call_timer_stat: bool,
+) {
+    if !cab_call_timer.timer_timeouted() || self_container.behaviour == ElevatorBehaviour::Idle {
+        error_timer.timer_start();
+    }
+
+    if error_timer.timer_timeouted() && !prev_cab_call_timer_stat {
+        print::cosmic_err("Feil på travel!!!!".to_string());
+    }
+}
+
+
+pub fn handle_idle_state(
+    self_container: &mut ElevatorContainer,
+    e: Elevator,
+    door_timer: &mut timer::Timer,
+) {
+    if self_container.behaviour == ElevatorBehaviour::Idle {
+        let DBPair = request::choose_direction(&self_container.clone());
+
+        if DBPair.behaviour != ElevatorBehaviour::Idle {
+            print::err(format!("Skal nå være: {:?}", DBPair.behaviour));
+            self_container.dirn = DBPair.dirn;
+            self_container.behaviour = DBPair.behaviour;
+            door_timer.timer_start();
+            e.motor_direction(Dirn::Stop as u8);
         }
     }
 }
