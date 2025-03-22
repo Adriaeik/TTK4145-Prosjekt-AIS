@@ -32,7 +32,7 @@ pub async fn listener_task(socket_tx: mpsc::Sender<(TcpStream, SocketAddr)>) {
         tokio::time::sleep(config::TCP_PERIOD).await;
     }
     
-    let self_ip = format!("{}.{}", config::NETWORK_PREFIX, network::SELF_ID.load(Ordering::SeqCst));
+    let self_ip = format!("{}.{}", config::NETWORK_PREFIX, network::read_self_id());
     /* Bind the listener on port [config::PN_PORT] */
     let listener = match TcpListener::bind(format!("{}:{}", self_ip, config::PN_PORT)).await {
         Ok(l) => {

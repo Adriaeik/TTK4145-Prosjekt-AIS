@@ -64,7 +64,7 @@ pub async fn start_udp_broadcaster(wv_watch_rx: watch::Receiver<Vec<u8>>) -> tok
         world_view::update_wv(wv_watch_rx_clone, &mut wv).await;
 
         // Hvis du er master, broadcast worldview
-        if network::SELF_ID.load(Ordering::SeqCst) == wv[config::MASTER_IDX] {
+        if network::read_self_id() == wv[config::MASTER_IDX] {
             //TODO: Lag bedre delay?
             sleep(config::UDP_PERIOD);
             let mesage = format!("{:?}{:?}", config::KEY_STR, wv).to_string();
@@ -104,7 +104,7 @@ pub async fn start_udp_listener(wv_watch_rx: watch::Receiver<Vec<u8>>, udp_wv_tx
         
     }
     //Sett opp sockets
-    let self_id = network::SELF_ID.load(Ordering::SeqCst);
+    let self_id = network::read_self_id();
     let broadcast_listen_addr = format!("{}:{}", config::BC_LISTEN_ADDR, config::DUMMY_PORT);
     let socket_addr: SocketAddr = broadcast_listen_addr.parse().expect("Ugyldig adresse");
     let socket_temp = Socket::new(Domain::IPV4, Type::DGRAM, None)?;

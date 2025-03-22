@@ -11,8 +11,7 @@ use std::sync::OnceLock;
 use local_ip_address::local_ip;
 use std::net::IpAddr;
 
-/// Atomic bool storing self ID, standard inited as config::ERROR_ID
-pub static SELF_ID: AtomicU8 = AtomicU8::new(config::ERROR_ID); // Startverdi 255
+
 
 /// Returns the local IPv4 address of the machine as `IpAddr`.
 ///
@@ -127,3 +126,30 @@ pub fn read_network_status() -> bool {
 fn set_network_status(status: bool) {
     ONLINE.get_or_init(|| AtomicBool::new(false)).store(status, Ordering::SeqCst);
 }
+
+/// Atomic bool storing self ID, standard inited as config::ERROR_ID
+pub static SELF_ID: OnceLock<AtomicU8> = OnceLock::new();
+
+/// Reads and returns a clone of the current sself ID
+///
+/// This function returns a copy of the self ID.
+///
+/// # Returns
+/// u8: Your ID on the network
+/// 
+/// # Note
+/// - The value is [config::ERROR_ID] if [watch_ethernet] is not running.
+pub fn read_self_id() -> u8 {
+    SELF_ID.get_or_init(|| AtomicU8::new(config::ERROR_ID)).load(Ordering::SeqCst)
+}
+
+/// This function sets your self ID
+/// 
+/// # Note
+/// This function should not be used, as network ID is assigned automatically under initialisation
+pub fn set_self_id(id: u8) {
+    SELF_ID.get_or_init(|| AtomicU8::new(config::ERROR_ID)).store(id, Ordering::SeqCst);
+}
+
+
+
