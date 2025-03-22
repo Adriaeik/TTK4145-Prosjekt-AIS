@@ -91,8 +91,9 @@ pub async fn handle_elevator(wv_watch_rx: watch::Receiver<Vec<u8>>, elevator_sta
         
         self_elevator::update_elev_container_from_msgs(&mut local_elev_rx, &mut self_container, &mut cab_call_timer , &mut error_timer ).await;
         
-        /*______ START: FSM Events ______ */
-        // Hvis du er på ny etasje, 
+        /*======================================================================*/
+        /*                           START: FSM Events                          */
+        /*======================================================================*/
         handle_floor_sensor_update(
             &mut self_container,
             e.clone(),
@@ -118,21 +119,12 @@ pub async fn handle_elevator(wv_watch_rx: watch::Receiver<Vec<u8>>, elevator_sta
         );
         
         // fsm::onIdle ?
-        if self_container.behaviour == ElevatorBehaviour::Idle {
-            let DBPair = request::choose_direction(&self_container.clone());
-            if prev_floor != self_container.last_floor_sensor {println!("linje 134:: last_floor_sensor:: {}",self_container.last_floor_sensor)};
-            
-            if DBPair.behaviour != ElevatorBehaviour::Idle {
-                print::err(format!("Skal nå være: {:?}", DBPair.behaviour));
-                self_container.dirn = DBPair.dirn;
-                self_container.behaviour = DBPair.behaviour;
-                door_timer.timer_start();
-                e.motor_direction(Dirn::Stop as u8);
-            }
-        }
-        /*______ SLUTT: FSM Events ______ */
-        
-        
+        handle_idle_state(&mut self_container, e.clone(), &mut door_timer);
+        /*======================================================================*/
+        /*                           END: FSM Events                            */
+        /*======================================================================*/
+
+        /*============================================================================================================================================*/
         
         if self_container.behaviour != ElevatorBehaviour::DoorOpen {
             e.motor_direction(self_container.dirn as u8);  
@@ -157,11 +149,10 @@ pub async fn handle_elevator(wv_watch_rx: watch::Receiver<Vec<u8>>, elevator_sta
         if last_behavior == ElevatorBehaviour::DoorOpen && prev_behavior == ElevatorBehaviour::Error {
             self_container.dirn = Dirn::Stop;
         }
-        // println!("Motor dir: {:?}, Elev behaviour: {:?}", self_container.dirn, self_container.behaviour);
+        
         
         //Send til update_wv -> nye self_container
         let _ = elevator_states_tx.send(world_view::serial::serialize_elev_container(&self_container)).await;    
-        if prev_floor != self_container.last_floor_sensor {println!("linje 175:: last_floor_sensor:: {}",self_container.last_floor_sensor);}
         
         //Hent nyeste worldview
         if world_view::update_wv(wv_watch_rx.clone(), &mut wv).await{
