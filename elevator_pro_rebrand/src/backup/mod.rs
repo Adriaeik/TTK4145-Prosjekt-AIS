@@ -55,7 +55,9 @@ async fn handle_backup_client(mut stream: TcpStream, rx: watch::Receiver<Vec<u8>
     loop {
         let wv = rx.borrow().clone();
         if let Err(e) = stream.write_all(&wv).await {
-            eprintln!("Backup send error: {}", e);
+            print::err(format!("Backup send error: {}", e));
+            print::warn(format!("Trying again in {:?}", config::BACKUP_TIMEOUT));
+            sleep(config::BACKUP_TIMEOUT).await;
             BACKUP_STARTED.store(false, Ordering::SeqCst);
             start_backup_terminal();
             break;
