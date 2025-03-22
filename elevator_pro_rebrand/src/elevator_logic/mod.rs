@@ -375,12 +375,12 @@ fn handle_idle_state(
     door_timer: &mut timer::Timer,
 ) {
     if self_container.behaviour == ElevatorBehaviour::Idle {
-        let DBPair = request::choose_direction(&self_container.clone());
+        let status_pair = request::choose_direction(&self_container.clone());
 
-        if DBPair.behaviour != ElevatorBehaviour::Idle {
-            print::err(format!("Skal nå være: {:?}", DBPair.behaviour));
-            self_container.dirn = DBPair.dirn;
-            self_container.behaviour = DBPair.behaviour;
+        if status_pair.behaviour != ElevatorBehaviour::Idle {
+            print::err(format!("Skal nå være: {:?}", status_pair.behaviour));
+            self_container.dirn = status_pair.dirn;
+            self_container.behaviour = status_pair.behaviour;
             door_timer.timer_start();
             e.motor_direction(Dirn::Stop as u8);
         }
