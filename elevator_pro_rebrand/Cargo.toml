@@ -45,7 +45,5 @@ once_cell = "1.19"
 # For korrekt bredde-handtering i terminal (brukes i `pad_text`)
 unicode-width = "0.1"
 
-libc = "0.2"
-
 [lib]
 path = "src/lib.rs"
