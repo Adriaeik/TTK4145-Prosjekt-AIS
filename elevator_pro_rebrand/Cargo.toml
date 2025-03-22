@@ -1,6 +1,6 @@
 [package]
 name = "elevatorpro" #navn til crate to crates.io
-version = "0.0.5" #version nummer, må endres hver gang man oppdaterer docs og kode. Pass på å kjøre cargo doc og cargo update før cargo publish
+version = "0.0.6" #version nummer, må endres hver gang man oppdaterer docs og kode. Pass på å kjøre cargo doc og cargo update før cargo publish
 edition = "2021"
 authors = ["Ravn Erik Budde", "Adrian Valaker Eikeland"]
 readme = "README.md"
@@ -8,7 +8,8 @@ documentation = "https://docs.rs/elevatorpro"
 description = "TTK4145 Real-time Programming elevator project, Group 25, spring 2025"
 repository = "https://github.com/Adriaeik/TTK4145-Prosjekt-AIS"
 license-file = "LICENSE.txt"
-
+keywords = ["elevator", "real-time", "tokio", "ttk4145"]
+categories = ["asynchronous", "network-programming"]
 
 [dependencies]
 # Kanal for kommunikasjon mellom trådar (brukes i I/O og elevator logic)
