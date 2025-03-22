@@ -6,7 +6,6 @@ use std::collections::HashMap;
 
 
 /// Calls join_wv. See [join_wv]
-/// TODO: drop denne funksjonen, la join_wv være join_wv_from_udp for å droppe unødvendige funksjoner
 pub fn join_wv_from_udp(wv: &mut Vec<u8>, master_wv: Vec<u8>) -> bool {
     *wv = join_wv(wv.clone(), master_wv);
     true
@@ -123,7 +122,7 @@ pub async fn join_wv_from_tcp_container(wv: &mut Vec<u8>, container: Vec<u8>) ->
     let deser_container = serial::deserialize_elev_container(&container);
     let mut deserialized_wv = serial::deserialize_worldview(&wv);
 
-    // Hvis slaven ikke eksisterer, legg den til som den er
+    // If the slave does not exist, add it as-is
     if None == deserialized_wv.elevator_containers.iter().position(|x| x.elevator_id == deser_container.elevator_id) {
         deserialized_wv.add_elev(deser_container.clone());
     }
@@ -131,8 +130,7 @@ pub async fn join_wv_from_tcp_container(wv: &mut Vec<u8>, container: Vec<u8>) ->
     let self_idx = world_view::get_index_to_container(deser_container.elevator_id, serial::serialize_worldview(&deserialized_wv));
     
     if let Some(i) = self_idx {
-
-        // Legg til slave sine sendte hall_request til worldview sin hall_request
+        // Add the slave's sent hall_requests to worldview's hall_requests
         for (row1, row2) in deserialized_wv.hall_request.iter_mut().zip(deser_container.unsent_hall_request.iter()) {
             for (val1, val2) in row1.iter_mut().zip(row2.iter()) {
                 if !*val1 && *val2 {
@@ -145,7 +143,7 @@ pub async fn join_wv_from_tcp_container(wv: &mut Vec<u8>, container: Vec<u8>) ->
             deserialized_wv.elevator_containers[i].unsent_hall_request = vec![[false; 2]; deserialized_wv.elevator_containers[i].num_floors as usize];
         }
 
-        //Oppdater statuser
+        //Update statuses
         deserialized_wv.elevator_containers[i].cab_requests = deser_container.cab_requests;
         deserialized_wv.elevator_containers[i].elevator_id = deser_container.elevator_id;
         deserialized_wv.elevator_containers[i].last_floor_sensor = deser_container.last_floor_sensor;
@@ -153,9 +151,8 @@ pub async fn join_wv_from_tcp_container(wv: &mut Vec<u8>, container: Vec<u8>) ->
         deserialized_wv.elevator_containers[i].obstruction = deser_container.obstruction;
         deserialized_wv.elevator_containers[i].dirn = deser_container.dirn;
         deserialized_wv.elevator_containers[i].behaviour = deser_container.behaviour;
-        // Master styrer task, ikke overskriv det med slaven sitt forrige WV
 
-        //Fjern tatt hall_requests. TODO: bedre? gjør mer forståelig
+        //Remove taken hall_requests
         for (idx, [up, down]) in deserialized_wv.hall_request.iter_mut().enumerate() {
             if (deserialized_wv.elevator_containers[i].behaviour == ElevatorBehaviour::DoorOpen) && (deserialized_wv.elevator_containers[i].last_floor_sensor == (idx as u8)) {
                 if deserialized_wv.elevator_containers[i].dirn == Dirn::Up {
@@ -166,13 +163,13 @@ pub async fn join_wv_from_tcp_container(wv: &mut Vec<u8>, container: Vec<u8>) ->
             }
         }
 
-        // Oppdater cab_request backupen!
+        // Back up the cab requests
         update_cab_request_backup(&mut deserialized_wv.cab_requests_backup, deserialized_wv.elevator_containers[i].clone());
 
         *wv = serial::serialize_worldview(&deserialized_wv);
         return true;
     } else {
-        //Hvis dette printes, finnes ikke slaven i worldview. I teorien umulig, ettersom slaven blir lagt til over hvis den ikke allerede eksisterte
+        // If this is printed, the slave does not exist in the worldview. This is theoretically impossible, as the slave is added to the worldview just before this if it does not already exist.
         print::cosmic_err("The elevator does not exist join_wv_from_tcp_conatiner()".to_string());
         return false;
     }
@@ -234,18 +231,9 @@ pub fn clear_from_sent_tcp(wv: &mut Vec<u8>, tcp_container: Vec<u8>) -> bool {
     let mut deserialized_wv = serial::deserialize_worldview(&wv);
     let self_idx = world_view::get_index_to_container(network::read_self_id() , wv.clone());
     let tcp_container_des = serial::deserialize_elev_container(&tcp_container);
-
-    // Lagre task-IDen til alle sendte tasks. 
-    // let tasks_ids: HashSet<u16> = tcp_container_des
-    //     .tasks_status
-    //     .iter()
-    //     .map(|t| t.id)
-    //     .collect();
     
     if let Some(i) = self_idx {
-        /*_____ Fjern Tasks som master har oppdatert _____ */
-        // deserialized_wv.elevator_containers[i].tasks_status.retain(|t| tasks_ids.contains(&t.id));
-        /*_____ Fjern sendte Hall request _____ */
+        /*_____ Remove sent Hall request _____ */
    
         for (row1, row2) in deserialized_wv.elevator_containers[i].unsent_hall_request
                                                         .iter_mut().zip(tcp_container_des.unsent_hall_request.iter()) {
@@ -260,6 +248,7 @@ pub fn clear_from_sent_tcp(wv: &mut Vec<u8>, tcp_container: Vec<u8>) -> bool {
         *wv = serial::serialize_worldview(&deserialized_wv);
         return true;
     } else {
+        // If this is printed, you do not exist in your worldview
         print::cosmic_err("The elevator does not exist clear_sent_container_stuff()".to_string());
         return false;
     }
