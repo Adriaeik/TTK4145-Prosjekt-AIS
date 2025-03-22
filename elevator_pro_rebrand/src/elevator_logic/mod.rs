@@ -5,7 +5,6 @@ mod lights;
 mod self_elevator;
 
 use std::time::Duration;
-use std::u8::MAX;
 
 use tokio::task::yield_now;
 use tokio::sync::mpsc;
