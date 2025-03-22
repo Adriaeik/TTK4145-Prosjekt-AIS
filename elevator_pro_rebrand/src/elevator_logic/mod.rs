@@ -5,17 +5,16 @@ mod lights;
 mod self_elevator;
 
 use std::time::Duration;
+use std::u8::MAX;
 
 use tokio::task::yield_now;
 use tokio::sync::mpsc;
 use tokio::sync::watch;
 use tokio::time::sleep;
 use crate::config;
-use crate::config::PRINT_INFO_ON;
 use crate::elevio;
 use crate::elevio::elev::Elevator;
 use crate::elevio::ElevMessage;
-use crate::world_view::ElevatorContainer;
 use crate::print;
 use crate::world_view;
 use crate::world_view::Dirn;
@@ -24,10 +23,10 @@ use crate::world_view::ElevatorBehaviour;
 
 pub async fn run_local_elevator(wv_watch_rx: watch::Receiver<Vec<u8>>, elevator_states_tx: mpsc::Sender<Vec<u8>>) {
     let (local_elev_tx, local_elev_rx) = mpsc::channel::<ElevMessage>(100);
-
+    
     let elevator = self_elevator::init(local_elev_tx).await;
 
-
+    
     // Task som utfører deligerte tasks (ikke implementert korrekt enda)
     {
         let elevator_c = elevator.clone();
@@ -76,36 +75,41 @@ pub async fn handle_elevator(wv_watch_rx: watch::Receiver<Vec<u8>>, elevator_sta
     let mut error_timer = timer::new(Duration::from_secs(5));
     let mut prev_cab_call_timer_stat:bool = false;
     // let mut prev_behavior:ElevatorBehaviour = self_container.behaviour;
-    let mut prev_behavior:ElevatorBehaviour = ElevatorBehaviour::Moving;
-    let mut prev_floor: u8 = 0;
-    let mut prev_prev_floor = 0;
+    
+
+    while self_container.last_floor_sensor == u8::MAX {
+        self_elevator::update_elev_container_from_msgs(&mut local_elev_rx, &mut self_container, &mut cab_call_timer , &mut error_timer ).await;
+        sleep(config::POLL_PERIOD).await;
+    }
+    fsm::onFloorArrival(&mut self_container, e.clone(), &mut door_timer, &mut cab_call_timer).await;
+    // self_container.dirn = Dirn::Stop;
+    let mut prev_behavior:ElevatorBehaviour = self_container.behaviour;
+
 
     loop {
         /*OBS OBS!! krasjer når vi starter i 0 etasje..... uff da */
         //Les nye data fra heisen, putt de inn i self_container
-        prev_floor = self_container.last_floor_sensor;
+        let prev_floor = self_container.last_floor_sensor;
         
         self_elevator::update_elev_container_from_msgs(&mut local_elev_rx, &mut self_container, &mut cab_call_timer , &mut error_timer ).await;
 
         /*______ START: FSM Events ______ */
         // Hvis du er på ny etasje, 
-        // if prev_floor != self_container.last_floor_sensor {
-        //     fsm::onFloorArrival(&mut self_container, e.clone(), &mut door_timer, &mut cab_call_timer).await;
-        //     println!("linje 94:: last_floor_sensor:: {}",self_container.last_floor_sensor);
-        //     error_timer.timer_start();
-        //     //skal ignorere cab_call_timer visst oppdraget kom fra ein insidebtn
-        //     if !request::was_outside(&self_container){
-        //         cab_call_timer.release_timer();
-        //     }
-        // }
-        handle_floor_arrival_if_needed(
-            prev_floor,
-            &mut self_container,
-            e.clone(),
-            &mut door_timer,
-            &mut cab_call_timer,
-            &mut error_timer,
-        ).await;
+        if prev_floor != self_container.last_floor_sensor {
+            println!("linje 90:: last_floor_sensor:: {}",self_container.last_floor_sensor);
+            println!("prev_floor{}",prev_floor);
+            
+            fsm::onFloorArrival(&mut self_container, e.clone(), &mut door_timer, &mut cab_call_timer).await;
+            println!("linje 94:: last_floor_sensor:: {}",self_container.last_floor_sensor);
+
+            error_timer.timer_start();
+            //skal ignorere cab_call_timer visst oppdraget kom fra ein insidebtn
+            if !request::was_outside(&self_container){
+                cab_call_timer.release_timer();
+            }
+            println!("linje 101:: last_floor_sensor:: {}",self_container.last_floor_sensor);
+
+        }
 
         if door_timer.timer_timeouted()  && !self_container.obstruction {
             lights::clear_door_open_light(e.clone());
@@ -166,7 +170,7 @@ pub async fn handle_elevator(wv_watch_rx: watch::Receiver<Vec<u8>>, elevator_sta
         // Oppdater prev_behavior dersom statusen endrar seg
         if prev_behavior != self_container.behaviour {
             prev_behavior = self_container.behaviour;
-            print::info(format!("Endra status: {:?} -> {:?}", last_behavior, prev_behavior));
+            println!("Endra status: {:?} -> {:?}", last_behavior, prev_behavior);
         }
 
         // Sett motor til stopp når vi går frå DoorOpen til Error
@@ -181,43 +185,19 @@ pub async fn handle_elevator(wv_watch_rx: watch::Receiver<Vec<u8>>, elevator_sta
         
         //Hent nyeste worldview
         if world_view::update_wv(wv_watch_rx.clone(), &mut wv).await{
-
+            let temp_behaviour = self_container.behaviour;
+            let temp_dirn= self_container.dirn;
             self_container = world_view::extract_self_elevator_container(wv.clone()); //her det blir overskrive
-            if prev_floor != self_container.last_floor_sensor {
-                println!("linje 181:: last_floor_sensor:: {}",self_container.last_floor_sensor); 
-                self_container.last_floor_sensor = prev_floor}
+            // setter tillstande VI! bestemmer
+            {
+                self_container.last_floor_sensor = prev_floor;
+                self_container.behaviour = temp_behaviour;
+                self_container.dirn = temp_dirn;
+            }
 
         }
         sleep(config::POLL_PERIOD).await;
 
         
-    }
-}
-
-/// Hjelpefunksjon som bestemmer om me har ankomme ei ny, gyldig etasje
-fn is_new_valid_floor(prev: u8, current: u8, num_floors: u8) -> bool {
-    current < num_floors && current != prev
-}
-
-/// Kall `onFloorArrival` og relaterte FSM-event, dersom me er i ny gyldig etasje
-async fn handle_floor_arrival_if_needed(
-    prev_floor: u8,
-    self_container: &mut ElevatorContainer,
-    e: Elevator,
-    door_timer: &mut timer::Timer,
-    cab_call_timer: &mut timer::Timer,
-    error_timer: &mut timer::Timer,
-) {
-    let current = self_container.last_floor_sensor;
-
-    if is_new_valid_floor(prev_floor, current, self_container.num_floors) {
-        println!("[onFloorArrival] last: {}, prev: {}", current, prev_floor);
-
-        fsm::onFloorArrival(self_container, e.clone(), door_timer, cab_call_timer).await;
-        error_timer.timer_start();
-
-        if !request::was_outside(self_container) {
-            cab_call_timer.release_timer();
-        }
     }
 }
