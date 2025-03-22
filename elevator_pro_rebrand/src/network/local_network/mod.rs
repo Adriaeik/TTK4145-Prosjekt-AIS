@@ -132,22 +132,6 @@ pub async fn update_wv_watch(mut mpsc_rxs: MpscRxs, worldview_watch_tx: watch::S
 }
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 // --- MPSC-KANALAR ---
 /// Struct containing multiple MPSC (multi-producer, single-consumer) sender channels.
 /// These channels are primarely used to send data to the task updating the local worldview.
