@@ -41,10 +41,10 @@ async fn get_elev_tasks(wv: Vec<u8>) -> HashMap<u8, Vec<[bool; 2]>> {
     let json_str = json_serial::create_hall_request_json(wv).await;
 
     if let Some(str) = json_str {
-        let json_cost_str = json_serial::run_cost_algorithm(str).await;
+        let json_cost_str = json_serial::run_cost_algorithm(str.clone()).await;
         
         if json_cost_str.trim().is_empty() {
-            eprintln!("⚠️ run_cost_algorithm returnerte tom streng!");
+            eprintln!("⚠️ run_cost_algorithm returnerte tom streng!, vi sendte {}", str);
             return HashMap::new();
         }
 
@@ -55,6 +55,6 @@ async fn get_elev_tasks(wv: Vec<u8>) -> HashMap<u8, Vec<[bool; 2]>> {
             });
     }
 
-    eprintln!("⚠️ create_hall_request_json returnerte None!");
+    eprintln!("⚠️ create_hall_request_json returnerte None! string inn:");
     HashMap::new()
 }
