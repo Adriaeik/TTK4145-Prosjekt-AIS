@@ -1,6 +1,5 @@
 // Library that allows us to use environment variables or command-line arguments to pass variables from terminal to the program directly
 use std::{collections::HashMap, env};
-use bincode::config;
 use serde::{Serialize, Deserialize};
 use std::fs::File;
 use std::io::Write;

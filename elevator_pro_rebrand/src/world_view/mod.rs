@@ -6,7 +6,7 @@ use std::collections::HashMap;
 use std::sync::atomic::Ordering;
 use crate::config;
 use crate::print;
-use crate::network::{status, local_network};
+use crate::network::status;
 
 
 #[allow(missing_docs)]

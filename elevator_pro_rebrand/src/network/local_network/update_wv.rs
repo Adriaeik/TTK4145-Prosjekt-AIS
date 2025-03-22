@@ -1,8 +1,6 @@
 use crate::world_view::{serial, ElevatorContainer, Dirn, ElevatorBehaviour};
+use crate::{print, world_view, network::status};
 
-use crate::{print, world_view, network::{local_network, status}};
-
-use tokio::sync::{mpsc, watch};
 use std::sync::atomic::Ordering;
 use std::collections::HashMap;
 

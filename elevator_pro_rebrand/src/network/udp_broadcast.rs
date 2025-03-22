@@ -4,7 +4,6 @@ use crate::config;
 use crate::network;
 use crate::print;
 use crate::world_view;
-use super::local_network;
 
 use std::net::SocketAddr;
 use std::sync::atomic::Ordering;

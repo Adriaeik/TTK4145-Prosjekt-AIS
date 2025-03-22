@@ -4,7 +4,7 @@ use std::{borrow::Cow, env, net::SocketAddr, sync::atomic::Ordering, time::Durat
 use tokio::{net::UdpSocket, time::{sleep, timeout, Instant}};
 use socket2::{Domain, Socket, Type};
 use local_ip_address::local_ip;
-use crate::{config, ip_help_functions::ip2id, network::{self, local_network}, print, world_view::{self, serial, ElevatorContainer, WorldView}};
+use crate::{config, ip_help_functions::ip2id, network, print, world_view::{self, serial, ElevatorContainer, WorldView}};
 use tokio::process::Command;
 
 /// ### Initializes the worldview on startup
