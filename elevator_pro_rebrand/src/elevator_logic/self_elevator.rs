@@ -58,13 +58,13 @@ async fn start_elevator_server() {
     let ssh_password = "Sanntid15"; // Hardkodet passord, vurder sikkerhetsrisiko
 
     if cfg!(target_os = "windows") {
-        println!("Starter elevatorserver på Windows...");
+        println!("Starting elevatorserver on Windows...");
         Command::new("cmd")
             .args(&["/C", "start", "elevatorserver"])
             .spawn()
             .expect("Failed to start elevator server");
     } else {
-        println!("Starter elevatorserver på Linux...");
+        println!("Starting elevatorserver on Linux...");
         
         let elevator_server_command = format!(
             "sshpass -p '{}' ssh student@{} 'nohup elevatorserver > /dev/null 2>&1 &'",
@@ -76,16 +76,16 @@ async fn start_elevator_server() {
         //                                                                  kill <PID>               # Avslutter prosessen
 
 
-        println!("\nStarter elevatorserver i ny terminal:\n\t{}", elevator_server_command);
+        println!("\nStarting elevatorserver in new terminal:\n\t{}", elevator_server_command);
 
         let _ = Command::new("sh")
             .arg("-c")
             .arg(&elevator_server_command)
             .output().await
-            .expect("Feil ved start av elevatorserver");
+            .expect("Error while starting elevatorserver");
     }
 
-    println!("Elevator server startet.");
+    println!("Elevator server started.");
 }
 
 // ### Kjører den lokale heisen
@@ -109,7 +109,8 @@ pub async fn init(local_elev_tx: mpsc::Sender<elevio::ElevMessage>) -> e::Elevat
     start_elevator_server().await;
     let local_elev_channels: LocalElevChannels = LocalElevChannels::new();
     let _ = sleep(config::SLAVE_TIMEOUT);
-    let elevator: e::Elevator = e::Elevator::init(config::LOCAL_ELEV_IP, config::DEFAULT_NUM_FLOORS).expect("Feil!");
+    let elevator: e::Elevator = e::Elevator::init(config::LOCAL_ELEV_IP, config::DEFAULT_NUM_FLOORS)
+        .expect("Error while initiating elevator");
     
     // Start polling på meldinger fra heisen
     // ______START:: LESE KNAPPER_______________

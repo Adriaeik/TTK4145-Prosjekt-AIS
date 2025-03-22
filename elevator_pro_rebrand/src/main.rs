@@ -19,7 +19,7 @@ async fn main() {
     
     let mut self_container: Option< world_view::ElevatorContainer> = None;
     if is_backup {
-        println!("Starter backup-prosess...");
+        println!("Starting backup-process...");
         self_container = backup::run_as_backup().await;
     }
     
@@ -28,7 +28,7 @@ async fn main() {
     
     init::build_cost_fn().await;
     // Vanlig hovedprosess starter her:
-    print::info("Starter hovedprosess...".to_string());
+    print::info("Starting master process...".to_string());
 
     
     
@@ -66,7 +66,7 @@ async fn main() {
     {
         let wv_watch_rx = watches.rxs.wv.clone();
         let _network_status_watcher_task = tokio::spawn(async move {
-            print::info("Starter å passe på nettverket".to_string());
+            print::info("Starting to monitor internet".to_string());
             let _ = network::watch_ethernet(wv_watch_rx, new_wv_after_offline_tx).await;
         });
     }
@@ -83,7 +83,7 @@ async fn main() {
     {
         //Task som kontinuerlig oppdaterer lokale worldview
         let _update_wv_task = tokio::spawn(async move {
-            print::info("Starter å oppdatere wv".to_string());
+            print::info("Starter to update worldview".to_string());
             let _ = local_network::update_wv_watch(mpsc_rxs, wv_watch_tx, worldview_serialised).await;
         });
     }
@@ -108,7 +108,7 @@ async fn main() {
     {
         let wv_watch_rx = watches.rxs.wv.clone();
         let _backup_task = tokio::spawn(async move {
-            print::info("Starter backup".to_string());
+            print::info("Starting backup".to_string());
             tokio::spawn(backup::start_backup_server(wv_watch_rx));
         });
     }
@@ -118,7 +118,7 @@ async fn main() {
     {
         let wv_watch_rx = watches.rxs.wv.clone();
         let _listen_task = tokio::spawn(async move {
-            print::info("Starter å høre etter UDP-broadcast".to_string());
+            print::info("Starting to listen for UDP-broadcast".to_string());
             let _ = udp_network::start_udp_listener(wv_watch_rx, udp_wv_tx).await;
         });
     }
@@ -127,7 +127,7 @@ async fn main() {
     {
         let wv_watch_rx = watches.rxs.wv.clone();
         let _broadcast_task = tokio::spawn(async move {
-            print::info("Starter UDP-broadcaster".to_string());
+            print::info("Starting UDP-broadcaster".to_string());
             let _ = udp_network::start_udp_broadcaster(wv_watch_rx).await;
         });
     }
@@ -136,7 +136,7 @@ async fn main() {
     {
         let wv_watch_rx = watches.rxs.wv.clone();
         let _tcp_task = tokio::spawn(async move {
-            print::info("Starter å TCPe".to_string());
+            print::info("Starting TCP handler".to_string());
             let _ = tcp_network::tcp_handler(wv_watch_rx, remove_container_tx, container_tx, connection_to_master_failed_tx, sent_tcp_container_tx, socket_rx).await;
         });
     }
@@ -144,7 +144,7 @@ async fn main() {
     //UDP Watchdog
     {
         let _udp_watchdog = tokio::spawn(async move {
-            print::info("Starter udp watchdog".to_string());
+            print::info("Starting udp watchdog".to_string());
             let _ = udp_network::udp_watchdog(connection_to_master_failed_tx_clone).await;
         });
     }
@@ -152,24 +152,12 @@ async fn main() {
     //Task som starter TCP-listener
     {
         let _listener_handle = tokio::spawn(async move {
-            print::info("Starter tcp listener".to_string());
+            print::info("Starting tcp listener".to_string());
             let _ = tcp_network::listener_task(socket_tx).await;
         });
     }
     // Lag prat med egen heis thread her 
 /* SLUTT ----------- Starte Eksterne Nettverkstasks ---------------------- */
-
-
-    // Task som printer worldview
-    // let _print_task = tokio::spawn(async move {
-    //     let mut wv = world_view::get_wv(watches.rxs.wv.clone());
-    //     loop {
-    //         if world_view::update_wv(watches.rxs.wv.clone(), &mut wv).await {
-    //             print::worldview(wv.clone());
-    //             tokio::time::sleep(Duration::from_millis(500)).await;
-    //         }
-    //     }
-    // });
 
     //Vent med å avslutte programmet
     loop{

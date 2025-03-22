@@ -461,11 +461,11 @@ async fn send_tcp_message(connection_to_master_failed_tx: mpsc::Sender<bool>, se
 async fn close_tcp_stream(stream: &mut TcpStream) {
     /* Get local and peer address */
     let local_addr = stream.local_addr().map_or_else(
-        |e| format!("Ukjent (Feil: {})", e),
+        |e| format!("Unknown (Error: {})", e),
         |addr| addr.to_string(),
     );
     let peer_addr = stream.peer_addr().map_or_else(
-        |e| format!("Ukjent (Feil: {})", e),
+        |e| format!("Unknown (Error: {})", e),
         |addr| addr.to_string(),
     );
 

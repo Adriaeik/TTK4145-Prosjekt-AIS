@@ -30,7 +30,6 @@ use std::collections::HashMap;
 /// and is responsible in updating the worldview based on information recieved form other parts of the program.
 #[allow(non_snake_case)]
 pub async fn update_wv_watch(mut mpsc_rxs: MpscRxs, worldview_watch_tx: watch::Sender<Vec<u8>>, mut worldview_serialised: Vec<u8>) {
-    println!("Starter update_wv");
     let _ = worldview_watch_tx.send(worldview_serialised.clone());
     
     let mut wv_edited_I = false;
