@@ -109,19 +109,22 @@ pub async fn run_local_elevator(wv_watch_rx: watch::Receiver<Vec<u8>>, elevator_
 ///   to reach the closest floor in downward direction (via `fsm::onInit`).
 /// - If the elevator starts on floor 0, special care must be taken (known crash case).
 /// - Errors are handled internally via timers and behavior transitions.
-pub async fn handle_elevator(wv_watch_rx: watch::Receiver<Vec<u8>>, elevator_states_tx: mpsc::Sender<Vec<u8>>, mut local_elev_rx: mpsc::Receiver<elevio::ElevMessage>, e: Elevator) {
+async fn handle_elevator(wv_watch_rx: watch::Receiver<Vec<u8>>, elevator_states_tx: mpsc::Sender<Vec<u8>>, mut local_elev_rx: mpsc::Receiver<elevio::ElevMessage>, e: Elevator) {
     
     let mut wv = world_view::get_wv(wv_watch_rx.clone());
     let mut self_container = await_valid_self_container(wv_watch_rx.clone()).await;
 
     
-    let mut door_timer = timer::new(Duration::from_secs(3));
-    let mut cab_call_timer = timer::new(Duration::from_secs(10));
-    let mut error_timer = timer::new(Duration::from_secs(7));
-    let mut prev_cab_call_timer_stat:bool = false;
+    let mut timers = timer::ElevatorTimers::new(
+        Duration::from_secs(3),   // door timer
+        Duration::from_secs(10),  // cab call priority
+        Duration::from_secs(7),   // error timer
+    );
+
 
     //init the state. this is blocking until we reach the closest foor in down direction
-    fsm::onInit(&mut self_container, e.clone(), &mut local_elev_rx, &mut cab_call_timer, &mut error_timer, &mut door_timer).await;
+    fsm::on_init(&mut self_container, e.clone(), &mut local_elev_rx, &mut timers).await;
+
 
     // self_container.dirn = Dirn::Stop;
     let mut prev_behavior:ElevatorBehaviour = self_container.behaviour;
@@ -131,37 +134,35 @@ pub async fn handle_elevator(wv_watch_rx: watch::Receiver<Vec<u8>>, elevator_sta
         /*OBS OBS!! krasjer når vi starter i 0 etasje..... uff da */
         //Les nye data fra heisen, putt de inn i self_container
         
-        self_elevator::update_elev_container_from_msgs(&mut local_elev_rx, &mut self_container, &mut cab_call_timer , &mut error_timer ).await;
+        self_elevator::update_elev_container_from_msgs(&mut local_elev_rx, &mut self_container, &mut timers.cab_priority , &mut timers.error ).await;
         
         /*======================================================================*/
         /*                           START: FSM Events                          */
         /*======================================================================*/
-        handle_floor_sensor_update(
+        fsm::handle_floor_sensor_update(
             &mut self_container,
             e.clone(),
             &mut prev_floor,
-            &mut door_timer,
-            &mut cab_call_timer,
-            &mut error_timer,
+            &mut timers,
         ).await;        
 
         
-        handle_door_timeout_and_lights(
+        fsm::handle_door_timeout_and_lights(
             &mut self_container,
             e.clone(),
-            &door_timer,
-            &mut cab_call_timer,
+            &timers.door,
+            &mut timers.cab_priority,
         ).await;
         
-        handle_error_timeout(
+        fsm::handle_error_timeout(
             &self_container,
-            &cab_call_timer,
-            &mut error_timer,
-            prev_cab_call_timer_stat,
+            &timers.cab_priority,
+            &mut timers.error,
+            timers.prev_cab_priority_timeout,
         );
         
         // fsm::onIdle ?
-        handle_idle_state(&mut self_container, e.clone(), &mut door_timer);
+        fsm::handle_idle_state(&mut self_container, e.clone(), &mut timers.door);
         /*======================================================================*/
         /*                           END: FSM Events                            */
         /*======================================================================*/
@@ -170,7 +171,7 @@ pub async fn handle_elevator(wv_watch_rx: watch::Receiver<Vec<u8>>, elevator_sta
         
         update_motor_direction_if_needed(&self_container, &e);
 
-        update_error_state(&mut self_container, &error_timer, &mut prev_cab_call_timer_stat);
+        update_error_state(&mut self_container, &timers.error, &mut timers.prev_cab_priority_timeout);
 
         let last_behavior: ElevatorBehaviour = track_behavior_change(&self_container, &mut prev_behavior);
         stop_motor_on_dooropen_to_error(&mut self_container, last_behavior, prev_behavior);
@@ -254,142 +255,6 @@ async fn await_valid_self_container(wv_rx: watch::Receiver<Vec<u8>>) -> Elevator
 }
 
 
-// Hjelpefunksjona til loopen
-/// Handles floor arrival updates when a new floor sensor reading is detected.
-///
-/// If the current floor (`last_floor_sensor`) is different from the previous floor,
-/// this function calls the floor arrival state handler and starts the error timer.
-/// If the request came from an inside button, the cab call timer is also released.
-///
-/// # Parameters
-/// - `self_container`: The mutable elevator container representing the local elevator.
-/// - `e`: Elevator identifier or handle.
-/// - `prev_floor`: Mutable reference to the previously seen floor.
-/// - `door_timer`: Timer used to control door timing.
-/// - `cab_call_timer`: Timer tracking inside requests.
-/// - `error_timer`: Timer for detecting inactivity or errors.
-///
-/// # Behavior
-/// - Updates the previous floor value.
-/// - Triggers door and cab call logic based on sensor input.
-pub async fn handle_floor_sensor_update(
-    self_container: &mut ElevatorContainer,
-    e: Elevator,
-    prev_floor: &mut u8,
-    door_timer: &mut timer::Timer,
-    cab_call_timer: &mut timer::Timer,
-    error_timer: &mut timer::Timer,
-) {
-    if *prev_floor != self_container.last_floor_sensor {
-        fsm::onFloorArrival(self_container, e, door_timer, cab_call_timer).await;
-        error_timer.timer_start();
-
-        // Skal ignorere cab_call_timer viss oppdraget kom frå ein inside-knapp
-        if !request::was_outside(self_container) {
-            cab_call_timer.release_timer();
-        }
-        *prev_floor = self_container.last_floor_sensor;
-    }
-}
-
-/// Handles door timeout logic and clears the door light when appropriate.
-///
-/// If the door timer has expired and no obstruction is detected, this function clears
-/// the door open light. If the elevator is moving toward a cab call, the cab call timer
-/// is released. If the cab call timer has also expired, the system proceeds to handle
-/// the door timeout state transition.
-///
-/// # Parameters
-/// - `self_container`: Mutable reference to the elevator's internal state.
-/// - `e`: Elevator identifier or hardware handle used to control lights and motors.
-/// - `door_timer`: Timer that tracks how long the door has been open.
-/// - `cab_call_timer`: Timer used to delay door close for cab calls.
-///
-/// # Behavior
-/// - Clears door light after timeout.
-/// - Handles door-close logic via finite state machine if cab call timer is also expired.
-async fn handle_door_timeout_and_lights(
-    self_container: &mut ElevatorContainer,
-    e: Elevator,
-    door_timer: &timer::Timer,
-    cab_call_timer: &mut timer::Timer,
-) {
-    if door_timer.timer_timeouted() && !self_container.obstruction {
-        lights::clear_door_open_light(e.clone());
-
-        if request::moving_towards_cab_call(&self_container.clone()) {
-            cab_call_timer.release_timer();
-        }
-
-        if cab_call_timer.timer_timeouted() {
-            fsm::onDoorTimeout(self_container, e.clone(), cab_call_timer).await;
-        }
-    }
-}
-
-/// Monitors elevator activity and triggers error behavior after a timeout period.
-///
-/// If no cab call has timed out or the elevator is idle, the error timer is restarted.
-/// If the error timer itself has expired and a cab call was previously active,
-/// the elevator enters an error state and logs a critical error message.
-///
-/// # Parameters
-/// - `self_container`: Reference to the elevator state being monitored.
-/// - `cab_call_timer`: Timer tracking how long a cab call has been pending.
-/// - `error_timer`: Mutable timer for detecting inactivity or system faults.
-/// - `prev_cab_call_timer_stat`: Whether the cab call timer had previously expired.
-///
-/// # Behavior
-/// - Triggers an error state if prolonged inactivity or failure is detected.
-fn handle_error_timeout(
-    self_container: &ElevatorContainer,
-    cab_call_timer: &timer::Timer,
-    error_timer: &mut timer::Timer,
-    prev_cab_call_timer_stat: bool,
-) {
-    if !cab_call_timer.timer_timeouted() || self_container.behaviour == ElevatorBehaviour::Idle {
-        error_timer.timer_start();
-    }
-
-    if error_timer.timer_timeouted() && !prev_cab_call_timer_stat {
-        print::cosmic_err("Feil på travel!!!!".to_string());
-    }
-}
-
-/// Attempts to transition the elevator from idle to active movement if a request is pending.
-///
-/// If the elevator is currently idle, the system chooses a new direction and behavior
-/// using the request logic. If a non-idle state is chosen, the elevator's direction
-/// and behavior are updated, the door timer is started, and the motor is stopped
-/// in preparation for movement or door logic.
-///
-/// # Parameters
-/// - `self_container`: Mutable reference to the elevator's current state.
-/// - `e`: Elevator handle or control interface.
-/// - `door_timer`: Timer used to delay transitions or prepare door actions.
-///
-/// # Behavior
-/// - Only operates when the elevator is in an idle state.
-/// - Initializes direction and behavior when transitioning out of idle.
-/// - Starts door timer and stops the motor to stabilize before further action.
-fn handle_idle_state(
-    self_container: &mut ElevatorContainer,
-    e: Elevator,
-    door_timer: &mut timer::Timer,
-) {
-    if self_container.behaviour == ElevatorBehaviour::Idle {
-        let DBPair = request::choose_direction(&self_container.clone());
-
-        if DBPair.behaviour != ElevatorBehaviour::Idle {
-            print::err(format!("Skal nå være: {:?}", DBPair.behaviour));
-            self_container.dirn = DBPair.dirn;
-            self_container.behaviour = DBPair.behaviour;
-            door_timer.timer_start();
-            e.motor_direction(Dirn::Stop as u8);
-        }
-    }
-}
-
 /// Updates the motor direction if the elevator is not in the DoorOpen state.
 ///
 /// This function sends the current direction (`dirn`) to the motor controller
@@ -402,7 +267,7 @@ fn handle_idle_state(
 /// # Behavior
 /// - Prevents motor updates while the door is open.
 /// - Useful for ensuring motor is only active during appropriate states.
-pub fn update_motor_direction_if_needed(self_container: &ElevatorContainer, e: &Elevator) {
+fn update_motor_direction_if_needed(self_container: &ElevatorContainer, e: &Elevator) {
     if self_container.behaviour != ElevatorBehaviour::DoorOpen {
         e.motor_direction(self_container.dirn as u8);
     }
@@ -411,26 +276,26 @@ pub fn update_motor_direction_if_needed(self_container: &ElevatorContainer, e: &
 /// Updates the elevator state based on the error timer's status.
 ///
 /// If the error timer has expired, the elevator transitions into the `Error` state
-/// and the `prev_cab_call_timer_stat` flag is set. Otherwise, the flag is cleared.
+/// and the `prev_cab_priority_timer_stat` flag is set. Otherwise, the flag is cleared.
 ///
 /// # Parameters
 /// - `self_container`: Mutable reference to the elevator state.
 /// - `error_timer`: Timer that tracks potential error conditions.
-/// - `prev_cab_call_timer_stat`: Mutable flag to track whether the system was previously in a faultable state.
+/// - `prev_cab_priority_timer_stat`: Mutable flag to track whether the system was previously in a faultable state.
 ///
 /// # Behavior
 /// - Sets elevator to `Error` if timer has expired.
 /// - Updates a boolean tracking previous timer state.
-pub fn update_error_state(
+fn update_error_state(
     self_container: &mut ElevatorContainer,
     error_timer: &timer::Timer,
-    prev_cab_call_timer_stat: &mut bool,
+    prev_cab_priority_timer_stat: &mut bool,
 ) {
     if error_timer.timer_timeouted() {
-        *prev_cab_call_timer_stat = true;
+        *prev_cab_priority_timer_stat = true;
         self_container.behaviour = ElevatorBehaviour::Error;
     } else {
-        *prev_cab_call_timer_stat = false;
+        *prev_cab_priority_timer_stat = false;
     }
 }
 
@@ -448,7 +313,7 @@ pub fn update_error_state(
 ///
 /// # Behavior
 /// - Detects and logs behavior transitions for debugging or system monitoring.
-pub fn track_behavior_change(
+fn track_behavior_change(
     self_container: &ElevatorContainer,
     prev_behavior: &mut ElevatorBehaviour,
 ) -> ElevatorBehaviour {
@@ -474,7 +339,7 @@ pub fn track_behavior_change(
 ///
 /// # Behavior
 /// - Stops the motor only for the specific transition from `DoorOpen` → `Error`.
-pub fn stop_motor_on_dooropen_to_error(
+fn stop_motor_on_dooropen_to_error(
     self_container: &mut ElevatorContainer,
     last_behavior: ElevatorBehaviour,
     current_behavior: ElevatorBehaviour,

@@ -1,4 +1,3 @@
-use std::io::Write;
 use crate::{config, world_view::{Dirn, ElevatorBehaviour, serial}};
 use ansi_term::Colour::{self, Green, Red, Yellow, Purple};
 

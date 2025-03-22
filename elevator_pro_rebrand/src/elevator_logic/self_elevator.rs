@@ -1,13 +1,11 @@
-use tokio::task::yield_now;
 use tokio::time::{sleep, Duration};
 use crossbeam_channel as cbc;
 use tokio::process::Command;
-use std::sync::atomic::Ordering;
-use tokio::sync::{mpsc, watch};
+use tokio::sync::mpsc;
 
 use crate::network;
 use crate::world_view::ElevatorContainer;
-use crate::{world_view::{Dirn, ElevatorBehaviour}, network::local_network, config, print, elevio, elevio::elev as e};
+use crate::{world_view::ElevatorBehaviour, config, print, elevio, elevio::elev as e};
 
 use super::timer::Timer;
 
@@ -228,7 +226,7 @@ async fn read_from_local_elevator(rxs: LocalElevRxs, local_elev_tx: mpsc::Sender
 /// - **Stop button (`SBTN`)**: A placeholder for future functionality to handle stop button messages.
 /// - **Obstruction (`OBSTRX`)**: Sets the `obstruction` field in the elevator container to the 
 ///   received value.
-pub async fn update_elev_container_from_msgs(local_elev_rx: &mut mpsc::Receiver<elevio::ElevMessage>, container: &mut ElevatorContainer, cab_call_timer: &mut Timer, error_timer: &mut Timer) {
+pub async fn update_elev_container_from_msgs(local_elev_rx: &mut mpsc::Receiver<elevio::ElevMessage>, container: &mut ElevatorContainer, cab_priority_timer: &mut Timer, error_timer: &mut Timer) {
     loop{
         match local_elev_rx.try_recv() {
             Ok(msg) => {
@@ -239,7 +237,7 @@ pub async fn update_elev_container_from_msgs(local_elev_rx: &mut mpsc::Receiver<
                             
                             match call_btn.call_type {
                                 elevio::CallType::INSIDE => {
-                                    cab_call_timer.release_timer();
+                                    cab_priority_timer.release_timer();
                                     container.cab_requests[call_btn.floor as usize] = true;
                                 }
                                 elevio::CallType::UP => {
