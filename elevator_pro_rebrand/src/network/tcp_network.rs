@@ -201,39 +201,52 @@ async fn connect_to_master(wv_watch_rx: watch::Receiver<Vec<u8>>, tcp_to_master_
 }
 
 // ### Starter og kjører TCP-listener
+/// Handles the TCP listener
+/// 
+/// # Parameters
+/// `socket_tx`: mpsc Sender on channel for sending newly connected slaves
+/// 
+/// # Return
+/// The functions returns if any fatal errors occures
+/// 
+/// # Behavior
+/// The function sets up a listener as soon as the system is online.
+/// While the program is online, it accepts new connections on the listener, and sends the socket over `socket_tx`. 
+/// 
 pub async fn listener_task(socket_tx: mpsc::Sender<(TcpStream, SocketAddr)>) {
     let self_ip = format!("{}.{}", config::NETWORK_PREFIX, local_network::SELF_ID.load(Ordering::SeqCst));
-    // Ved første init, vent til vi er sikre på at vi har internett
+    /* On first init. make sure the system is online so no errors occures while setting up the listener */
     while !world_view_update::read_network_status() {
         tokio::time::sleep(config::TCP_PERIOD).await;
     }
 
-    /* Binder listener til PN_PORT */
+    /* Bind the listener on port [config::PN_PORT] */
     let listener = match TcpListener::bind(format!("{}:{}", self_ip, config::PN_PORT)).await {
         Ok(l) => {
-            print::ok(format!("Master lytter på {}:{}", self_ip, config::PN_PORT));
+            print::ok(format!("System listening on {}:{}", self_ip, config::PN_PORT));
             l
         }
         Err(e) => {
-            print::err(format!("Feil ved oppstart av TCP-listener: {}", e));
-            return; // evt gå i sigel elevator mode
+            print::err(format!("Error while setting up TCP listener: {}", e));
+            return;
         }
     };
 
-    /* Når listener accepter ny tilkobling -> send socket og addr til tcp_handler gjennom socket_tx */
     loop {
+        /* Check if you are online */
         if world_view_update::read_network_status() {
             sleep(Duration::from_millis(100)).await;
+            /* Accept new connections */
             match listener.accept().await {
                 Ok((socket, addr)) => {
-                    print::master(format!("{} kobla på TCP", addr));
+                    print::master(format!("{} connected to TCP", addr));
                     if socket_tx.send((socket, addr)).await.is_err() {
-                        print::err("Hovudløkken har stengt, avsluttar listener.".to_string());
+                        print::err("socker_rx is closed, returning".to_string());
                         break;
                     }
                 }
                 Err(e) => {
-                    print::err(format!("Feil ved tilkobling av slave: {}", e));
+                    print::err(format!("Error while accepting slave connection: {}", e));
                 }
             }
         } else {
