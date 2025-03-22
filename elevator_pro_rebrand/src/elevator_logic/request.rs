@@ -56,6 +56,9 @@ fn insie_below(elevator: &ElevatorContainer) -> bool {
 }
 
 fn here(elevator: &ElevatorContainer) -> bool {
+    if elevator.last_floor_sensor >= elevator.num_floors{
+        return false; // retuner ved feil 
+    }
     for btn in 0..2 {
         if elevator.tasks[elevator.last_floor_sensor as usize][btn] {
             return true;

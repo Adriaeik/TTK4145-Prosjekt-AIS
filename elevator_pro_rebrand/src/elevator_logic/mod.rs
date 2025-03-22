@@ -61,6 +61,7 @@ pub async fn run_local_elevator(wv_watch_rx: watch::Receiver<Vec<u8>>, elevator_
 
 
 pub async fn handle_elevator(wv_watch_rx: watch::Receiver<Vec<u8>>, elevator_states_tx: mpsc::Sender<Vec<u8>>, mut local_elev_rx: mpsc::Receiver<elevio::ElevMessage>, e: Elevator) {
+    
     let mut wv = world_view::get_wv(wv_watch_rx.clone());
     let mut self_container = world_view::extract_self_elevator_container(wv.clone());
 
@@ -72,36 +73,50 @@ pub async fn handle_elevator(wv_watch_rx: watch::Receiver<Vec<u8>>, elevator_sta
     let mut cab_call_timer = timer::new(Duration::from_secs(10));
     let mut error_timer = timer::new(Duration::from_secs(5));
     let mut prev_cab_call_timer_stat:bool = false;
-    let mut prev_behavior:ElevatorBehaviour = self_container.behaviour;
+    // let mut prev_behavior:ElevatorBehaviour = self_container.behaviour;
+    let mut prev_behavior:ElevatorBehaviour = ElevatorBehaviour::Moving;
+    let mut prev_floor: u8 = 0;
+    let mut prev_prev_floor = 0;
 
     loop {
         /*OBS OBS!! krasjer når vi starter i 0 etasje..... uff da */
         //Les nye data fra heisen, putt de inn i self_container
-        let prev_floor = self_container.last_floor_sensor;
+        prev_floor = self_container.last_floor_sensor;
         
         self_elevator::update_elev_container_from_msgs(&mut local_elev_rx, &mut self_container, &mut cab_call_timer , &mut error_timer ).await;
 
         /*______ START: FSM Events ______ */
         // Hvis du er på ny etasje, 
         if prev_floor != self_container.last_floor_sensor {
+            println!("linje 90:: last_floor_sensor:: {}",self_container.last_floor_sensor);
+            println!("prev_floor{}",prev_floor);
+            
             fsm::onFloorArrival(&mut self_container, e.clone(), &mut door_timer, &mut cab_call_timer).await;
+            println!("linje 94:: last_floor_sensor:: {}",self_container.last_floor_sensor);
+
             error_timer.timer_start();
             //skal ignorere cab_call_timer visst oppdraget kom fra ein insidebtn
             if !request::was_outside(&self_container){
                 cab_call_timer.release_timer();
             }
+            println!("linje 101:: last_floor_sensor:: {}",self_container.last_floor_sensor);
+
         }
 
-        if door_timer.timer_timeouted()  && !self_container.obstruction{
+        if door_timer.timer_timeouted()  && !self_container.obstruction {
             lights::clear_door_open_light(e.clone());
             // if inside_call og vi moving_towards -> tving cab_call_timer til timout
             if request::moving_towards_cab_call(&self_container.clone()) {
                 cab_call_timer.release_timer();
             }
+            if prev_floor != self_container.last_floor_sensor {println!("linje 111:: last_floor_sensor:: {}",self_container.last_floor_sensor);}
+
 
             if  cab_call_timer.timer_timeouted() {
 
                 fsm::onDoorTimeout(&mut self_container, e.clone(), &mut cab_call_timer).await;
+                if prev_floor != self_container.last_floor_sensor {println!("linje 117:: last_floor_sensor:: {}",self_container.last_floor_sensor)};
+
             }
         }
         if !cab_call_timer.timer_timeouted()|| self_container.behaviour == ElevatorBehaviour::Idle {
@@ -117,6 +132,7 @@ pub async fn handle_elevator(wv_watch_rx: watch::Receiver<Vec<u8>>, elevator_sta
         // fsm::onIdle ?
         if self_container.behaviour == ElevatorBehaviour::Idle {
             let DBPair = request::choose_direction(&self_container.clone());
+            if prev_floor != self_container.last_floor_sensor {println!("linje 134:: last_floor_sensor:: {}",self_container.last_floor_sensor)};
             
             if DBPair.behaviour != ElevatorBehaviour::Idle {
                 print::err(format!("Skal nå være: {:?}", DBPair.behaviour));
@@ -146,7 +162,7 @@ pub async fn handle_elevator(wv_watch_rx: watch::Receiver<Vec<u8>>, elevator_sta
         // Oppdater prev_behavior dersom statusen endrar seg
         if prev_behavior != self_container.behaviour {
             prev_behavior = self_container.behaviour;
-            // println!("Endra status: {:?} -> {:?}", last_behavior, prev_behavior);
+            println!("Endra status: {:?} -> {:?}", last_behavior, prev_behavior);
         }
 
         // Sett motor til stopp når vi går frå DoorOpen til Error
@@ -157,11 +173,19 @@ pub async fn handle_elevator(wv_watch_rx: watch::Receiver<Vec<u8>>, elevator_sta
         
         //Send til update_wv -> nye self_container
         let _ = elevator_states_tx.send(world_view::serial::serialize_elev_container(&self_container)).await;    
+        if prev_floor != self_container.last_floor_sensor {println!("linje 175:: last_floor_sensor:: {}",self_container.last_floor_sensor);}
         
         //Hent nyeste worldview
-        sleep(config::POLL_PERIOD).await;
         if world_view::update_wv(wv_watch_rx.clone(), &mut wv).await{
-            self_container = world_view::extract_self_elevator_container(wv.clone());
+
+            self_container = world_view::extract_self_elevator_container(wv.clone()); //her det blir overskrive
+            if prev_floor != self_container.last_floor_sensor {
+                println!("linje 181:: last_floor_sensor:: {}",self_container.last_floor_sensor); 
+                self_container.last_floor_sensor = prev_floor}
+
         }
+        sleep(config::POLL_PERIOD).await;
+
+        
     }
 }

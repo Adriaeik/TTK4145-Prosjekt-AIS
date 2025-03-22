@@ -23,13 +23,37 @@ pub async fn start_manager(wv_watch_rx: watch::Receiver<Vec<u8>>, delegated_task
 
 
 
+// async fn get_elev_tasks(wv: Vec<u8>) -> HashMap<u8, Vec<[bool; 2]>> {
+//     let json_str = json_serial::create_hall_request_json(wv).await;
+//     // println!("json_str: {}", json_str.clone());
+//     if let Some(str) = json_str {
+//         let json_cost_str = json_serial::run_cost_algorithm(str).await;
+//         return serde_json::from_str(&json_cost_str).expect("Faild to deserialize_json_to_map");
+//     }
+//     return HashMap::new()
+//     // println!("json_cost_str: {}", json_cost_str.clone());
+// }
+
+
+//Ditta fjerna Panicken, men vi krasjer enda npr vi starter under 0 etasje
 async fn get_elev_tasks(wv: Vec<u8>) -> HashMap<u8, Vec<[bool; 2]>> {
     let json_str = json_serial::create_hall_request_json(wv).await;
-    // println!("json_str: {}", json_str.clone());
+
     if let Some(str) = json_str {
         let json_cost_str = json_serial::run_cost_algorithm(str).await;
-        return serde_json::from_str(&json_cost_str).expect("Faild to deserialize_json_to_map");
+        
+        if json_cost_str.trim().is_empty() {
+            eprintln!("⚠️ run_cost_algorithm returnerte tom streng!");
+            return HashMap::new();
+        }
+
+        return serde_json::from_str(&json_cost_str)
+            .unwrap_or_else(|e| {
+                eprintln!("❌ JSON-parsing feila: {}", e);
+                HashMap::new()
+            });
     }
-    return HashMap::new()
-    // println!("json_cost_str: {}", json_cost_str.clone());
+
+    eprintln!("⚠️ create_hall_request_json returnerte None!");
+    HashMap::new()
 }
