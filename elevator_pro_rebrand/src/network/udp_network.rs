@@ -77,7 +77,7 @@ pub async fn start_udp_broadcaster(wv_watch_rx: watch::Receiver<Vec<u8>>) -> tok
                     prev_network_status = true;
                 }
                 // Send your worldview on UDP broadcast
-                udp_socket.send_to(mesage.as_bytes(), &broadcast_addr).await.unwrap(); 
+                udp_socket.send_to(mesage.as_bytes(), &broadcast_addr).await.expect(""); 
 
             }else {
                 prev_network_status = false;
