@@ -1,5 +1,6 @@
 //! Handles messages on internal channels regarding changes in worldview
 
+use crate::{elevio::ElevMessage, manager, world_view::{Dirn, ElevatorBehaviour}};
 use crate::print;
 use crate::config;
 // use crate::manager::task_allocator::Task;
@@ -11,16 +12,16 @@ use crate::world_view::world_view_update::{
     clear_from_sent_tcp,
     distribute_tasks,
     update_elev_states,
+    // push_task,
+    // publish_tasks,
 };
 use crate::world_view::{self, serial};
 
-use tokio::sync::{mpsc, watch};
+use tokio::{sync::{mpsc, watch}, time::sleep};
 use local_ip_address::local_ip;
-use std::net::IpAddr;
+use std::{net::IpAddr, time::Duration};
 use std::sync::atomic::AtomicU8;
 use std::collections::HashMap;
-
-
 
 /// Atomic bool storing self ID, standard inited as config::ERROR_ID
 pub static SELF_ID: AtomicU8 = AtomicU8::new(config::ERROR_ID); // Startverdi 255
@@ -31,7 +32,7 @@ pub static SELF_ID: AtomicU8 = AtomicU8::new(config::ERROR_ID); // Startverdi 25
 ///
 /// # Example
 /// ```
-/// use elevatorpro::network::local_network::get_self_ip;
+/// use elevatorpro::utils::get_self_ip;
 ///
 /// match get_self_ip() {
 ///     Ok(ip) => println!("Local IP: {}", ip), // IP retrieval successful
@@ -52,11 +53,9 @@ pub fn get_self_ip() -> Result<IpAddr, local_ip_address::Error> {
 }
 
 
-/// The function that updates the worldview watch.
+/// ### Oppdatering av lokal worldview
 /// 
-/// # Note
-/// It is **critical** that this function is run. This is the "heart" of the local system, 
-/// and is responsible in updating the worldview based on information recieved form other parts of the program.
+/// Funksjonen leser nye meldinger fra andre tasks som indikerer endring i systemet, og endrer og oppdaterer det lokale worldviewen basert på dette.
 #[allow(non_snake_case)]
 pub async fn update_wv_watch(mut mpsc_rxs: MpscRxs, worldview_watch_tx: watch::Sender<Vec<u8>>, mut worldview_serialised: Vec<u8>) {
     println!("Starter update_wv");
@@ -66,65 +65,87 @@ pub async fn update_wv_watch(mut mpsc_rxs: MpscRxs, worldview_watch_tx: watch::S
     let mut master_container_updated_I = false;
 
     let (master_container_tx, mut master_container_rx) = mpsc::channel::<Vec<u8>>(100);    
+    let mut i = 0;
     loop {
+        //OBS: Error kommer når kanal er tom. ikke print der uten å eksplisitt eksludere channel_empty error type
 
-/* CHANNELS SLAVE MAINLY RECIEVES ON */
-        /*_____Update worldview based on information send on TCP_____ */
+/* KANALER SLAVE HOVEDSAKLIG MOTTAR PÅ */
+        /*_____Fjerne knappar som vart sendt på TCP_____ */
         match mpsc_rxs.sent_tcp_container.try_recv() {
             Ok(msg) => {
+                // println!("{}", 1);
                 wv_edited_I = clear_from_sent_tcp(&mut worldview_serialised, msg);
+                // println!("{}", 2);
             },
             Err(_) => {},
         }
-        /*_____Update worldview based on worldviews recieved on UDP_____ */
+        /*_____Oppdater WV fra UDP-melding_____ */
         match mpsc_rxs.udp_wv.try_recv() {
             Ok(master_wv) => {
+                // println!("udp wv len {}", mpsc_rxs.udp_wv.len());
                 wv_edited_I = join_wv_from_udp(&mut worldview_serialised, master_wv);
             },
             Err(_) => {}, 
         }
-        /*_____Update worldview when tcp to master has failed_____ */
+        /*_____Signal om at tilkobling til master har feila_____ */
         match mpsc_rxs.tcp_to_master_failed.try_recv() {
             Ok(_) => {
+                // println!("tcp fail len {}", mpsc_rxs.tcp_to_master_failed.len());
                 wv_edited_I = abort_network(&mut worldview_serialised);
             },
             Err(_) => {},
         }
-        
-        
-/* CHANNELS MASTER MAINLY RECIEVES ON */
-        /*_____Update worldview based on message from master (simulated TCP message, so the master treats its own elevator as a slave)_____*/
+        /*_____Melding til master fra master (elevator-containeren til master)_____*/
         match master_container_rx.try_recv() {
             Ok(container) => {
+                // println!("master cont len {}", master_container_rx.len());
                 wv_edited_I = join_wv_from_tcp_container(&mut worldview_serialised, container.clone()).await;
+                // let _ = to_task_alloc_tx.send(container.clone()).await;
             },
             Err(_) => {},
         }
-        /*_____Update worldview based on message from slave_____*/
+        
+        
+/* KANALER MASTER HOVEDSAKLIG MOTTAR PÅ */
+        /*_____Melding til master fra slaven (elevator-containeren til slaven)_____*/
         match mpsc_rxs.container.try_recv() {
             Ok(container) => {
                 wv_edited_I = join_wv_from_tcp_container(&mut worldview_serialised, container.clone()).await;
+                // let _ = to_task_alloc_tx.send(container.clone()).await;
             },
             Err(_) => {},
         }
-        /*_____Update worldview when a slave should be removed_____ */
+        /*_____ID til slave som er død (ikke kontakt med slave)_____ */
         match mpsc_rxs.remove_container.try_recv() {
             Ok(id) => {
                 wv_edited_I = remove_container(&mut worldview_serialised, id); 
             },
             Err(_) => {},
         }
-        /*_____Update worldview when new tasks has been given_____ */
         match mpsc_rxs.delegated_tasks.try_recv() {
             Ok(map) => {
                 wv_edited_I = distribute_tasks(&mut worldview_serialised, map);
             },
             Err(_) => {},
-        }        
+        }
+        // match mpsc_rxs.new_task.try_recv() {
+        //     Ok((id, sometask)) => {
+        //         // utils::print_master(format!("Fikk task: {:?}", task));
+        //         wv_edited_I = push_task(&mut worldview_serialised, id, sometask);
+        //     },
+        //     Err(_) => {},
+        // }
+        // match mpsc_rxs.pending_tasks.try_recv() {
+        //     Ok(tasks) => {
+        //         wv_edited_I = publish_tasks(&mut worldview_serialised, tasks);
+        //     },
+        //     Err(_) => {},
+        // }
+        
 
 
-/* CHANNELS MASTER AND SLAVE RECIEVES ON */
-        /*____Update worldview based on changes in the local elevator_____ */
+/* KANALER MASTER OG SLAVE MOTTAR PÅ */
+        /*____Får signal når lokal heis container er endra_____ */
         match mpsc_rxs.elevator_states.try_recv() {
             Ok(container) => {
                 wv_edited_I = update_elev_states(&mut worldview_serialised, container);
@@ -132,7 +153,7 @@ pub async fn update_wv_watch(mut mpsc_rxs: MpscRxs, worldview_watch_tx: watch::S
             },
             Err(_) => {},
         }
-        /*_____Update worldview after you reconeccted to internet  */
+
         match mpsc_rxs.new_wv_after_offline.try_recv() {
             Ok(wv) => {
                 worldview_serialised = wv;
@@ -143,7 +164,8 @@ pub async fn update_wv_watch(mut mpsc_rxs: MpscRxs, worldview_watch_tx: watch::S
         
         
         
-        /*_____If master container has changed, send the container on master_container_tx_____ */
+        /* KANALER ALLE SENDER LOKAL WV PÅ */
+        /*_____Hvis worldview er endra, oppdater kanalen_____ */
         if master_container_updated_I {
             if let Some(container) = world_view::extract_self_elevator_container(worldview_serialised.clone()) {
                 let _ = master_container_tx.send(serial::serialize_elev_container(&container)).await;
@@ -152,14 +174,23 @@ pub async fn update_wv_watch(mut mpsc_rxs: MpscRxs, worldview_watch_tx: watch::S
             }
             master_container_updated_I = false;
         }
+
         
-        /* UPDATE WORLDVIEW WATCH */
         if wv_edited_I {
+            
             let _ = worldview_watch_tx.send(worldview_serialised.clone());
+            // println!("Sendte worldview lokalt {}", worldview_serialised[1]);
+            
             wv_edited_I = false;
+            // sleep(Duration::from_secs(1)).await;
         }
     }
 }
+
+
+
+
+
 
 
 
