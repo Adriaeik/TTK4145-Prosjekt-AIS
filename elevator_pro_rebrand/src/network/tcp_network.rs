@@ -80,21 +80,23 @@ pub async fn tcp_handler(
         IS_MASTER.store(true, Ordering::SeqCst);
         tcp_while_master(&mut wv, wv_watch_rx.clone(), &mut socket_rx, remove_container_tx.clone(), container_tx.clone()).await;
 
-        //mista master -> indiker for avslutning av tcp-con og tasks
+        //mista master
         IS_MASTER.store(false, Ordering::SeqCst);
         tcp_while_slave(&mut wv, wv_watch_rx.clone(), tcp_to_master_failed_tx.clone(), sent_tcp_container_tx.clone()).await;
 
-        //ble master -> restart loopen 
+        //ny master
     }
 }
 
 
 async fn tcp_while_master(wv: &mut Vec<u8>, wv_watch_rx: watch::Receiver<Vec<u8>>, socket_rx: &mut mpsc::Receiver<(TcpStream, SocketAddr)>, remove_container_tx: mpsc::Sender<u8>, container_tx: mpsc::Sender<Vec<u8>>) {
-    /* Mens du er master: Motta sockets til slaver, start handle_slave i ny task*/
+    /* While you are master */
     while world_view::is_master(wv.clone()) {
+        /* Check if you are online */
         if world_view_update::read_network_status() {
+            /* Revieve TCP-sockets to newly connected slaves */
             while let Ok((socket, addr)) = socket_rx.try_recv() {
-                print::info(format!("Ny slave tilkobla: {}", addr));
+                print::info(format!("New slave connected: {}", addr));
 
                 let remove_container_tx_clone = remove_container_tx.clone();
                 let container_tx_clone = container_tx.clone();
@@ -102,11 +104,11 @@ async fn tcp_while_master(wv: &mut Vec<u8>, wv_watch_rx: watch::Receiver<Vec<u8>
                     let tcp_watchdog = TcpWatchdog {
                         timeout: Duration::from_millis(config::TCP_TIMEOUT),
                     };
-                    // Starter watchdog‑løkken, håndterer også mottak av meldinger på socketen
+                    /* Start handling the slave. Also has watchdog function to detect timeouts on messages */
                     tcp_watchdog.start_reading_from_slave(socket, remove_container_tx_clone, container_tx_clone).await;
                 });
-                tokio::task::yield_now().await; //Denne tvinger tokio til å sørge for at alle tasks i kø blir behandler
-                                                //Feilen før var at tasken ble lagd i en loop, og try_recv kaltes så tett att tokio ikke rakk å starte tasken før man fikk en ny melding(og den fikk litt tid da den mottok noe)
+                /* Make sure other tasks are able to run */
+                tokio::task::yield_now().await; 
             }                
         }
         else {
@@ -117,7 +119,7 @@ async fn tcp_while_master(wv: &mut Vec<u8>, wv_watch_rx: watch::Receiver<Vec<u8>
 }
 
 async fn tcp_while_slave(wv: &mut Vec<u8>, wv_watch_rx: watch::Receiver<Vec<u8>>, tcp_to_master_failed_tx: mpsc::Sender<bool>, sent_tcp_container_tx: mpsc::Sender<Vec<u8>>) {
-    /* Mens du er slave: Sjekk om det har kommet ny master / connection til master har dødd */
+    /* Try to connect with master over TCP */
     let mut master_accepted_tcp = false;
     let mut stream:Option<TcpStream> = None;
     if let Some(s) = connect_to_master(wv_watch_rx.clone(), tcp_to_master_failed_tx.clone()).await {
@@ -130,18 +132,19 @@ async fn tcp_while_slave(wv: &mut Vec<u8>, wv_watch_rx: watch::Receiver<Vec<u8>>
 
     let mut prev_master: u8;
     let mut new_master = false;
+    /* While you are slave and tcp-connection to master is good */
     while !world_view::is_master(wv.clone()) && master_accepted_tcp {
-                
+        /* Check if you are online */
         if world_view_update::read_network_status() {
             if let Some(ref mut s) = stream {
                 if new_master {
-                    print::slave(format!("Fått ny master"));
+                    print::slave(format!("New master on the network"));
                     master_accepted_tcp = false;
                     let _ = sleep(config::SLAVE_TIMEOUT);
                 }
                 prev_master = wv[config::MASTER_IDX];
                 world_view::update_wv(wv_watch_rx.clone(), wv).await;
-                // Send neste TCP melding til master
+                /* Send TCP message to master */
                 send_tcp_message(tcp_to_master_failed_tx.clone(), sent_tcp_container_tx.clone(), s, wv.clone()).await;
                 if prev_master != wv[config::MASTER_IDX] {
                     new_master = true;
@@ -156,29 +159,42 @@ async fn tcp_while_slave(wv: &mut Vec<u8>, wv_watch_rx: watch::Receiver<Vec<u8>>
 }
 
 
-/// ### Forsøker å koble til master via TCP.
-/// Returnerer `Some(TcpStream)` ved suksess, `None` ved feil.
+
+/// Attempts to connect to master over TCP
+/// 
+/// # Parameters
+/// `wv_watch_rx`: Reciever on watch the worldview is being sent on in the system 
+/// `tcp_to_master_failed`: Sender on mpsc channel signaling if tcp connection to master has failed
+/// 
+/// # Return
+/// `Some(TcpStream)`: Connection to master successfull, TcpStream is the stream to the master
+/// `None`: Connection to master failed
+/// 
+/// # Behavior
+/// The functions tries to connect to the current master, based on the master_id in the worldview. 
+/// If the connection is successfull, it returns the stream, otherwise it returns None.
+/// If the connection failed, it sends a signal to the worldview updater over `tcp_to_master_failed_tx` indicating that the connection failed.
 async fn connect_to_master(wv_watch_rx: watch::Receiver<Vec<u8>>, tcp_to_master_failed_tx: mpsc::Sender<bool>) -> Option<TcpStream> {
     let wv = world_view::get_wv(wv_watch_rx.clone());
 
-    // Sjekker at vi har internett før vi prøver å koble til
+    /* Check if we are online */
     if world_view_update::read_network_status() {
         let master_ip = format!("{}.{}:{}", config::NETWORK_PREFIX, wv[config::MASTER_IDX], config::PN_PORT);
-        print::info(format!("Prøver å koble på: {} i TCP_listener()", master_ip));
+        print::info(format!("Trying to connect to : {} in connect_to_master()", master_ip));
 
-        // Prøv å koble til master
+        /* Try to connect to master */
         match TcpStream::connect(&master_ip).await {
             Ok(stream) => {
-                print::ok(format!("Har kobla på Master: {} i TCP_listener()", master_ip));
+                print::ok(format!("Connected to Master: {} i TCP_listener()", master_ip));
                 // Klarte å koble til master, returner streamen
                 Some(stream)
             }
             Err(e) => {
-                print::err(format!("Klarte ikke koble på master tcp: {}", e));
+                print::err(format!("Failed to connect to master over tcp: {}", e));
 
                 match tcp_to_master_failed_tx.send(true).await {
-                    Ok(_) => print::info("Sa ifra at TCP til master feila".to_string()),
-                    Err(err) => print::err(format!("Feil ved sending til tcp_to_master_failed: {}", err)),
+                    Ok(_) => print::info("Notified that connection to master failed".to_string()),
+                    Err(err) => print::err(format!("Error while sending message on tcp_to_master_failed: {}", err)),
                 }
                 None
             }
