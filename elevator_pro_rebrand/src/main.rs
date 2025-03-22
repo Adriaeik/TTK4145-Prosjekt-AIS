@@ -14,7 +14,6 @@ use elevatorpro::print;
 #[tokio::main]
 async fn main() {
     // Sjekk om programmet startes som backup, retunerer true visst den blei det
-    init::build_cost_fn().await;
     // vi starter i bacup med å skrive "cargo r -- backup"
     let is_backup = init::parse_args();
     
@@ -23,10 +22,11 @@ async fn main() {
         println!("Starter backup-prosess...");
         self_container = backup::run_as_backup().await;
     }
-
+    
     // Hvis vi ikke er backup, starter vi som master! eller om vi kjem ut, så tar vi over
-
-
+    
+    
+    init::build_cost_fn().await;
     // Vanlig hovedprosess starter her:
     print::info("Starter hovedprosess...".to_string());
 
