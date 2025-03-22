@@ -3,7 +3,6 @@ pub mod serial;
 use serde::{Serialize, Deserialize};
 use tokio::sync::watch;
 use std::collections::HashMap;
-use std::sync::atomic::Ordering;
 use crate::config;
 use crate::print;
 use crate::network;

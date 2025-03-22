@@ -1,4 +1,4 @@
-use std::{borrow::Cow, env, net::SocketAddr, sync::atomic::Ordering, time::Duration};
+use std::{borrow::Cow, env, net::SocketAddr, time::Duration};
 use tokio::{net::UdpSocket, time::{sleep, timeout, Instant}};
 use socket2::{Domain, Socket, Type};
 use local_ip_address::local_ip;
