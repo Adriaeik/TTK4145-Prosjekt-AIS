@@ -47,3 +47,5 @@ Ein god gitter pusher alltid ✅
 - Det virker som pakketap ikkje er så farlig når du er slave, men drepandes for nettverket når du er master
 - visst vi har hatt packetloss og blir fjerna av masteren så kjem vi først tilbake etter ein inside btn blir trykt?? wtf?? kan ha vert tilfeldig
 - taper alle Calls når vi kobler oss tibake på nettverket etter packet loss
+
+- Jævlig rar errorbugg som er vanskelig å finne eit mønster til..
