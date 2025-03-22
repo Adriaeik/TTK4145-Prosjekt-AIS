@@ -6,10 +6,127 @@ use std::net::SocketAddr;
 use crate::{config, print, ip_help_functions::{self}, world_view::{self, serial, world_view_update}};
 use super::local_network;
 
+
+/* __________ START PUBLIC FUNCTIONS __________ */
+
 /// AtomicBool representing if you are master on the network. 
 /// 
 /// The value is initialized as false
 pub static IS_MASTER: AtomicBool = AtomicBool::new(false);
+
+
+/// Handles the TCP listener
+/// 
+/// # Parameters
+/// `socket_tx`: mpsc Sender on channel for sending newly connected slaves
+/// 
+/// # Return
+/// The functions returns if any fatal errors occures
+/// 
+/// # Behavior
+/// The function sets up a listener as soon as the system is online.
+/// While the program is online, it accepts new connections on the listener, and sends the socket over `socket_tx`. 
+/// 
+pub async fn listener_task(socket_tx: mpsc::Sender<(TcpStream, SocketAddr)>) {
+    /* On first init. make sure the system is online so no errors occures while setting up the listener */
+    while !world_view_update::read_network_status() {
+        tokio::time::sleep(config::TCP_PERIOD).await;
+    }
+    
+    let self_ip = format!("{}.{}", config::NETWORK_PREFIX, local_network::SELF_ID.load(Ordering::SeqCst));
+    /* Bind the listener on port [config::PN_PORT] */
+    let listener = match TcpListener::bind(format!("{}:{}", self_ip, config::PN_PORT)).await {
+        Ok(l) => {
+            print::ok(format!("System listening on {}:{}", self_ip, config::PN_PORT));
+            l
+        }
+        Err(e) => {
+            print::err(format!("Error while setting up TCP listener: {}", e));
+            return;
+        }
+    };
+
+    loop {
+        /* Check if you are online */
+        if world_view_update::read_network_status() {
+            sleep(Duration::from_millis(100)).await;
+            /* Accept new connections */
+            match listener.accept().await {
+                Ok((socket, addr)) => {
+                    print::master(format!("{} connected to TCP", addr));
+                    if socket_tx.send((socket, addr)).await.is_err() {
+                        print::err("socker_rx is closed, returning".to_string());
+                        break;
+                    }
+                }
+                Err(e) => {
+                    print::err(format!("Error while accepting slave connection: {}", e));
+                }
+            }
+        } else {
+            sleep(config::OFFLINE_PERIOD).await;
+        }
+    }
+}
+
+/// Function that handles TCP-connections in the system
+/// 
+/// # Parameters
+/// `wv_watch_rx`: Reciever on watch the worldview is being sent on in the system   
+/// `remove_container_tx`: mpsc Sender used to notify worldview updater if a slave should be removed  
+/// `tcp_to_master_failed`: Sender on mpsc channel signaling if tcp connection to master has failed   
+/// `sent_tcp_container_tx`: mpsc Sender for notifying worldview updater what data has been sent to master    
+/// `container_tx`: mpsc Sender used pass recieved slave-messages to the worldview_updater  
+/// `socket_rx`: Reciever on mpsc channel recieving new TcpStreams and SocketAddress from the TCP listener   
+/// 
+/// # Behavior
+/// The function loops:
+/// - Call and await [tcp_while_master].
+/// - Call and await [tcp_while_slave].
+/// 
+/// # Note
+/// - If the function is called without internet connection, it will not do anything before internet connection is back up again.  
+/// - The function is dependant on [listener_task] to be running for the master-behavior to work as excpected.
+/// 
+pub async fn tcp_handler(
+    wv_watch_rx: watch::Receiver<Vec<u8>>, 
+    remove_container_tx: mpsc::Sender<u8>, 
+    container_tx: mpsc::Sender<Vec<u8>>, 
+    tcp_to_master_failed_tx: mpsc::Sender<bool>, 
+    sent_tcp_container_tx: mpsc::Sender<Vec<u8>>, 
+    mut socket_rx: mpsc::Receiver<(TcpStream, SocketAddr)>
+) 
+{
+    use crate::world_view::world_view_update;
+    while !world_view_update::read_network_status() {
+        
+    }
+    let mut wv = world_view::get_wv(wv_watch_rx.clone());
+    loop {
+        IS_MASTER.store(true, Ordering::SeqCst);
+        tcp_while_master(&mut wv, wv_watch_rx.clone(), &mut socket_rx, remove_container_tx.clone(), container_tx.clone()).await;
+        
+        //mista master
+        IS_MASTER.store(false, Ordering::SeqCst);
+        tcp_while_slave(&mut wv, wv_watch_rx.clone(), tcp_to_master_failed_tx.clone(), sent_tcp_container_tx.clone()).await;
+        
+        //ny master
+    }
+}
+
+/* __________ END PUBLIC FUNCTIONS __________ */
+
+
+
+
+
+
+
+
+
+
+
+/* __________ START PRIVATE FUNCTIONS __________ */
 
 /// Handles timeout on TCP connection at master, and reading from slave
 struct TcpWatchdog {
@@ -62,58 +179,11 @@ impl TcpWatchdog {
                     let id = ip_help_functions::ip2id(stream.peer_addr().expect("Peer has no IP?").ip());
                     print::info(format!("Closing stream to slave {}", id));
                     let _ = remove_container_tx.send(id).await;
-                    let _ = stream.shutdown().await;
+                    close_tcp_stream(&mut stream).await;
                     break;
                 }
             }
         }
-    }
-}
-
-
-// ### Håndterer TCP-connections
-/// Function that handles TCP-connections in the system
-/// 
-/// # Parameters
-/// `wv_watch_rx`: Reciever on watch the worldview is being sent on in the system   
-/// `remove_container_tx`: mpsc Sender used to notify worldview updater if a slave should be removed  
-/// `tcp_to_master_failed`: Sender on mpsc channel signaling if tcp connection to master has failed   
-/// `sent_tcp_container_tx`: mpsc Sender for notifying worldview updater what data has been sent to master    
-/// `container_tx`: mpsc Sender used pass recieved slave-messages to the worldview_updater  
-/// `socket_rx`: Reciever on mpsc channel recieving new TcpStreams and SocketAddress from the TCP listener   
-/// 
-/// # Behavior
-/// The function loops:
-/// - Call and await [tcp_while_master].
-/// - Call and await [tcp_while_slave].
-/// 
-/// # Note
-/// - If the function is called without internet connection, it will not do anything before internet connection is back up again.  
-/// - The function is dependant on [listener_task] to be running for the master-behavior to work as excpected.
-/// 
-pub async fn tcp_handler(
-                        wv_watch_rx: watch::Receiver<Vec<u8>>, 
-                        remove_container_tx: mpsc::Sender<u8>, 
-                        container_tx: mpsc::Sender<Vec<u8>>, 
-                        tcp_to_master_failed_tx: mpsc::Sender<bool>, 
-                        sent_tcp_container_tx: mpsc::Sender<Vec<u8>>, 
-                        mut socket_rx: mpsc::Receiver<(TcpStream, SocketAddr)>
-                    ) 
-{
-    use crate::world_view::world_view_update;
-    while !world_view_update::read_network_status() {
-        
-    }
-    let mut wv = world_view::get_wv(wv_watch_rx.clone());
-    loop {
-        IS_MASTER.store(true, Ordering::SeqCst);
-        tcp_while_master(&mut wv, wv_watch_rx.clone(), &mut socket_rx, remove_container_tx.clone(), container_tx.clone()).await;
-
-        //mista master
-        IS_MASTER.store(false, Ordering::SeqCst);
-        tcp_while_slave(&mut wv, wv_watch_rx.clone(), tcp_to_master_failed_tx.clone(), sent_tcp_container_tx.clone()).await;
-
-        //ny master
     }
 }
 
@@ -260,60 +330,7 @@ async fn connect_to_master(wv_watch_rx: watch::Receiver<Vec<u8>>, tcp_to_master_
     }
 }
 
-// ### Starter og kjører TCP-listener
-/// Handles the TCP listener
-/// 
-/// # Parameters
-/// `socket_tx`: mpsc Sender on channel for sending newly connected slaves
-/// 
-/// # Return
-/// The functions returns if any fatal errors occures
-/// 
-/// # Behavior
-/// The function sets up a listener as soon as the system is online.
-/// While the program is online, it accepts new connections on the listener, and sends the socket over `socket_tx`. 
-/// 
-pub async fn listener_task(socket_tx: mpsc::Sender<(TcpStream, SocketAddr)>) {
-    /* On first init. make sure the system is online so no errors occures while setting up the listener */
-    while !world_view_update::read_network_status() {
-        tokio::time::sleep(config::TCP_PERIOD).await;
-    }
-    
-    let self_ip = format!("{}.{}", config::NETWORK_PREFIX, local_network::SELF_ID.load(Ordering::SeqCst));
-    /* Bind the listener on port [config::PN_PORT] */
-    let listener = match TcpListener::bind(format!("{}:{}", self_ip, config::PN_PORT)).await {
-        Ok(l) => {
-            print::ok(format!("System listening on {}:{}", self_ip, config::PN_PORT));
-            l
-        }
-        Err(e) => {
-            print::err(format!("Error while setting up TCP listener: {}", e));
-            return;
-        }
-    };
 
-    loop {
-        /* Check if you are online */
-        if world_view_update::read_network_status() {
-            sleep(Duration::from_millis(100)).await;
-            /* Accept new connections */
-            match listener.accept().await {
-                Ok((socket, addr)) => {
-                    print::master(format!("{} connected to TCP", addr));
-                    if socket_tx.send((socket, addr)).await.is_err() {
-                        print::err("socker_rx is closed, returning".to_string());
-                        break;
-                    }
-                }
-                Err(e) => {
-                    print::err(format!("Error while accepting slave connection: {}", e));
-                }
-            }
-        } else {
-            sleep(config::OFFLINE_PERIOD).await;
-        }
-    }
-}
 
 
 
@@ -405,7 +422,7 @@ async fn read_from_stream(remove_container_tx: mpsc::Sender<u8>, stream: &mut Tc
 /// - Length of the message
 /// - The message  
 /// After this, it flushes the stream, and sends the sent data over `ent_tcp_container_tx`. If writing to the stream fails, it signals on `tcp_to_master_failed_tx`
-pub async fn send_tcp_message(tcp_to_master_failed_tx: mpsc::Sender<bool>, sent_tcp_container_tx: mpsc::Sender<Vec<u8>>, stream: &mut TcpStream, wv: Vec<u8>) {
+async fn send_tcp_message(tcp_to_master_failed_tx: mpsc::Sender<bool>, sent_tcp_container_tx: mpsc::Sender<Vec<u8>>, stream: &mut TcpStream, wv: Vec<u8>) {
     let self_elev_container = match world_view::extract_self_elevator_container(wv) {
         Some(container) => container,
         None => {
@@ -443,7 +460,7 @@ pub async fn send_tcp_message(tcp_to_master_failed_tx: mpsc::Sender<bool>, sent_
 /// ## Logs
 /// - On success: Logs an info message such as "TCP connection closed successfully: <local_addr> -> <peer_addr>".
 /// - On error: Logs an error message such as "Failed to close TCP connection (<local_addr> -> <peer_addr>): <error>".
-pub async fn close_tcp_stream(stream: &mut TcpStream) {
+async fn close_tcp_stream(stream: &mut TcpStream) {
     /* Get local and peer address */
     let local_addr = stream.local_addr().map_or_else(
         |e| format!("Ukjent (Feil: {})", e),
@@ -467,3 +484,4 @@ pub async fn close_tcp_stream(stream: &mut TcpStream) {
     }
 }
 
+/* __________ END PRIVATE FUNCTIONS __________ */
