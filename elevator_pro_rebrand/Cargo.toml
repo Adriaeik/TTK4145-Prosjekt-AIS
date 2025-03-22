@@ -14,7 +14,7 @@ license-file = "LICENSE.txt"
 # Kanal for kommunikasjon mellom trådar (brukes i I/O og elevator logic)
 crossbeam-channel = "0.5"
 
-# Async runtime brukt til task-spawning, sleep, process m.m.
+# Async runtime. Used  brukt til task-spawning, sleep, process m.m.
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "rt", "net", "process", "sync", "time", "io-util"] }
 
 # Serialisering og deserialisering av worldview og meldingar
@@ -34,7 +34,6 @@ anyhow = "1.0"
 futures = "0.3"
 
 # Farge og terminalutskrift
-termcolor = "1.2" # Brukast til å fargelegge terminalutskrift (m/ 'StandardStream')
 ansi_term = "0.12" # Brukast til fargede overskrifter og status-tekst i worldview
 
 # Tabellformat for worldview-utskrift

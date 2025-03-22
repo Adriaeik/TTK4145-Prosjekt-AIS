@@ -1,7 +1,6 @@
 use std::io::Write;
-use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 use crate::{config, world_view::{Dirn, ElevatorBehaviour, serial}};
-use ansi_term::Colour::{Green, Red, Yellow, Purple};
+use ansi_term::Colour::{self, Green, Red, Yellow, Purple};
 
 use unicode_width::UnicodeWidthStr;
 
@@ -24,15 +23,11 @@ use unicode_width::UnicodeWidthStr;
 ///
 /// **Note:** This function does not return a value and prints directly to the terminal.
 /// If color output is not supported, the text may not appear as expected.
-pub fn color(msg: String, color: Color) {
+pub fn color(msg: String, color: Colour) {
     let print_stat = config::PRINT_ELSE_ON.lock().unwrap().clone();
     
-    if print_stat {        
-        let mut stdout = StandardStream::stdout(ColorChoice::Always);
-        stdout.set_color(ColorSpec::new().set_fg(Some(color))).unwrap();
-        writeln!(&mut stdout, "[CUSTOM]:  {}", msg).unwrap();
-        stdout.set_color(&ColorSpec::new()).unwrap();
-        println!("\r\n");
+    if print_stat {
+        println!("{}[CUSTOM]:  {}\n", color.paint(""), color.paint(msg));
     }
 }
 
@@ -59,13 +54,9 @@ pub fn color(msg: String, color: Color) {
 /// If color output is not supported, the error message may not appear in red.
 pub fn err(msg: String) {
     let print_stat = config::PRINT_ERR_ON.lock().unwrap().clone();
-
+    
     if print_stat {
-        let mut stdout = StandardStream::stdout(ColorChoice::Always);
-        stdout.set_color(ColorSpec::new().set_fg(Some(Color::Red))).unwrap();
-        writeln!(&mut stdout, "[ERROR]:   {}", msg).unwrap();
-        stdout.set_color(&ColorSpec::new()).unwrap();
-        println!("\r\n");
+        println!("{}[ERROR]:   {}\n", Red.paint(""), Red.paint(msg));
     }
 }
 
@@ -93,11 +84,7 @@ pub fn warn(msg: String) {
     let print_stat = config::PRINT_WARN_ON.lock().unwrap().clone();
     
     if print_stat {
-        let mut stdout = StandardStream::stdout(ColorChoice::Always);
-        stdout.set_color(ColorSpec::new().set_fg(Some(Color::Yellow))).unwrap();
-        writeln!(&mut stdout, "[WARNING]: {}", msg).unwrap();
-        stdout.set_color(&ColorSpec::new()).unwrap();
-        println!("\r\n");
+        println!("{}[WARNING]: {}\n", Yellow.paint(""), Yellow.paint(msg));
     }
 }
 
@@ -123,13 +110,9 @@ pub fn warn(msg: String) {
 /// If color output is not supported, the success message may not appear in green.
 pub fn ok(msg: String) {
     let print_stat = config::PRINT_OK_ON.lock().unwrap().clone();
-    
+
     if print_stat {
-        let mut stdout = StandardStream::stdout(ColorChoice::Always);
-        stdout.set_color(ColorSpec::new().set_fg(Some(Color::Green))).unwrap();
-        writeln!(&mut stdout, "[OK]:      {}", msg).unwrap();
-        stdout.set_color(&ColorSpec::new()).unwrap();
-        println!("\r\n");
+        println!("{}[OK]:      {}\n", Green.paint(""), Green.paint(msg));
     }
 }
 
@@ -156,12 +139,9 @@ pub fn ok(msg: String) {
 pub fn info(msg: String) {
     let print_stat = config::PRINT_INFO_ON.lock().unwrap().clone();
     
+    let light_blue = Colour::RGB(102, 178, 255); 
     if print_stat {
-        let mut stdout = StandardStream::stdout(ColorChoice::Always);
-        stdout.set_color(ColorSpec::new().set_fg(Some(Color::Rgb(102, 178, 255/*lyseblå*/)))).unwrap();
-        writeln!(&mut stdout, "[INFO]:    {}", msg).unwrap();
-        stdout.set_color(&ColorSpec::new()).unwrap();
-        println!("\r\n");
+        println!("{}[INFO]:    {}\n", light_blue.paint(""), light_blue.paint(msg));
     }
 }
 
@@ -188,13 +168,11 @@ pub fn info(msg: String) {
 pub fn master(msg: String) {
     let print_stat = config::PRINT_ELSE_ON.lock().unwrap().clone();
     
+    let pink = Colour::RGB(255, 51, 255);
     if print_stat {
-        let mut stdout = StandardStream::stdout(ColorChoice::Always);
-        stdout.set_color(ColorSpec::new().set_fg(Some(Color::Rgb(255, 51, 255/*Rosa*/)))).unwrap();
-        writeln!(&mut stdout, "[MASTER]:  {}", msg).unwrap();
-        stdout.set_color(&ColorSpec::new()).unwrap();
-        println!("\r\n");
+        println!("{}[MASTER]:  {}\n", pink.paint(""), pink.paint(msg));
     }
+
 }
 
 /// Prints a slave-specific message in orange to the terminal.
@@ -220,12 +198,9 @@ pub fn master(msg: String) {
 pub fn slave(msg: String) {
     let print_stat = config::PRINT_ELSE_ON.lock().unwrap().clone();
     
+    let random = Colour::RGB(153, 76, 0);
     if print_stat {
-        let mut stdout = StandardStream::stdout(ColorChoice::Always);
-        stdout.set_color(ColorSpec::new().set_fg(Some(Color::Rgb(153, 76, 0/*Tilfeldig*/)))).unwrap();
-        writeln!(&mut stdout, "[SLAVE]:   {}", msg).unwrap();
-        stdout.set_color(&ColorSpec::new()).unwrap();
-        println!("\r\n");
+        println!("{}[MASTER]:  {}\n", random.paint(""), random.paint(msg));
     }
 }
 
@@ -251,28 +226,26 @@ pub fn slave(msg: String) {
 ///
 /// **Note:** This function does not return a value and prints directly to the terminal. The message will be printed in a rainbow of colors.
 pub fn cosmic_err(fun: String) {
-    let mut stdout = StandardStream::stdout(ColorChoice::Always);
-    // Skriv ut "[ERROR]:" i rød
-    stdout.set_color(ColorSpec::new().set_fg(Some(Color::Red))).unwrap();
-    write!(&mut stdout, "[ERROR]: ").unwrap();
-    // Definer regnbuefargene
+    // Print "[ERROR]:" in red
+    print!("{}", Colour::Red.paint("[ERROR]: "));
+    
+    // Some colours
     let colors = [
-        Color::Red,
-        Color::Yellow,
-        Color::Green,
-        Color::Cyan,
-        Color::Blue,
-        Color::Magenta,
+        Colour::Red,
+        Colour::Yellow,
+        Colour::Green,
+        Colour::Cyan,
+        Colour::Blue,
+        Colour::Purple,
     ];
-    // Resten av meldingen i regnbuefarger
+    
+    // Rest of the print in rainbow
     let message = format!("Cosmic rays flipped a bit! 👽 ⚛️ 🔄 1️⃣ 0️⃣  IN: {}", fun);
     for (i, c) in message.chars().enumerate() {
         let color = colors[i % colors.len()];
-        stdout.set_color(ColorSpec::new().set_fg(Some(color))).unwrap();
-        write!(&mut stdout, "{}", c).unwrap();
+        print!("{}", color.paint(c.to_string()));
     }
-    // Tilbakestill fargen
-    stdout.set_color(&ColorSpec::new()).unwrap();
+    
     println!();
 }
 
