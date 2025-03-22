@@ -7,6 +7,7 @@ use std::io::Write;
 use tokio::process::Command;
 use crate::world_view::{self, ElevatorBehaviour};
 
+#[allow(non_snake_case)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ElevatorState {
     behaviour: String,
@@ -14,6 +15,7 @@ pub struct ElevatorState {
     direction: String,
     cabRequests: Vec<bool>,
 }
+#[allow(non_snake_case)]
 #[derive(Serialize, Deserialize)]
 struct HallRequests {
     hallRequests: Vec<[bool; 2]>,

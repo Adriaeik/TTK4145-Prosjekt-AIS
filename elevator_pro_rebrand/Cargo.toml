@@ -25,17 +25,13 @@ bincode = "1.3"    # Brukast til effektiv serialisering av worldview
 # Nettverksrelaterte ting
 socket2 = "0.5.8" # For avansert UDP-socket config (brukes i init og backup)
 local-ip-address = "0.6.3" # For å hente lokal IP for identifikasjon
-get_if_addrs = "0.5" # Ser ikkje ut til å vere brukt direkte – vurdér å fjerne
+# get_if_addrs = "0.5" # Ser ikkje ut til å vere brukt direkte – vurdér å fjerne
 
 # Feilhåndtering
 anyhow = "1.0"
 
 # Futures brukt i async systemet (tokio)
 futures = "0.3"
-
-# Logging
-log = "0.4"
-env_logger = "0.11.6"
 
 # Farge og terminalutskrift
 termcolor = "1.2" # Brukast til å fargelegge terminalutskrift (m/ 'StandardStream')
