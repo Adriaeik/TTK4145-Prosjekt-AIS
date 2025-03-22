@@ -83,7 +83,7 @@ pub async fn handle_elevator(wv_watch_rx: watch::Receiver<Vec<u8>>, elevator_sta
     self_container.dirn = Dirn::Down;
 
     let mut door_timer = timer::new(Duration::from_secs(3));
-    let mut cab_call_timer = timer::new(Duration::from_secs(7));
+    let mut cab_call_timer = timer::new(Duration::from_secs(10));
     let mut error_timer = timer::new(Duration::from_secs(7));
     let mut prev_cab_call_timer_stat:bool = false;
     // let mut prev_behavior:ElevatorBehaviour = self_container.behaviour;
@@ -99,7 +99,6 @@ pub async fn handle_elevator(wv_watch_rx: watch::Receiver<Vec<u8>>, elevator_sta
     let mut prev_floor = self_container.last_floor_sensor;
     
     loop {
-        println!("START__________________________________________________________________________");
         /*OBS OBS!! krasjer når vi starter i 0 etasje..... uff da */
         //Les nye data fra heisen, putt de inn i self_container
         
@@ -216,7 +215,7 @@ pub async fn handle_elevator(wv_watch_rx: watch::Receiver<Vec<u8>>, elevator_sta
         }
         yield_now().await;
         sleep(config::POLL_PERIOD).await;
-        println!("SLUTT__________________________________________________________________________");
+
         
         
     }
