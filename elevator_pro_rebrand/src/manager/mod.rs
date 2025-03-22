@@ -70,7 +70,8 @@ async fn get_elev_tasks(wv: Vec<u8>) -> HashMap<u8, Vec<[bool; 2]>> {
 
         if json_cost_str.trim().is_empty() {
             print::err(format!(
-                "run_cost_algorithm returned an empty string. "
+                "run_cost_algorithm returned an empty string. Input JSON was: {}",
+                str
             ));
             return HashMap::new();
         }

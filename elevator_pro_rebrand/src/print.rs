@@ -281,23 +281,11 @@ pub fn worldview(worldview: Vec<u8>) {
     );
 
     for (floor, calls) in wv_deser.hall_request.iter().enumerate().rev() {
-        let up = if floor != wv_deser.hall_request.len() - 1 {
-            if calls[0] { "🟢" } else { "🔴" }
-        } else {
-            "  " // Ingen opp-knapp i øvste etasje
-        };
-    
-        let down = if floor != 0 {
-            if calls[1] { "🟢" } else { "🔴" }
-        } else {
-            "  " // Ingen ned-knapp i nederste etasje
-        };
-    
         println!(
             "│ floor:{:<5} │          │ {} {}              │",
             floor,
-            down,
-            up
+            if calls[1] { "🟢" } else { "🔴" }, // Ned
+            if calls[0] { "🟢" } else { "🔴" }  // Opp
         );
     }
 
@@ -325,25 +313,9 @@ pub fn worldview(worldview: Vec<u8>) {
             .map(|(floor, task)| format!("{:<2} {}", floor, if *task { "🟢" } else { "🔴" }))
             .collect();
 
-        let num_floors = elev.tasks.len();
         let call_list_emoji: Vec<String> = elev.tasks.iter().enumerate().rev()
-            .map(|(floor, calls)| {
-                let up = if floor != num_floors - 1 {
-                    if calls[0] { "🟢" } else { "🔴" }
-                } else {
-                    "⚫" // ingen opp-knapp i toppetasjen
-                };
-        
-                let down = if floor != 0 {
-                    if calls[1] { "🟢" } else { "🔴" }
-                } else {
-                    "⚫" // ingen ned-knapp i nederste etasje
-                };
-        
-                format!("{:<2} {} {}", floor, down, up)
-            })
+            .map(|(floor, calls)| format!("{:<2} {} {}", floor, if calls[1] { "🟢" } else { "🔴" }, if calls[0] { "🟢" } else { "🔴" }))
             .collect();
-        
 
         let task_status = match (elev.dirn, elev.behaviour) {
             (_, ElevatorBehaviour::Idle) => pad_text(&Green.paint("Idle").to_string(), 22),

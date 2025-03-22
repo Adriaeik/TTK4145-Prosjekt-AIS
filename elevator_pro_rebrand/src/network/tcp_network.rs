@@ -247,8 +247,6 @@ async fn tcp_while_slave(wv: &mut Vec<u8>, wv_watch_rx: watch::Receiver<Vec<u8>>
     let mut stream:Option<TcpStream> = None;
     if let Some(s) = connect_to_master(wv_watch_rx.clone(), connection_to_master_failed_tx.clone()).await {
         println!("Master accepted the TCP-connection");
-        let _= s.set_nodelay(true);
-        let _ = s.set_linger(Some(Duration::from_nanos(1)));
         master_accepted_tcp = true;
         stream = Some(s);
     } else {
