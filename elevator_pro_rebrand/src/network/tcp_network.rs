@@ -482,3 +482,35 @@ async fn close_tcp_stream(stream: &mut TcpStream) {
 }
 
 /* __________ END PRIVATE FUNCTIONS __________ */
+
+use std::net::ToSocketAddrs;
+use std::os::unix::io::{AsRawFd, RawFd};
+use std::time::Duration;
+use libc;
+
+fn set_socket_options(socket_fd: RawFd) {
+    // Eksempel på å sette TCP_RTO_MIN (minimum retransmisjonstid)
+    let rto_min = Duration::from_secs(1); // Sett til 1 sekund for eksempel
+
+    unsafe {
+        libc::setsockopt(
+            socket_fd,
+            libc::SOL_TCP,
+            libc::TCP_RTO_MIN,
+            &rto_min.as_secs() as *const _ as *const libc::c_void,
+            std::mem::size_of_val(&rto_min.as_secs()) as libc::socklen_t,
+        );
+    }
+}
+
+fn connect_with_options<A: ToSocketAddrs>(addr: A) -> std::io::Result<TcpStream> {
+    // Opprett en socket direkte
+    let socket = std::net::TcpStream::connect(addr)?;
+    let raw_fd = socket.as_raw_fd();
+
+    // Sett ønskede sokkelinnstillinger før tilkoblingen
+    set_socket_options(raw_fd);
+
+    // Returner den tilkoblede TcpStreamen
+    Ok(socket)
+}
