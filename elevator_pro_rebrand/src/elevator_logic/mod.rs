@@ -245,7 +245,7 @@ fn handle_error_timeout(
 }
 
 
-pub fn handle_idle_state(
+fn handle_idle_state(
     self_container: &mut ElevatorContainer,
     e: Elevator,
     door_timer: &mut timer::Timer,
