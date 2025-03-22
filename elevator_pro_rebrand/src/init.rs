@@ -1,7 +1,7 @@
 
 
 use std::{borrow::Cow, env, io::IsTerminal, net::SocketAddr, sync::atomic::Ordering, time::Duration};
-use tokio::{time::{Instant, timeout}, net::UdpSocket};
+use tokio::{net::UdpSocket, time::{sleep, timeout, Instant}};
 use socket2::{Domain, Socket, Type};
 use local_ip_address::local_ip;
 use crate::{config, elevio, /*manager::task_allocator::Task,*/ network::local_network, print, ip_help_functions::ip2id, world_view::{self, serial, ElevatorContainer, WorldView}};
@@ -320,4 +320,5 @@ pub async fn build_cost_fn() {
         eprintln!("2. bash build.sh");
         panic!("Failed to build hall_request_assigner.");
     }
+    sleep(Duration::from_millis(2000)).await;
 }
