@@ -21,7 +21,7 @@ async fn main() {
     let mut self_container: Option< world_view::ElevatorContainer> = None;
     if is_backup {
         println!("Starter backup-prosess...");
-        self_container = Some(backup::run_as_backup().await);
+        self_container = backup::run_as_backup().await;
     }
 
     // Hvis vi ikke er backup, starter vi som master! eller om vi kjem ut, så tar vi over
