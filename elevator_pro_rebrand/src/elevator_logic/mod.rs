@@ -83,7 +83,7 @@ pub async fn handle_elevator(wv_watch_rx: watch::Receiver<Vec<u8>>, elevator_sta
     self_container.dirn = Dirn::Down;
 
     let mut door_timer = timer::new(Duration::from_secs(3));
-    let mut cab_call_timer = timer::new(Duration::from_secs(7));
+    let mut cab_call_timer = timer::new(Duration::from_secs(10));
     let mut error_timer = timer::new(Duration::from_secs(7));
     let mut prev_cab_call_timer_stat:bool = false;
     // let mut prev_behavior:ElevatorBehaviour = self_container.behaviour;
