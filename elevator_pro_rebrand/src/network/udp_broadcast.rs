@@ -117,9 +117,9 @@ pub async fn start_udp_listener(wv_watch_rx: watch::Receiver<Vec<u8>>, udp_wv_tx
     socket_temp.bind(&socket_addr.into())?;
     let socket = UdpSocket::from_std(socket_temp.into())?;
     let mut buf = [0; config::UDP_BUFFER];
-    let mut read_wv: Vec<u8> = Vec::new();
+    let mut read_wv: Vec<u8>;
     
-    let mut message: Cow<'_, str> = std::borrow::Cow::Borrowed("a");
+    let mut message: Cow<'_, str>;
     let mut my_wv = world_view::get_wv(wv_watch_rx.clone());
     // Loop mottar og behandler udp-broadcaster
     loop {
@@ -165,8 +165,16 @@ pub async fn start_udp_listener(wv_watch_rx: watch::Receiver<Vec<u8>>, udp_wv_tx
 }
 
 
-// ### jalla udp watchdog
-pub async fn udp_watchdog(tcp_to_master_failed_tx: mpsc::Sender<bool>) {
+/// Simple watchdog
+/// 
+/// # Parameters
+/// `connection_to_master_failed_tx`: mpsc Sender that signals to the worldview updater that connection to the master has failed
+/// 
+/// # Behavior
+/// The function stores true in an atomic bool, and sleeps for 1 second.
+/// If the atomic bool is true when it wakes up, the watchdog has detected a timeout, as it is set false each time a UDP broadcast is recieved from the master.
+/// If a timeout is detected, it signals that connection to master has failed.
+pub async fn udp_watchdog(connection_to_master_failed_tx: mpsc::Sender<bool>) {
     use crate::world_view::world_view_update;
     while !world_view_update::read_network_status() {
         
@@ -179,7 +187,7 @@ pub async fn udp_watchdog(tcp_to_master_failed_tx: mpsc::Sender<bool>) {
         else {
             get_udp_timeout().store(false, Ordering::SeqCst); //resetter watchdogen
             print::warn("UDP-watchdog: Timeout".to_string());
-            let _ = tcp_to_master_failed_tx.send(true).await;
+            let _ = connection_to_master_failed_tx.send(true).await;
         }
     }
 }

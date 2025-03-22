@@ -1,10 +1,10 @@
 
 
-use std::{borrow::Cow, env, io::IsTerminal, net::SocketAddr, sync::atomic::Ordering, time::Duration};
+use std::{borrow::Cow, env, net::SocketAddr, sync::atomic::Ordering, time::Duration};
 use tokio::{net::UdpSocket, time::{sleep, timeout, Instant}};
 use socket2::{Domain, Socket, Type};
 use local_ip_address::local_ip;
-use crate::{config, elevio, /*manager::task_allocator::Task,*/ network::local_network, print, ip_help_functions::ip2id, world_view::{self, serial, ElevatorContainer, WorldView}};
+use crate::{config, network::local_network, print, ip_help_functions::ip2id, world_view::{self, serial, ElevatorContainer, WorldView}};
 use tokio::process::Command;
 
 /// ### Initializes the worldview on startup
@@ -40,7 +40,7 @@ pub async fn initialize_worldview(self_container : Option< world_view::ElevatorC
         container
     } else {
         // Opprett ein standard ElevatorContainer med ein initial placeholder-task
-        let mut container = ElevatorContainer::default();
+        let container = ElevatorContainer::default();
         container
     };
 
