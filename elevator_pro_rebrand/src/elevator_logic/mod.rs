@@ -126,29 +126,13 @@ pub async fn handle_elevator(wv_watch_rx: watch::Receiver<Vec<u8>>, elevator_sta
 
         /*============================================================================================================================================*/
         
-        if self_container.behaviour != ElevatorBehaviour::DoorOpen {
-            e.motor_direction(self_container.dirn as u8);  
-        }
-        if error_timer.timer_timeouted() {
-            prev_cab_call_timer_stat = true;
-            self_container.behaviour = ElevatorBehaviour::Error;
-        } else {
-            prev_cab_call_timer_stat = false;
-        }
-        
-        // Lagre tidlegare status før oppdatering
-        let last_behavior = prev_behavior;
+        update_motor_direction_if_needed(&self_container, &e);
 
-        // Oppdater prev_behavior dersom statusen endrar seg
-        if prev_behavior != self_container.behaviour {
-            prev_behavior = self_container.behaviour;
-            println!("Endra status: {:?} -> {:?}", last_behavior, prev_behavior);
-        }
+        update_error_state(&mut self_container, &error_timer, &mut prev_cab_call_timer_stat);
 
-        // Sett motor til stopp når vi går frå DoorOpen til Error
-        if last_behavior == ElevatorBehaviour::DoorOpen && prev_behavior == ElevatorBehaviour::Error {
-            self_container.dirn = Dirn::Stop;
-        }
+        let last_behavior: ElevatorBehaviour = track_behavior_change(&self_container, &mut prev_behavior);
+        stop_motor_on_dooropen_to_error(&mut self_container, last_behavior, prev_behavior);
+
         
         
         //Send til update_wv -> nye self_container
@@ -245,7 +229,7 @@ fn handle_error_timeout(
 }
 
 
-pub fn handle_idle_state(
+fn handle_idle_state(
     self_container: &mut ElevatorContainer,
     e: Elevator,
     door_timer: &mut timer::Timer,
@@ -260,5 +244,48 @@ pub fn handle_idle_state(
             door_timer.timer_start();
             e.motor_direction(Dirn::Stop as u8);
         }
+    }
+}
+
+pub fn update_motor_direction_if_needed(self_container: &ElevatorContainer, e: &Elevator) {
+    if self_container.behaviour != ElevatorBehaviour::DoorOpen {
+        e.motor_direction(self_container.dirn as u8);
+    }
+}
+
+pub fn update_error_state(
+    self_container: &mut ElevatorContainer,
+    error_timer: &timer::Timer,
+    prev_cab_call_timer_stat: &mut bool,
+) {
+    if error_timer.timer_timeouted() {
+        *prev_cab_call_timer_stat = true;
+        self_container.behaviour = ElevatorBehaviour::Error;
+    } else {
+        *prev_cab_call_timer_stat = false;
+    }
+}
+
+pub fn track_behavior_change(
+    self_container: &ElevatorContainer,
+    prev_behavior: &mut ElevatorBehaviour,
+) -> ElevatorBehaviour {
+    let last_behavior = *prev_behavior;
+
+    if *prev_behavior != self_container.behaviour {
+        *prev_behavior = self_container.behaviour;
+        println!("Endra status: {:?} -> {:?}", last_behavior, self_container.behaviour);
+    }
+
+    last_behavior
+}
+
+pub fn stop_motor_on_dooropen_to_error(
+    self_container: &mut ElevatorContainer,
+    last_behavior: ElevatorBehaviour,
+    current_behavior: ElevatorBehaviour,
+) {
+    if last_behavior == ElevatorBehaviour::DoorOpen && current_behavior == ElevatorBehaviour::Error {
+        self_container.dirn = Dirn::Stop;
     }
 }
