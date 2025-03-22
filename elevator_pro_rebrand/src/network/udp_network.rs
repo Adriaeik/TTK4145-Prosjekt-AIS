@@ -2,7 +2,9 @@
 
 use crate::config;
 use crate::network;
+use crate::network::get_self_ip;
 use crate::print;
+use crate::print::worldview;
 use crate::world_view;
 
 use std::net::SocketAddr;
@@ -62,7 +64,6 @@ pub async fn start_udp_broadcaster(wv_watch_rx: watch::Receiver<Vec<u8>>) -> tok
     loop{
         let wv_watch_rx_clone = wv_watch_rx.clone();
         world_view::update_wv(wv_watch_rx_clone, &mut wv).await;
-
         // Hvis du er master, broadcast worldview
         // If you currently are master on the network
         if network::read_self_id() == wv[config::MASTER_IDX] {
@@ -127,6 +128,9 @@ pub async fn start_udp_listener(wv_watch_rx: watch::Receiver<Vec<u8>>, udp_wv_tx
     
     let mut message: Cow<'_, str>;
     let mut my_wv = world_view::get_wv(wv_watch_rx.clone());
+
+    let mut ignore_counter: i32 = 0;
+
     loop {
         // Read message on UDP-broadcast address
         match socket.recv_from(&mut buf).await {
@@ -146,22 +150,46 @@ pub async fn start_udp_listener(wv_watch_rx: watch::Receiver<Vec<u8>>, udp_wv_tx
             .filter_map(|s| s.parse::<u8>().ok()) // Convert to u8
             .collect(); // Collect to an Vec<u8>
 
-            world_view::update_wv(wv_watch_rx.clone(), &mut my_wv).await;
-            if read_wv[config::MASTER_IDX] != my_wv[config::MASTER_IDX] {} 
-            else {
-                // The message is from the networks master -> restart the UDP watchdog
-                get_udp_timeout().store(false, Ordering::SeqCst);
-            }
 
-            // Send the recieved worldview to the worldview updater if it was recieved from the network master, or a node with lower ID
-            // Except if we are the master
-            if my_wv[config::MASTER_IDX] >= read_wv[config::MASTER_IDX] {
-                if !(self_id == read_wv[config::MASTER_IDX]) {
-                    my_wv = read_wv;
-                    let _ = udp_wv_tx.send(my_wv.clone()).await;
+            // Sjekk om self_id finst i meldinga
+            match world_view::extract_self_elevator_container(read_wv.clone()) {
+                Some(cont) => {
+                    if ignore_counter > 0 {
+                        ignore_counter = ignore_counter.saturating_sub(1);
+                    }
+                    println!("container id: {}", cont.elevator_id);
+                },
+                None => {
+                    ignore_counter += 1;
                 }
             }
             
+            print::warn(format!("ignore count:: {}", ignore_counter));
+
+            // Oppdater lokal worldview
+            world_view::update_wv(wv_watch_rx.clone(), &mut my_wv).await;
+
+            if read_wv[config::MASTER_IDX] != my_wv[config::MASTER_IDX] {
+                // Ignorer
+            } else {
+                // Meldinga kjem frå master → restart watchdog
+                get_udp_timeout().store(false, Ordering::SeqCst);
+            }
+
+            // Send vidare om meldinga kjem frå master eller lågare ID, og me er ikkje master
+            if my_wv[config::MASTER_IDX] >= read_wv[config::MASTER_IDX]
+                && self_id != read_wv[config::MASTER_IDX]
+                && ignore_counter < 100
+            {
+                my_wv = read_wv;
+                let _ = udp_wv_tx.send(my_wv.clone()).await;
+            }
+            // Eventuelt reset lokal worldview viss vi endeleg blei med i meldinga
+            else {
+                // remove all other elevators, ur on your own
+                use crate::init;
+                my_wv = init::initialize_worldview(world_view::extract_self_elevator_container(my_wv.clone())).await;
+            }
         }
     }
 }

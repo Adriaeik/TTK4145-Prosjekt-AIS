@@ -43,22 +43,7 @@ Ein god gitter pusher alltid ✅
 
 - https://doc.rust-lang.org/rustdoc/write-documentation/what-to-include.html
 
-### Tanker om taskallocating
 
-- Bruk av costfunction. 
-insp 
-```go
-func calculateCost(order elevio.ButtonEvent) uint {
-	var cost = abs(order.Floor - elevio.GetFloor())
-	if cost == 0 && ic.GetDirection() != elevio.MD_Stop {
-		cost += 4
-	}
-	if cost > 0 && (ic.GetDirection() == elevio.MD_Down || ic.GetDirection() == elevio.MD_Up) {
-		cost += 3
-	}
-	if cost != 0 && ic.GetDirection() == elevio.MD_Stop {
-		cost++
-	}
-	return cost
-}
-```
+- Det virker som pakketap ikkje er så farlig når du er slave, men drepandes for nettverket når du er master
+- visst vi har hatt packetloss og blir fjerna av masteren så kjem vi først tilbake etter ein inside btn blir trykt?? wtf?? kan ha vert tilfeldig
+- taper alle Calls når vi kobler oss tibake på nettverket etter packet loss
