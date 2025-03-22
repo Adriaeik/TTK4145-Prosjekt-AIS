@@ -185,9 +185,11 @@ pub async fn start_udp_listener(wv_watch_rx: watch::Receiver<Vec<u8>>, udp_wv_tx
                 let _ = udp_wv_tx.send(my_wv.clone()).await;
             }
             // Eventuelt reset lokal worldview viss vi endeleg blei med i meldinga
+            // Nødløsning? visst nettverke blir dårlig.. bare gå i enkeltheis modus?
             else {
                 // remove all other elevators, ur on your own
                 use crate::init;
+                //må lage ein tilsvarande funksjon som bare 
                 my_wv = init::initialize_worldview(world_view::extract_self_elevator_container(my_wv.clone())).await;
             }
         }
