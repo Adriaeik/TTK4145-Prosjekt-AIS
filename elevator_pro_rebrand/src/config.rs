@@ -67,13 +67,13 @@ pub const MASTER_TIMEOUT: Duration = Duration::from_millis(50000); // 5 sekunder
 pub const BACKUP_TIMEOUT: Duration = Duration::from_millis(50000); // 5 sekunder før failover
 
 /// How often to send worldview to backup client.
-pub const BACKUP_SEND_INTERVAL: Duration = Duration::from_millis(100); // 1 Hz
+pub const BACKUP_SEND_INTERVAL: Duration = Duration::from_millis(500); // 1 Hz
 
 /// How often to refresh worldview for backup clients.
-pub const BACKUP_WORLDVIEW_REFRESH_INTERVAL: Duration = Duration::from_millis(100); // 1 Hz
+pub const BACKUP_WORLDVIEW_REFRESH_INTERVAL: Duration = Duration::from_millis(500); // 1 Hz
 
 /// Number of seconds to wait between each retry attempt to connect to master.
-pub const BACKUP_RETRY_DELAY: Duration = Duration::from_millis(200);
+pub const BACKUP_RETRY_DELAY: Duration = Duration::from_millis(500);
 
 /// How many failed attempts before we promote backup to master.
 pub const BACKUP_FAILOVER_THRESHOLD: u32 = 50;
