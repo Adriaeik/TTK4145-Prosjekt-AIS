@@ -9,23 +9,45 @@ description = "TTK4145 Real-time Programming elevator project, Group 25, spring 
 repository = "https://github.com/Adriaeik/TTK4145-Prosjekt-AIS"
 license-file = "LICENSE.txt"
 
+
 [dependencies]
-crossbeam-channel = "0.5" #ikkje gløym denne
-tokio = {version = "1", features = ["full"]} #bytt denne til det vi faktisk bruker så doc ikke blir mega
-serde = { version = "1.0", features = ["derive"] } #samme her, sikkert på samtlige nedover her og
-serde_json = "1.0"
-socket2 = "0.5.8"
-local-ip-address = "0.6.3"
-get_if_addrs = "0.5"
-bincode = "1.3"
-futures = "0.3"
+# Kanal for kommunikasjon mellom trådar (brukes i I/O og elevator logic)
+crossbeam-channel = "0.5"
+
+# Async runtime brukt til task-spawning, sleep, process m.m.
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "rt", "net", "process", "sync", "time", "io-util"] }
+
+# Serialisering og deserialisering av worldview og meldingar
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0" # Brukast kanskje berre for debugging, men ok å ha med
+bincode = "1.3"    # Brukast til effektiv serialisering av worldview
+
+# Nettverksrelaterte ting
+socket2 = "0.5.8" # For avansert UDP-socket config (brukes i init og backup)
+local-ip-address = "0.6.3" # For å hente lokal IP for identifikasjon
+get_if_addrs = "0.5" # Ser ikkje ut til å vere brukt direkte – vurdér å fjerne
+
+# Feilhåndtering
 anyhow = "1.0"
+
+# Futures brukt i async systemet (tokio)
+futures = "0.3"
+
+# Logging
 log = "0.4"
 env_logger = "0.11.6"
-termcolor = "1.2"
-ansi_term = "0.12"
+
+# Farge og terminalutskrift
+termcolor = "1.2" # Brukast til å fargelegge terminalutskrift (m/ 'StandardStream')
+ansi_term = "0.12" # Brukast til fargede overskrifter og status-tekst i worldview
+
+# Tabellformat for worldview-utskrift
 prettytable-rs = "0.10"
+
+# Globalt init (for mutex på konfig-booleanar)
 once_cell = "1.19"
+
+# For korrekt bredde-handtering i terminal (brukes i `pad_text`)
 unicode-width = "0.1"
 
 [lib]

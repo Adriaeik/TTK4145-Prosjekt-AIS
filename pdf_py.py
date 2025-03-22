@@ -19,7 +19,7 @@ def rens_tekst(tekst):
 
 def main():
     # Be brukaren oppgi mappestien
-    mappesti = "elevator_pro"
+    mappesti = "elevator_pro_rebrand"
 
     # Opprett PDF-objektet
     pdf = PDF()

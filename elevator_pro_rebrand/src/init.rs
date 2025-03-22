@@ -1,5 +1,3 @@
-
-
 use std::{borrow::Cow, env, net::SocketAddr, sync::atomic::Ordering, time::Duration};
 use tokio::{net::UdpSocket, time::{sleep, timeout, Instant}};
 use socket2::{Domain, Socket, Type};
