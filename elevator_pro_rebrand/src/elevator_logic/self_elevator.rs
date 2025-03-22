@@ -1,13 +1,11 @@
-use tokio::task::yield_now;
 use tokio::time::{sleep, Duration};
 use crossbeam_channel as cbc;
 use tokio::process::Command;
-use std::sync::atomic::Ordering;
-use tokio::sync::{mpsc, watch};
+use tokio::sync::mpsc;
 
 use crate::network;
 use crate::world_view::ElevatorContainer;
-use crate::{world_view::{Dirn, ElevatorBehaviour}, network::local_network, config, print, elevio, elevio::elev as e};
+use crate::{world_view::ElevatorBehaviour, config, print, elevio, elevio::elev as e};
 
 use super::timer::Timer;
 

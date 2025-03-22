@@ -1,6 +1,6 @@
-use tokio::sync::watch;
 
-use crate::{elevio::elev::Elevator, world_view::{self, ElevatorContainer}};
+
+use crate::{elevio::elev::Elevator, world_view};
 
 
 /// Sets all hall lights
