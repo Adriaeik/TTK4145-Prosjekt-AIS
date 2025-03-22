@@ -2,7 +2,7 @@
 
 use tokio::time::sleep;
 use tokio::sync::mpsc;
-use crate::{elevio::{self, elev::Elevator}, world_view, print};
+use crate::{elevio::{self, elev::Elevator}, print};
 use crate::world_view::{Dirn, ElevatorBehaviour, ElevatorContainer};
 use crate::elevator_logic::self_elevator;
 use crate::elevator_logic::request;
@@ -68,7 +68,7 @@ pub async fn on_init(
 /// - `e`: Elevator hardware interface, used to control motor and lights.
 /// - `door_timer`: Timer tracking how long the door should stay open.
 /// - `cab_priority_timer`: Timer giving priority to inside cab requests after door opens.
-pub async fn on_floor_arrival(
+async fn on_floor_arrival(
     elevator: &mut ElevatorContainer,
     e: Elevator,
     door_timer: &mut Timer,
@@ -111,7 +111,7 @@ pub async fn on_floor_arrival(
 /// # Parameters
 /// - `elevator`: Mutable reference to the elevator's internal state.
 /// - `e`: Elevator hardware interface, used to control lights and motor.
-pub async fn on_door_timeout(elevator: &mut ElevatorContainer, e: Elevator) {
+async fn on_door_timeout(elevator: &mut ElevatorContainer, e: Elevator) {
     match elevator.behaviour {
         ElevatorBehaviour::DoorOpen => {
             let state_pair = request::choose_direction(&elevator.clone());
@@ -134,6 +134,137 @@ pub async fn on_door_timeout(elevator: &mut ElevatorContainer, e: Elevator) {
     }
 }
 
+/// Handles floor arrival updates when a new floor sensor reading is detected.
+///
+/// If the current floor (`last_floor_sensor`) is different from the previously known floor,
+/// this function triggers arrival-handling logic, restarts the error timer,
+/// and optionally releases the cab call timer if the stop was due to an inside request.
+///
+/// # Parameters
+/// - `self_container`: Mutable reference to the local elevator state.
+/// - `e`: Elevator hardware interface for controlling motor and lights.
+/// - `prev_floor`: Mutable reference to the previous floor value (used for change detection).
+/// - `timers`: Mutable reference to the shared `ElevatorTimers` instance.
+///
+/// # Behavior
+/// - Calls `on_floor_arrival()` if floor changed.
+/// - Starts the error timer on valid floor detection.
+/// - Releases the cab call timer if the stop was due to an inside (cab) request.
+pub async fn handle_floor_sensor_update(
+    self_container: &mut ElevatorContainer,
+    e: Elevator,
+    prev_floor: &mut u8,
+    timers: &mut ElevatorTimers,
+) {
+    if *prev_floor != self_container.last_floor_sensor {
+        on_floor_arrival(self_container, e, &mut timers.door, &mut timers.cab_priority).await;
+        timers.error.timer_start();
 
+        // Ignore cab call timeout if request came from inside button
+        if !request::was_outside(self_container) {
+            timers.cab_priority.release_timer();
+        }
+
+        *prev_floor = self_container.last_floor_sensor;
+    }
+}
+
+
+/// Handles door timeout logic and clears the door light when appropriate.
+///
+/// If the door timer has expired and no obstruction is detected, this function clears
+/// the door open light. If the elevator is moving toward a cab call, the cab call timer
+/// is released. If the cab call timer has also expired, the system proceeds to handle
+/// the door timeout state transition.
+///
+/// # Parameters
+/// - `self_container`: Mutable reference to the elevator's internal state.
+/// - `e`: Elevator identifier or hardware handle used to control lights and motors.
+/// - `door_timer`: Timer that tracks how long the door has been open.
+///
+/// # Behavior
+/// - Clears door light after timeout.
+/// - Handles door-close logic via finite state machine if cab call timer is also expired.
+pub async fn handle_door_timeout_and_lights(
+    self_container: &mut ElevatorContainer,
+    e: Elevator,
+    door_timer: &Timer,
+    cab_priority_timer: &mut Timer,
+) {
+    if door_timer.timer_timeouted() && !self_container.obstruction {
+        lights::clear_door_open_light(e.clone());
+
+        if request::moving_towards_cab_call(&self_container.clone()) {
+            cab_priority_timer.release_timer();
+        }
+
+        if cab_priority_timer.timer_timeouted() {
+            on_door_timeout(self_container, e.clone()).await;
+        }
+    }
+}
+
+/// Monitors elevator activity and triggers error behavior after a timeout period.
+///
+/// If no cab call has timed out or the elevator is idle, the error timer is restarted.
+/// If the error timer itself has expired and a cab call was previously active,
+/// the elevator enters an error state and logs a critical error message.
+///
+/// # Parameters
+/// - `self_container`: Reference to the elevator state being monitored.
+/// - `cab_priority_timer`: Timer tracking how long a cab call has been pending.
+/// - `error_timer`: Mutable timer for detecting inactivity or system faults.
+/// - `prev_cab_priority_timer_stat`: Whether the cab call timer had previously expired.
+///
+/// # Behavior
+/// - Triggers an error state if prolonged inactivity or failure is detected.
+pub fn handle_error_timeout(
+    self_container: &ElevatorContainer,
+    cab_priority_timer: &Timer,
+    error_timer: &mut Timer,
+    prev_cab_priority_timer_stat: bool,
+) {
+    if !cab_priority_timer.timer_timeouted() || self_container.behaviour == ElevatorBehaviour::Idle {
+        error_timer.timer_start();
+    }
+
+    if error_timer.timer_timeouted() && !prev_cab_priority_timer_stat {
+        print::cosmic_err("Feil på travel!!!!".to_string());
+    }
+}
+
+/// Attempts to transition the elevator from idle to active movement if a request is pending.
+///
+/// If the elevator is currently idle, the system chooses a new direction and behavior
+/// using the request logic. If a non-idle state is chosen, the elevator's direction
+/// and behavior are updated, the door timer is started, and the motor is stopped
+/// in preparation for movement or door logic.
+///
+/// # Parameters
+/// - `self_container`: Mutable reference to the elevator's current state.
+/// - `e`: Elevator handle or control interface.
+/// - `door_timer`: Timer used to delay transitions or prepare door actions.
+///
+/// # Behavior
+/// - Only operates when the elevator is in an idle state.
+/// - Initializes direction and behavior when transitioning out of idle.
+/// - Starts door timer and stops the motor to stabilize before further action.
+pub fn handle_idle_state(
+    self_container: &mut ElevatorContainer,
+    e: Elevator,
+    door_timer: &mut Timer,
+) {
+    if self_container.behaviour == ElevatorBehaviour::Idle {
+        let status_pair = request::choose_direction(&self_container.clone());
+
+        if status_pair.behaviour != ElevatorBehaviour::Idle {
+            print::err(format!("Skal nå være: {:?}", status_pair.behaviour));
+            self_container.dirn = status_pair.dirn;
+            self_container.behaviour = status_pair.behaviour;
+            door_timer.timer_start();
+            e.motor_direction(Dirn::Stop as u8);
+        }
+    }
+}
 
 
