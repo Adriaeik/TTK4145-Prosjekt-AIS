@@ -39,7 +39,11 @@ pub fn get_udp_timeout() -> &'static AtomicBool {
 /// ## Note
 /// This function is permanently blocking, and should be called asynchronously
 pub async fn start_udp_broadcaster(wv_watch_rx: watch::Receiver<Vec<u8>>) -> tokio::io::Result<()> {
-    let mut prev_network_status = true;
+    use crate::world_view::world_view_update;
+    while !world_view_update::read_network_status() {
+        
+    }
+    let mut prev_network_status = world_view_update::read_network_status();
 
     // Sett opp sockets
     let addr: &str = &format!("{}:{}", config::BC_ADDR, config::DUMMY_PORT);
@@ -97,6 +101,10 @@ pub async fn start_udp_broadcaster(wv_watch_rx: watch::Receiver<Vec<u8>>) -> tok
 /// ## Note
 /// This function is permanently blocking, and should be called asynchronously 
 pub async fn start_udp_listener(wv_watch_rx: watch::Receiver<Vec<u8>>, udp_wv_tx: mpsc::Sender<Vec<u8>>) -> tokio::io::Result<()> {
+    use crate::world_view::world_view_update;
+    while !world_view_update::read_network_status() {
+        
+    }
     //Sett opp sockets
     let self_id = local_network::SELF_ID.load(Ordering::SeqCst);
     let broadcast_listen_addr = format!("{}:{}", config::BC_LISTEN_ADDR, config::DUMMY_PORT);
@@ -159,6 +167,10 @@ pub async fn start_udp_listener(wv_watch_rx: watch::Receiver<Vec<u8>>, udp_wv_tx
 
 // ### jalla udp watchdog
 pub async fn udp_watchdog(tcp_to_master_failed_tx: mpsc::Sender<bool>) {
+    use crate::world_view::world_view_update;
+    while !world_view_update::read_network_status() {
+        
+    }
     loop {
         if get_udp_timeout().load(Ordering::SeqCst) == false {
             get_udp_timeout().store(true, Ordering::SeqCst);

@@ -167,10 +167,14 @@ pub async fn update_wv_watch(mut mpsc_rxs: MpscRxs, worldview_watch_tx: watch::S
         /* KANALER ALLE SENDER LOKAL WV PÅ */
         /*_____Hvis worldview er endra, oppdater kanalen_____ */
         if master_container_updated_I {
-            let container = world_view::extract_self_elevator_container(worldview_serialised.clone());
-            let _ = master_container_tx.send(serial::serialize_elev_container(&container)).await;
+            if let Some(container) = world_view::extract_self_elevator_container(worldview_serialised.clone()) {
+                let _ = master_container_tx.send(serial::serialize_elev_container(&container)).await;
+            } else {
+                print::warn(format!("Failed to extract self elevator container – skipping update"));
+            }
             master_container_updated_I = false;
         }
+
         
         if wv_edited_I {
             

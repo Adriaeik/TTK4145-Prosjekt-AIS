@@ -287,7 +287,19 @@ pub fn get_terminal_command() -> (String, Vec<String>) {
 
 
 
-/// Køyre byggeskriptet i ny terminal og dreper seg sjølv visst det feila
+/// ### Executes the `build.sh` script for the hall_request_assigner cost function in a separate process.
+/// 
+/// This function asynchronously runs the `build.sh` script located in the
+/// `libs/Project_resources/cost_fns/hall_request_assigner` directory using `bash`.
+/// 
+/// If the build script runs successfully, its stdout and stderr are printed to the console,
+/// and the program continues normally. If the script fails, the function will print relevant
+/// error output, suggest manual build steps for debugging, and then terminate the process
+/// by panicking.
+///
+/// # Panics
+/// Panics if the script fails to execute or if it exits with a non-zero status code.
+/// This ensures the caller is alerted early to any build issues.
 pub async fn build_cost_fn() {
 
     let output = Command::new("bash")
@@ -301,11 +313,11 @@ pub async fn build_cost_fn() {
     eprintln!("stderr: {}", String::from_utf8_lossy(&output.stderr));
 
     if output.status.success() {
-        println!("✅ build.sh fullført OK");
+        println!("build.sh completed successfully.");
     } else {
-        eprintln!("⚠️  build.sh feila! Prøv å bygg manuelt i ny terminal:");
+        eprintln!("build.sh failed. Please try building manually in a new terminal:");
         eprintln!("1. cd libs/Project_resources/cost_fns/hall_request_assigner");
         eprintln!("2. bash build.sh");
-        panic!("❌ Klarte ikkje å bygge hall_request_assigner");
+        panic!("Failed to build hall_request_assigner.");
     }
 }
