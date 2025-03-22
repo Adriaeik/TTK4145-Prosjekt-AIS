@@ -218,12 +218,12 @@ async fn connect_to_master(wv_watch_rx: watch::Receiver<Vec<u8>>, tcp_to_master_
 /// While the program is online, it accepts new connections on the listener, and sends the socket over `socket_tx`. 
 /// 
 pub async fn listener_task(socket_tx: mpsc::Sender<(TcpStream, SocketAddr)>) {
-    let self_ip = format!("{}.{}", config::NETWORK_PREFIX, local_network::SELF_ID.load(Ordering::SeqCst));
     /* On first init. make sure the system is online so no errors occures while setting up the listener */
     while !world_view_update::read_network_status() {
         tokio::time::sleep(config::TCP_PERIOD).await;
     }
-
+    
+    let self_ip = format!("{}.{}", config::NETWORK_PREFIX, local_network::SELF_ID.load(Ordering::SeqCst));
     /* Bind the listener on port [config::PN_PORT] */
     let listener = match TcpListener::bind(format!("{}:{}", self_ip, config::PN_PORT)).await {
         Ok(l) => {
