@@ -1,7 +1,7 @@
-use crate::world_view::{serial, ElevatorContainer, Dirn, ElevatorBehaviour};
-use crate::{print, world_view, network};
+use crate::world_view::{self, serial, ElevatorContainer, Dirn, ElevatorBehaviour};
+use crate::print;
+use crate::network;
 
-use std::sync::atomic::Ordering;
 use std::collections::HashMap;
 
 
@@ -62,19 +62,6 @@ pub fn join_wv(mut my_wv: Vec<u8>, master_wv: Vec<u8>) -> Vec<u8> {
         }
         master_view.cab_requests = my_view.cab_requests.clone();
 
-        /* Update task statuses */
-        // let new_ids: HashSet<u16> = master_view.tasks.iter().map(|t| t.id).collect();
-        // let old_ids: HashSet<u16> = master_view.tasks_status.iter().map(|t| t.id).collect();
-
-        // // Add missing tasks from master's task list
-        // for task in master_view.tasks.clone().iter() {
-        //     if !old_ids.contains(&task.id) {
-        //         master_view.tasks_status.push(task.clone());
-        //     }
-        // }
-        // // Remove outdated tasks from task_status
-        // master_view.tasks_status.retain(|t| new_ids.contains(&t.id));
-
         // Call buttons synchronization is handled through TCP reliability
 
     } else if let Some(i_org) = my_self_index {
@@ -83,7 +70,6 @@ pub fn join_wv(mut my_wv: Vec<u8>, master_wv: Vec<u8>) -> Vec<u8> {
     }
 
     my_wv = serial::serialize_worldview(&master_wv_deserialised);
-    //utils::print_info(format!("Oppdatert wv fra UDP: {:?}", my_wv));
     my_wv 
 }
 

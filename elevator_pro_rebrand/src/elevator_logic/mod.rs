@@ -46,7 +46,7 @@ pub async fn run_local_elevator(wv_watch_rx: watch::Receiver<Vec<u8>>, elevator_
                 world_view::update_wv(wv_watch_rx_c.clone(), &mut wv).await;
                 match world_view::extract_self_elevator_container(wv.clone()) {
                     Some(self_elevator) => {
-                        lights::set_hall_lights(wv.clone(), e.clone(), &self_elevator);
+                        lights::set_hall_lights(wv.clone(), e.clone());
                     }
                     None => {
                         print::warn(format!("Failed to extract self elevator container"));

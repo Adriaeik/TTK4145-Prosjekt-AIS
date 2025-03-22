@@ -10,9 +10,8 @@ use tokio::sync::watch;
 use tokio::time::{sleep, Duration, timeout};
 
 // Tilpass desse importane til prosjektet ditt:
-use crate::{config, init, ip_help_functions, world_view};
+use crate::{config, init, world_view};
 use crate::print;
-use crate::network::local_network;
 
 // Global variabel for å sjå om backup-terminalen allereie er starta
 static BACKUP_STARTED: AtomicBool = AtomicBool::new(false);

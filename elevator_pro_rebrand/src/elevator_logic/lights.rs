@@ -15,7 +15,7 @@ use crate::{elevio::elev::Elevator, world_view::{self, ElevatorContainer}};
 /// 
 /// ## Note
 /// The function only sets the lights once per call, and needs to be recalled every time the lights needs to be updated
-pub fn set_hall_lights(wv: Vec<u8>, e: Elevator, container: &ElevatorContainer) {
+pub fn set_hall_lights(wv: Vec<u8>, e: Elevator) {
     let wv_deser = world_view::serial::deserialize_worldview(&wv);
 
     for (i, [up, down]) in wv_deser.hall_request.iter().enumerate() {

@@ -1,7 +1,6 @@
 //! Listens for events from the elevator.
 
 use crossbeam_channel as cbc;
-use std::sync::atomic::Ordering;
 use std::thread;
 use std::time;
 
