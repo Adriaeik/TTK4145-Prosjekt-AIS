@@ -74,74 +74,83 @@ pub async fn tcp_handler(
     let mut wv = world_view::get_wv(wv_watch_rx.clone());
     loop {
         IS_MASTER.store(true, Ordering::SeqCst);
-        /* Mens du er master: Motta sockets til slaver, start handle_slave i ny task*/
-        while world_view::is_master(wv.clone()) {
-            if world_view_update::read_network_status() {
-                while let Ok((socket, addr)) = socket_rx.try_recv() {
-                    print::info(format!("Ny slave tilkobla: {}", addr));
+        tcp_while_master(&mut wv, wv_watch_rx.clone(), &mut socket_rx, remove_container_tx.clone(), container_tx.clone()).await;
 
-                    let remove_container_tx_clone = remove_container_tx.clone();
-                    let container_tx_clone = container_tx.clone();
-                    let _slave_task: JoinHandle<()> = tokio::spawn(async move {
-                        let tcp_watchdog = TcpWatchdog {
-                            timeout: Duration::from_millis(config::TCP_TIMEOUT),
-                        };
-                        // Starter watchdog‑løkken, håndterer også mottak av meldinger på socketen
-                        tcp_watchdog.start_reading_from_slave(socket, remove_container_tx_clone, container_tx_clone).await;
-                    });
-                    tokio::task::yield_now().await; //Denne tvinger tokio til å sørge for at alle tasks i kø blir behandler
-                                                    //Feilen før var at tasken ble lagd i en loop, og try_recv kaltes så tett att tokio ikke rakk å starte tasken før man fikk en ny melding(og den fikk litt tid da den mottok noe)
-                }                
-            }
-            else {
-                tokio::time::sleep(Duration::from_millis(100)).await; 
-            }
-            world_view::update_wv(wv_watch_rx.clone(), &mut wv).await;
-        }
         //mista master -> indiker for avslutning av tcp-con og tasks
         IS_MASTER.store(false, Ordering::SeqCst);
+        tcp_while_slave(&mut wv, wv_watch_rx.clone(), tcp_to_master_failed_tx.clone(), sent_tcp_container_tx.clone()).await;
 
-
-        // sjekker at vi faktisk har ein socket å bruke med masteren
-        let mut master_accepted_tcp = false;
-        let mut stream:Option<TcpStream> = None;
-        if let Some(s) = connect_to_master(wv_watch_rx.clone(), tcp_to_master_failed_tx.clone()).await {
-            println!("Master accepta tilkobling");
-            master_accepted_tcp = true;
-            stream = Some(s);
-        } else {
-            println!("Master accepta IKKE tilkobling");
-        }
-
-        /* Mens du er slave: Sjekk om det har kommet ny master / connection til master har dødd */
-        let mut prev_master: u8;
-        let mut new_master = false;
-        while !world_view::is_master(wv.clone()) && master_accepted_tcp {
-                
-            if world_view_update::read_network_status() {
-                if let Some(ref mut s) = stream {
-                    if new_master {
-                        print::slave(format!("Fått ny master"));
-                        master_accepted_tcp = false;
-                        let _ = sleep(config::SLAVE_TIMEOUT);
-                    }
-                    prev_master = wv[config::MASTER_IDX];
-                    world_view::update_wv(wv_watch_rx.clone(), &mut wv).await;
-                    // Send neste TCP melding til master
-                    send_tcp_message(tcp_to_master_failed_tx.clone(), sent_tcp_container_tx.clone(), s, wv.clone()).await;
-                    if prev_master != wv[config::MASTER_IDX] {
-                        new_master = true;
-                    }
-                    tokio::time::sleep(config::TCP_PERIOD).await; 
-                }
-            }
-            else {
-                let _ = sleep(config::SLAVE_TIMEOUT);
-            }
-        } 
         //ble master -> restart loopen 
     }
 }
+
+
+async fn tcp_while_master(wv: &mut Vec<u8>, wv_watch_rx: watch::Receiver<Vec<u8>>, socket_rx: &mut mpsc::Receiver<(TcpStream, SocketAddr)>, remove_container_tx: mpsc::Sender<u8>, container_tx: mpsc::Sender<Vec<u8>>) {
+    /* Mens du er master: Motta sockets til slaver, start handle_slave i ny task*/
+    while world_view::is_master(wv.clone()) {
+        if world_view_update::read_network_status() {
+            while let Ok((socket, addr)) = socket_rx.try_recv() {
+                print::info(format!("Ny slave tilkobla: {}", addr));
+
+                let remove_container_tx_clone = remove_container_tx.clone();
+                let container_tx_clone = container_tx.clone();
+                let _slave_task: JoinHandle<()> = tokio::spawn(async move {
+                    let tcp_watchdog = TcpWatchdog {
+                        timeout: Duration::from_millis(config::TCP_TIMEOUT),
+                    };
+                    // Starter watchdog‑løkken, håndterer også mottak av meldinger på socketen
+                    tcp_watchdog.start_reading_from_slave(socket, remove_container_tx_clone, container_tx_clone).await;
+                });
+                tokio::task::yield_now().await; //Denne tvinger tokio til å sørge for at alle tasks i kø blir behandler
+                                                //Feilen før var at tasken ble lagd i en loop, og try_recv kaltes så tett att tokio ikke rakk å starte tasken før man fikk en ny melding(og den fikk litt tid da den mottok noe)
+            }                
+        }
+        else {
+            tokio::time::sleep(Duration::from_millis(100)).await; 
+        }
+        world_view::update_wv(wv_watch_rx.clone(), wv).await;
+    }
+}
+
+async fn tcp_while_slave(wv: &mut Vec<u8>, wv_watch_rx: watch::Receiver<Vec<u8>>, tcp_to_master_failed_tx: mpsc::Sender<bool>, sent_tcp_container_tx: mpsc::Sender<Vec<u8>>) {
+    /* Mens du er slave: Sjekk om det har kommet ny master / connection til master har dødd */
+    let mut master_accepted_tcp = false;
+    let mut stream:Option<TcpStream> = None;
+    if let Some(s) = connect_to_master(wv_watch_rx.clone(), tcp_to_master_failed_tx.clone()).await {
+        println!("Master accepta tilkobling");
+        master_accepted_tcp = true;
+        stream = Some(s);
+    } else {
+        println!("Master accepta IKKE tilkobling");
+    }
+
+    let mut prev_master: u8;
+    let mut new_master = false;
+    while !world_view::is_master(wv.clone()) && master_accepted_tcp {
+                
+        if world_view_update::read_network_status() {
+            if let Some(ref mut s) = stream {
+                if new_master {
+                    print::slave(format!("Fått ny master"));
+                    master_accepted_tcp = false;
+                    let _ = sleep(config::SLAVE_TIMEOUT);
+                }
+                prev_master = wv[config::MASTER_IDX];
+                world_view::update_wv(wv_watch_rx.clone(), wv).await;
+                // Send neste TCP melding til master
+                send_tcp_message(tcp_to_master_failed_tx.clone(), sent_tcp_container_tx.clone(), s, wv.clone()).await;
+                if prev_master != wv[config::MASTER_IDX] {
+                    new_master = true;
+                }
+                tokio::time::sleep(config::TCP_PERIOD).await; 
+            }
+        }
+        else {
+            let _ = sleep(config::SLAVE_TIMEOUT);
+        }
+    } 
+}
+
 
 /// ### Forsøker å koble til master via TCP.
 /// Returnerer `Some(TcpStream)` ved suksess, `None` ved feil.
