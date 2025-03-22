@@ -264,6 +264,22 @@ pub async fn listener_task(socket_tx: mpsc::Sender<(TcpStream, SocketAddr)>) {
 /// ## Leser fra `stream`
 /// 
 /// Select mellom å lese melding fra slave og sende meldingen til `world_view_handler` og å avslutte streamen om du ikke er master
+
+/// Function to read message from slave
+/// 
+/// # Parameters
+/// `remove_container_tx`: mpsc Sender for channel used to indicate a slave should be removed at worldview updater
+/// `stream`: the stream to read from
+/// 
+/// # Return
+/// `Some(Vec<u8>)`: The serialized message if it was read succesfully
+/// `None`: If reading from stream fails, or you become slave
+/// 
+/// # Behavior
+/// The function reads from stream. It first reads a header (2 bytes) indicating the message length.
+/// Based on the header it reads the message. If everything works without error, it returns the message.
+/// The function also asynchronously checks for loss of master status, and returns None if that is the case.
+///  
 async fn read_from_stream(remove_container_tx: mpsc::Sender<u8>, stream: &mut TcpStream) -> Option<Vec<u8>> {
     let mut len_buf = [0u8; 2];
     tokio::select! {
