@@ -1,6 +1,7 @@
 use tokio::sync::mpsc;
 use tokio::net::TcpStream;
 use std::net::SocketAddr;
+use tokio::sync::watch;
 
 use elevatorpro::{backup, elevator_logic, manager, network::{self, local_network, tcp_network, udp_network}, world_view};
 use elevatorpro::init;
@@ -32,19 +33,11 @@ async fn main() {
     
     /* START ----------- Initializing of channels used for the worldview updater ---------------------- */
     let main_mpscs = local_network::Mpscs::new();
-    let watches = local_network::Watches::new();
+    let (wv_watch_tx, wv_watch_rx) = watch::channel(Vec::<u8>::new());
     /* END ----------- Initializing of channels used for the worldview updater ---------------------- */
     
     // Send the initialized worldview on the worldview watch, so its not empty when rx tries to borrow it
-    let _ = watches.txs.wv.send(worldview_serialised.clone());
-
-
-
-
-    // Seperate the watch Tx so they can be sent to theis designated tasks
-    // TODO: bare lag watchen her. vi bruker bare den ene watchen, trenger ikke en struct for det
-    let wv_watch_tx = watches.txs.wv;
-    
+    let _ = wv_watch_tx.send(worldview_serialised.clone());
 
 
 
@@ -74,7 +67,7 @@ async fn main() {
 
     /* START ----------- Task to watch over the internet connection ---------------------- */
     {
-        let wv_watch_rx = watches.rxs.wv.clone();
+        let wv_watch_rx = wv_watch_rx.clone();
         let _network_status_watcher_task = tokio::spawn(async move {
             print::info("Starting to monitor internet".to_string());
             let _ = network::watch_ethernet(wv_watch_rx, new_wv_after_offline_tx).await;
@@ -104,14 +97,14 @@ async fn main() {
     }
     {
         //Task handling the elevator
-        let wv_watch_rx = watches.rxs.wv.clone();
+        let wv_watch_rx = wv_watch_rx.clone();
         let _local_elev_task = tokio::spawn(async move {
             let _ = elevator_logic::run_local_elevator(wv_watch_rx, elevator_states_tx).await;
         });
     }
     {
         //Starting the task manager, responsible for delegating tasks
-        let wv_watch_rx = watches.rxs.wv.clone();
+        let wv_watch_rx = wv_watch_rx.clone();
         let _manager_task = tokio::spawn(async move {
             print::info("Staring task manager".to_string());
             let _ = manager::start_manager(wv_watch_rx, delegated_tasks_tx).await;
@@ -125,7 +118,7 @@ async fn main() {
 
     /* START ----------- Backup server ----------- */
     {
-        let wv_watch_rx = watches.rxs.wv.clone();
+        let wv_watch_rx = wv_watch_rx.clone();
         let _backup_task = tokio::spawn(async move {
             print::info("Starting backup".to_string());
             tokio::spawn(backup::start_backup_server(wv_watch_rx));
@@ -140,7 +133,7 @@ async fn main() {
     /* START ----------- Network related tasks ---------------------- */
     {
         //Task listening for UDP broadcasts
-        let wv_watch_rx = watches.rxs.wv.clone();
+        let wv_watch_rx = wv_watch_rx.clone();
         let _listen_task = tokio::spawn(async move {
             print::info("Starting to listen for UDP-broadcast".to_string());
             let _ = udp_network::start_udp_listener(wv_watch_rx, udp_wv_tx).await;
@@ -149,7 +142,7 @@ async fn main() {
 
     {
         //Task sending UDP broadcasts
-        let wv_watch_rx = watches.rxs.wv.clone();
+        let wv_watch_rx = wv_watch_rx.clone();
         let _broadcast_task = tokio::spawn(async move {
             print::info("Starting UDP-broadcaster".to_string());
             let _ = udp_network::start_udp_broadcaster(wv_watch_rx).await;
@@ -158,7 +151,7 @@ async fn main() {
 
     {
         //Task handling TCP connections
-        let wv_watch_rx = watches.rxs.wv.clone();
+        let wv_watch_rx = wv_watch_rx.clone();
         let _tcp_task = tokio::spawn(async move {
             print::info("Starting TCP handler".to_string());
             let _ = tcp_network::tcp_handler(wv_watch_rx, remove_container_tx, container_tx, connection_to_master_failed_tx, sent_tcp_container_tx, socket_rx).await;
