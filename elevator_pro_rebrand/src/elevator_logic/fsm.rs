@@ -1,3 +1,43 @@
+//! Elevator Finite State Machine (FSM) Module
+//!
+//! This module contains the core logic for the elevator's finite state machine (FSM).
+//! It is responsible for reacting to sensor inputs, handling requests, updating the internal
+//! elevator state, and controlling motor and lights accordingly.
+//!
+//! The FSM implements transitions between key elevator states, such as:
+//! - Moving
+//! - DoorOpen
+//! - Idle
+//! - Error
+//!
+//! # Main Responsibilities
+//! - Handling initialization from unknown position (`on_init`)
+//! - Managing floor arrivals and door timeout logic (`on_floor_arrival`, `on_door_timeout`)
+//! - Monitoring inactivity or fault conditions (`handle_error_timeout`)
+//! - Executing transitions from Idle state (`handle_idle_state`)
+//!
+//! # Timers
+//! The FSM relies on three coordinated timers:
+//! - `door`: Tracks how long the door has been open.
+//! - `cab_priority`: Gives passengers time to press cab buttons after door opens.
+//! - `error`: Tracks how long the system has been inactive or blocked.
+//!
+//! These timers are grouped into the [`ElevatorTimers`] struct and passed where needed.
+//!
+//! # Integration
+//! This module is called from the elevator runtime loop and reacts to:
+//! - New floor sensor values
+//! - Cab and hall call requests
+//! - Timer expirations
+//!
+//!
+//! # Related Modules
+//! - [`request`]: Direction and behaviour decision logic.
+//! - [`self_elevator`]: Local state updates from hardware events.
+//! - [`lights`]: Door and button light controls.
+//!
+//! # Note
+//! All function names follow snake_case naming for consistency.
 
 
 use tokio::time::sleep;

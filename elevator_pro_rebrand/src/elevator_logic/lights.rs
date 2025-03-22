@@ -1,4 +1,26 @@
-
+//! Elevator Lights Module
+//!
+//! This module provides utility functions for controlling the elevator's indicator lights.
+//!
+//! It includes functionality to set:
+//! - Hall request lights (`set_hall_lights`)
+//! - Cab floor indicator (`set_cab_light`)
+//! - Door open light (`set_door_open_light`, `clear_door_open_light`)
+//! - Stop button light (`set_stop_button_light`, `clear_stop_button_light`)
+//!
+//! These lights are updated based on the current elevator state and serialized worldview,
+//! and must be explicitly set on each update cycle.
+//!
+//! # Example
+//! ```rust,no_run
+//! let e: Elevator = ...;
+//! let wv: Vec<u8> = get_serialized_worldview();
+//! lights::set_hall_lights(wv, e.clone());
+//! lights::set_cab_light(e.clone(), 2);
+//! ```
+//!
+//! # Related
+//! See [`world_view`] for worldview structure and serialization logic.
 
 use crate::{elevio::elev::Elevator, world_view};
 

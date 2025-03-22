@@ -1,40 +1,59 @@
 //! Timer module for managing asynchronous timeouts in elevator control logic.
 //!
-//! This module defines a `Timer` struct that can be used to measure elapsed time and
-//! detect timeouts in a non-blocking, asynchronous context. It supports both
-//! *soft timeouts* based on elapsed wall time and *hard timeouts* that can be triggered manually.
+//! This module defines two core components:
+//! - [`Timer`]: A general-purpose timer that supports both soft (elapsed time) and hard (manual) timeouts.
+//! - [`ElevatorTimers`]: A struct that bundles all timers used in the elevator FSM, including door timeout,
+//!   cab call priority grace period, and general error detection.
+//!
+//! These components are used throughout the elevator state machine to control behavior based on timeouts,
+//! such as how long to keep doors open, how long to prioritize internal cab calls, or when to enter an error state
+//! due to inactivity or unresponsiveness.
 //!
 //! # Usage
+//! Timers are used in `fsm.rs` to manage:
+//! - Door open duration (`door` timer)
+//! - Grace period for cab button prioritization (`cab_priority` timer)
+//! - Communication or logic errors (`error` timer)
 //!
-//! The timer is typically used in logic that requires tracking operation durations,
-//! such as keeping elevator doors open for a fixed time, or detecting communication timeouts.
-//!
-//! # Example
+//! # Example (using Timer standalone)
 //! ```rust,no_run
-//! use elevator_logic::request::{choose_direction, should_stop};
-//! use world_view::{ElevatorContainer, Dirn};
-//! 
-//! let direction_and_behaviour = choose_direction(&elevator);
-//! if should_stop(&elevator) {
-//!     // Open doors, reset timers
+//! use tokio::time::Duration;
+//! use crate::elevator_logic::timer::Timer;
+//!
+//! let mut door_timer = Timer::new(Duration::from_secs(3));
+//! door_timer.timer_start();
+//!
+//! // In FSM loop:
+//! if door_timer.timer_timeouted() {
+//!     // Trigger door close logic
 //! }
 //! ```
 //!
-//! # Behaviour
+//! # ElevatorTimers Usage
+//! ElevatorTimers simplifies timer management by grouping all related timers into one struct:
 //!
-//! - A timer is *inactive* until `timer_start()` is called.
-//! - When active, the timer checks elapsed time using `Instant`.
-//! - The timer can be *manually forced* to timeout using `release_timer()`.
-//! - `timer_timeouted()` returns `true` if either the soft or hard timeout has occurred.
+//! ```rust,no_run
+//! let mut timers = ElevatorTimers::new(
+//!     Duration::from_secs(3),   // door
+//!     Duration::from_secs(10),  // cab priority
+//!     Duration::from_secs(7),   // error
+//! );
 //!
-//! # Components
+//! timers.door.timer_start();
+//! if timers.cab_priority.timer_timeouted() {
+//!     // Prioritization window over
+//! }
+//! ```
 //!
-//! - `Timer` struct stores state (active, elapsed, hard timeout flag).
-//! - Methods include:
-//!     - `timer_start()` to activate and reset timer.
-//!     - `release_timer()` to force a timeout.
-//!     - `get_wall_time()` to check elapsed time.
-//!     - `timer_timeouted()` to evaluate timeout status.
+//! # Timer Behavior
+//! - A timer is **inactive** until [`timer_start()`](Timer::timer_start) is called.
+//! - Once active, it compares current time with the internal start time.
+//! - The timer can be **manually forced** to timeout using [`release_timer()`](Timer::release_timer).
+//! - A call to [`timer_timeouted()`](Timer::timer_timeouted) returns `true` if either a soft or hard timeout has occurred.
+//!
+//! # Related
+//! Used heavily in the [`fsm`](crate::elevator_logic::fsm) module.
+
 
 use tokio::time::Duration;
 
@@ -115,15 +134,15 @@ pub struct ElevatorTimers {
     /// Timer for automatic door closing.
     pub door: Timer,
 
-    // Timer that provides a short grace period to prioritize inside (cab) calls
-    // after a passenger enters the elevator.
-    //
-    // When the elevator stops at a floor due to a hall request (e.g. someone pressed "up"),
-    // this timer is started to give the passenger a few seconds to press a cab button
-    // (e.g. "Floor 3"). During this grace period, the FSM prioritizes inside orders
-    // in the direction the elevator was called.
-    //
-    // After the timer expires, the elevator becomes available for other external requests.
+    /// Timer that provides a short grace period to prioritize inside (cab) calls
+    /// after a passenger enters the elevator.
+    ///
+    /// When the elevator stops at a floor due to a hall request (e.g. someone pressed "up"),
+    /// this timer is started to give the passenger a few seconds to press a cab button
+    /// (e.g. "Floor 3"). During this grace period, the FSM prioritizes inside orders
+    /// in the direction the elevator was called.
+    ///
+    /// After the timer expires, the elevator becomes available for other external requests.
     pub cab_priority: Timer,
 
     /// Timer for tracking long-term inactivity or error conditions.
