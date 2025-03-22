@@ -36,7 +36,7 @@
 //!     - `get_wall_time()` to check elapsed time.
 //!     - `timer_timeouted()` to evaluate timeout status.
 
-
+use tokio::time::Duration;
 
 /// A simple timer utility for managing soft and hard timeouts in asynchronous contexts.
 ///
@@ -50,24 +50,24 @@ pub struct Timer {
     start_time: tokio::time::Instant,
 }
 
-/// Creates and returns a new timer instance.
-///
-/// The timer is initially inactive and has not timed out.
-///
-/// # Arguments
-/// * `timeout_duration` – The duration after which the timer should timeout once started.
-///
-/// # Returns
-/// A new `Timer` instance with the specified timeout duration.
-pub fn new(timeout_duration: tokio::time::Duration) -> Timer {
-    Timer{
-        hard_timeout: false,
-        timer_active: false,
-        timeout_duration: timeout_duration,
-        start_time: tokio::time::Instant::now(),
-    }
-}
 impl Timer {
+    /// Creates and returns a new timer instance.
+    ///
+    /// The timer is initially inactive and has not timed out.
+    ///
+    /// # Arguments
+    /// * `timeout_duration` – The duration after which the timer should timeout once started.
+    ///
+    /// # Returns
+    /// A new `Timer` instance with the specified timeout duration.
+    pub fn new(timeout_duration: tokio::time::Duration) -> Timer {
+        Timer{
+            hard_timeout: false,
+            timer_active: false,
+            timeout_duration: timeout_duration,
+            start_time: tokio::time::Instant::now(),
+        }
+    }
     /// Starts the timer by setting it as active and resetting the start time.
     ///
     /// This also clears any manually set hard timeout.
@@ -105,3 +105,54 @@ impl Timer {
     }
 }
 
+
+/// Collection of timers used in the elevator's finite state machine (FSM).
+///
+/// This struct encapsulates all timers that track different timeout conditions
+/// such as door closing, inside call priority window, and general error state.
+/// Also includes state tracking related to inside call grace period.
+pub struct ElevatorTimers {
+    /// Timer for automatic door closing.
+    pub door: Timer,
+
+    // Timer that provides a short grace period to prioritize inside (cab) calls
+    // after a passenger enters the elevator.
+    //
+    // When the elevator stops at a floor due to a hall request (e.g. someone pressed "up"),
+    // this timer is started to give the passenger a few seconds to press a cab button
+    // (e.g. "Floor 3"). During this grace period, the FSM prioritizes inside orders
+    // in the direction the elevator was called.
+    //
+    // After the timer expires, the elevator becomes available for other external requests.
+    pub cab_priority: Timer,
+
+    /// Timer for tracking long-term inactivity or error conditions.
+    pub error: Timer,
+
+    /// Tracks whether the `cab_priority` timer had timed out in the previous iteration.
+    pub prev_cab_priority_timeout: bool,
+}
+
+impl ElevatorTimers {
+    /// Creates a new `ElevatorTimers` instance with custom durations.
+    ///
+    /// # Parameters
+    /// - `door_duration`: Duration before automatically closing the elevator door.
+    /// - `cab_priority_duration`: Grace period for prioritizing cab calls after stopping.
+    /// - `error_duration`: Duration before considering the elevator to be in an error state.
+    ///
+    /// # Returns
+    /// An initialized `ElevatorTimers` struct with the specified timeout settings.
+    pub fn new(
+        door_duration: Duration,
+        cab_priority_duration: Duration,
+        error_duration: Duration,
+    ) -> Self {
+        ElevatorTimers {
+            door: Timer::new(door_duration),
+            cab_priority: Timer::new(cab_priority_duration),
+            error: Timer::new(error_duration),
+            prev_cab_priority_timeout: false,
+        }
+    }
+}
