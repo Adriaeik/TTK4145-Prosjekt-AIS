@@ -60,13 +60,13 @@ async fn start_elevator_server() {
     let ssh_password = "Sanntid15"; // Hardkodet passord, vurder sikkerhetsrisiko
 
     if cfg!(target_os = "windows") {
-        println!("Starting elevatorserver on Windows...");
+        print::info(format!("Starting elevatorserver on Windows..."));
         Command::new("cmd")
             .args(&["/C", "start", "elevatorserver"])
             .spawn()
             .expect("Failed to start elevator server");
     } else {
-        println!("Starting elevatorserver on Linux...");
+        print::info(format!("Starting elevatorserver on Linux..."));
         
         let elevator_server_command = format!(
             "sshpass -p '{}' ssh student@{} 'nohup elevatorserver > /dev/null 2>&1 &'",
@@ -78,7 +78,7 @@ async fn start_elevator_server() {
         //                                                                  kill <PID>               # Avslutter prosessen
 
 
-        println!("\nStarting elevatorserver in new terminal:\n\t{}", elevator_server_command);
+        print::info(format!("\nStarting elevatorserver in new terminal:\n\t{}", elevator_server_command));
 
         let _ = Command::new("sh")
             .arg("-c")
@@ -87,7 +87,7 @@ async fn start_elevator_server() {
             .expect("Error while starting elevatorserver");
     }
 
-    println!("Elevator server started.");
+    print::ok(format!("Elevator server started."));
 }
 
 // ### Kjører den lokale heisen

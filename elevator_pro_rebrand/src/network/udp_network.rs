@@ -44,12 +44,12 @@ pub async fn start_udp_broadcaster(wv_watch_rx: watch::Receiver<Vec<u8>>) -> tok
     }
     let mut prev_network_status = network::read_network_status();
 
-    // Sett opp sockets
+    // Set up sockets
     let addr: &str = &format!("{}:{}", config::BC_ADDR, config::DUMMY_PORT);
     let addr2: &str = &format!("{}:0", config::BC_LISTEN_ADDR);
 
-    let broadcast_addr: SocketAddr = addr.parse().expect("Invalid address"); // UDP-broadcast adresse
-    let socket_addr: SocketAddr = addr2.parse().expect("Invalid addresse");
+    let broadcast_addr: SocketAddr = addr.parse().expect("Invalid address"); // UDP-broadcast address
+    let socket_addr: SocketAddr = addr2.parse().expect("Invalid address");
     let socket = Socket::new(Domain::IPV4, Type::DGRAM, None)?;
     
     socket.set_nonblocking(true)?;
@@ -64,18 +64,19 @@ pub async fn start_udp_broadcaster(wv_watch_rx: watch::Receiver<Vec<u8>>) -> tok
         world_view::update_wv(wv_watch_rx_clone, &mut wv).await;
 
         // Hvis du er master, broadcast worldview
+        // If you currently are master on the network
         if network::read_self_id() == wv[config::MASTER_IDX] {
-            //TODO: Lag bedre delay?
             sleep(config::UDP_PERIOD);
             let mesage = format!("{:?}{:?}", config::KEY_STR, wv).to_string();
 
-            // Kun send hvis du har internett-tilkobling
+            // If you are connected to internet
             if network::read_network_status() {
-                // Gi den tid til å lese nye wv fra udp tilfelle den var ute av internett lenge
+                // If you also were connected to internet last time you ran this
                 if !prev_network_status {
                     sleep(Duration::from_millis(500));
                     prev_network_status = true;
                 }
+                // Send your worldview on UDP broadcast
                 udp_socket.send_to(mesage.as_bytes(), &broadcast_addr).await?;
             }else {
                 prev_network_status = false;
@@ -84,7 +85,6 @@ pub async fn start_udp_broadcaster(wv_watch_rx: watch::Receiver<Vec<u8>>) -> tok
     }
 }
 
-// ### Starter og kjører udp-listener
 /// Starts and runs the UDP-listener
 /// 
 /// ## Parameters
@@ -103,7 +103,7 @@ pub async fn start_udp_listener(wv_watch_rx: watch::Receiver<Vec<u8>>, udp_wv_tx
     while !network::read_network_status() {
         
     }
-    //Sett opp sockets
+    //Set up sockets
     let self_id = network::read_self_id();
     let broadcast_listen_addr = format!("{}:{}", config::BC_LISTEN_ADDR, config::DUMMY_PORT);
     let socket_addr: SocketAddr = broadcast_listen_addr.parse().expect("Invalid address");
@@ -119,40 +119,36 @@ pub async fn start_udp_listener(wv_watch_rx: watch::Receiver<Vec<u8>>, udp_wv_tx
     
     let mut message: Cow<'_, str>;
     let mut my_wv = world_view::get_wv(wv_watch_rx.clone());
-    // Loop mottar og behandler udp-broadcaster
     loop {
+        // Read message on UDP-broadcast address
         match socket.recv_from(&mut buf).await {
             Ok((len, _)) => {
                 message = String::from_utf8_lossy(&buf[..len]);
-                // println!("WV length: {:?}", len);
             }
             Err(e) => {
-                // utils::print_err(format!("udp_broadcast.rs, udp_listener(): {}", e));
                 return Err(e);
             }
         }
         
-        // Verifiser at broadcasten var fra 'oss'
-        if &message[1..config::KEY_STR.len()+1] == config::KEY_STR { //Plusser på en, siden serialiseringa av stringen tar med '"'-tegnet
-            let clean_message = &message[config::KEY_STR.len()+3..message.len()-1]; // Fjerner `"`
+        // Make sure the message was from 'our' program
+        if &message[1..config::KEY_STR.len()+1] == config::KEY_STR { //Plus one, since serialisation of the string includes the '"'-sign
+            let clean_message = &message[config::KEY_STR.len()+3..message.len()-1]; // Removes `"`
             read_wv = clean_message
-            .split(", ") // Del opp på ", "
-            .filter_map(|s| s.parse::<u8>().ok()) // Konverter til u8, ignorer feil
-            .collect(); // Samle i Vec<u8>
+            .split(", ") // Split on ", "
+            .filter_map(|s| s.parse::<u8>().ok()) // Convert to u8
+            .collect(); // Collect to an Vec<u8>
 
             world_view::update_wv(wv_watch_rx.clone(), &mut my_wv).await;
-            if read_wv[config::MASTER_IDX] != my_wv[config::MASTER_IDX] {
-                // mulighet for debug print
-            } else {
-                // Betyr at du har fått UDP-fra nettverkets master -> Restart UDP watchdog
+            if read_wv[config::MASTER_IDX] != my_wv[config::MASTER_IDX] {} 
+            else {
+                // The message is from the networks master -> restart the UDP watchdog
                 get_udp_timeout().store(false, Ordering::SeqCst);
-                // println!("Resetter UDP-watchdog");
             }
 
-            // Hvis broadcast har lavere ID enn nettverkets tidligere master
+            // Send the recieved worldview to the worldview updater if it was recieved from the network master, or a node with lower ID
+            // Except if we are the master
             if my_wv[config::MASTER_IDX] >= read_wv[config::MASTER_IDX] {
                 if !(self_id == read_wv[config::MASTER_IDX]) {
-                    //Oppdater egen WV
                     my_wv = read_wv;
                     let _ = udp_wv_tx.send(my_wv.clone()).await;
                 }
@@ -182,7 +178,7 @@ pub async fn udp_watchdog(connection_to_master_failed_tx: mpsc::Sender<bool>) {
             tokio::time::sleep(Duration::from_millis(1000)).await;
         }
         else {
-            get_udp_timeout().store(false, Ordering::SeqCst); //resetter watchdogen
+            get_udp_timeout().store(false, Ordering::SeqCst);
             print::warn("UDP-watchdog: Timeout".to_string());
             let _ = connection_to_master_failed_tx.send(true).await;
         }

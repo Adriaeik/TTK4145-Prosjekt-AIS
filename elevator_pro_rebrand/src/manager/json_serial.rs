@@ -5,7 +5,7 @@ use std::fs::File;
 use std::io::Write;
 // Library for executing terminal commands
 use tokio::process::Command;
-use crate::world_view::{self, ElevatorBehaviour};
+use crate::{config, world_view::{self, ElevatorBehaviour}};
 
 #[allow(non_snake_case)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -21,8 +21,8 @@ struct HallRequests {
     hallRequests: Vec<[bool; 2]>,
     states: HashMap<String, ElevatorState>,
 }
-// Function to execute the algorithm
 
+/// This function executes the cost algorithm, and returns the output
 pub async fn run_cost_algorithm(json_str: String) -> String {
     let cost_path = env::current_dir()
         .unwrap()
@@ -43,6 +43,7 @@ pub async fn run_cost_algorithm(json_str: String) -> String {
     String::from_utf8_lossy(&output.stdout).into_owned()
 }
 
+/// This function creates the input to the cost function algorithm based on the worldview
 pub async fn create_hall_request_json(wv: Vec<u8>) -> Option<String> {
     let wv_deser = world_view::serial::deserialize_worldview(&wv);
 
@@ -65,8 +66,7 @@ pub async fn create_hall_request_json(wv: Vec<u8>) -> Option<String> {
                 floor: if (0..elev.num_floors).contains(&elev.last_floor_sensor) {
                     elev.last_floor_sensor as i32
                 } else {
-                    // TODO: Init floor er 255, bedre måte enn å sette til 2?
-                    2
+                    config::ERROR_ID as i32
                 },
                 direction: format!("{:?}", elev.dirn.clone()).to_lowercase(),
                 cabRequests: elev.cab_requests.clone(),
@@ -88,6 +88,5 @@ pub async fn create_hall_request_json(wv: Vec<u8>) -> Option<String> {
     let mut file = File::create("hall_request.json").expect("Failed to create file");
     file.write_all(s.as_bytes()).expect("Failed to write to file");
     Some(s)
-    // run_cost_algorithm(s.clone()).await
 }
 

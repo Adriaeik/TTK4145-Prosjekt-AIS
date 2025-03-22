@@ -9,15 +9,14 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::sync::watch;
 use tokio::time::{sleep, Duration, timeout};
 
-// Tilpass desse importane til prosjektet ditt:
 use crate::{config, init, world_view};
 use crate::print;
 
-// Global variabel for å sjå om backup-terminalen allereie er starta
+// Static variable to see if backup has started
 static BACKUP_STARTED: AtomicBool = AtomicBool::new(false);
 
-/// Opprett ein gjennbrukbar TcpListener med reuse_address aktivert.
-pub fn create_reusable_listener(port: u16) -> TcpListener {
+/// Creates a non blocking TCP listener with reusable address
+fn create_reusable_listener(port: u16) -> TcpListener {
     let addr: SocketAddr = format!("0.0.0.0:{}", port)
         .parse()
         .expect("Invalid address");
@@ -35,11 +34,10 @@ pub fn create_reusable_listener(port: u16) -> TcpListener {
         .expect("Couldnt create TcpListener")
 }
 
-/// Startar backup-terminalen i eit nytt terminalvindu – berre om han ikkje allereie er starta.
+/// Startes the program with backup argument in a new terminal if the backup is not running.
 fn start_backup_terminal() {
     if !BACKUP_STARTED.load(Ordering::SeqCst) {
         let current_exe = env::current_exe().expect("Couldnt extract the executable");
-        // Eksempel med gnome-terminal og --geometry for å spesifisere vindaugets storleik.
         let _child = Command::new("gnome-terminal")
             .arg("--geometry=400x24")
             .arg("--")
@@ -51,23 +49,21 @@ fn start_backup_terminal() {
     }
 }
 
-/// Handterar backup-klientar: Sender ut worldview kontinuerleg.
+/// Handles backup clients: Sends worldview continously
+/// TODO: send litt raskere enn en gang i sekundet
 async fn handle_backup_client(mut stream: TcpStream, rx: watch::Receiver<Vec<u8>>) {
     loop {
         let wv = rx.borrow().clone();
         if let Err(e) = stream.write_all(&wv).await {
             eprintln!("Backup send error: {}", e);
-            // Set BACKUP_STARTED til false, slik at ein ny backup-terminal kan startast
             BACKUP_STARTED.store(false, Ordering::SeqCst);
             start_backup_terminal();
-            // Avslutt løkka for denne klienten for å unngå evig loop.
             break;
         }
         sleep(Duration::from_millis(1000)).await;
     }
 }
 
-// Backup-serveren: Lytter på tilkoplingar frå backup-klientar og sender ut den nyaste worldview.
 /// Function to start and maintain connection to the backup-program
 /// 
 /// ## Parameters
@@ -83,15 +79,13 @@ async fn handle_backup_client(mut stream: TcpStream, rx: watch::Receiver<Vec<u8>
 pub async fn start_backup_server(wv_watch_rx: watch::Receiver<Vec<u8>>) {
     println!("Backup-server starting...");
     
-    // Bruk ein gjennbrukbar listener.
     let listener = create_reusable_listener(config::BCU_PORT);
     let wv = world_view::get_wv(wv_watch_rx.clone());
     let (tx, rx) = watch::channel(wv.clone());
     
-    // Start backup-terminalen éin gong.
     start_backup_terminal();
     
-    // Task for å handtere backup-klientar.
+    // Task to handle the backup.
     tokio::spawn(async move {
         loop {
             let (socket, _) = listener

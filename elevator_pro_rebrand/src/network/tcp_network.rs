@@ -104,13 +104,12 @@ pub async fn tcp_handler(
         IS_MASTER.store(true, Ordering::SeqCst);
         tcp_while_master(&mut wv, wv_watch_rx.clone(), &mut socket_rx, remove_container_tx.clone(), container_tx.clone()).await;
         
-        //mista master
         IS_MASTER.store(false, Ordering::SeqCst);
         tcp_while_slave(&mut wv, wv_watch_rx.clone(), connection_to_master_failed_tx.clone(), sent_tcp_container_tx.clone()).await;
-        
-        //ny master
     }
 }
+
+
 
 /* __________ END PUBLIC FUNCTIONS __________ */
 

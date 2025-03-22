@@ -254,7 +254,7 @@ pub fn parse_args() -> bool {
         }
     }
 
-    // Hvis ingen av argumentene matcher "backup", returner false
+    // If no arguments was backup, return false
     false
 }
 
@@ -305,7 +305,7 @@ pub async fn build_cost_fn() {
         .current_dir("libs/Project_resources/cost_fns/hall_request_assigner")
         .output()
         .await
-        .expect("Klarte ikkje starte build.sh");
+        .expect("Failed to run build.sh");
 
     println!("stdout: {}", String::from_utf8_lossy(&output.stdout));
     eprintln!("stderr: {}", String::from_utf8_lossy(&output.stderr));
