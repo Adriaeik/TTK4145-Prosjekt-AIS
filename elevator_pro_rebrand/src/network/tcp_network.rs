@@ -40,28 +40,13 @@ pub async fn listener_task(socket_tx: mpsc::Sender<(TcpStream, SocketAddr)>) {
             panic!();
         }
     };
-    let self_ip: SocketAddr = match format!("{}.{}:{}", config::NETWORK_PREFIX, network::read_self_id(), config::PN_PORT).parse() {
-        Ok(addr) => addr,
-        Err(e) => {
-            print::err(format!("Failed to setup self listener socketaddr: {}", e));
+    
+    let listener = match listener_from_socket(socket) {
+        Some(list) => list,
+        None => {
             panic!();
         }
     };
-
-    socket.bind(&self_ip.into())
-        .expect("Couldnt bind the socket");
-    socket.listen(128)
-        .expect("Couldnt listen on the socket");
-
-    let listener = match TcpListener::from_std(socket.into()) {
-        Ok(list) => list,
-        Err(e) => {
-            print::err(format!("Failed to parse socket to tcplistener: {}", e));
-            panic!();
-        }
-    };
-
-    print::ok(format!("System listening on {}:{}", self_ip, config::PN_PORT));
 
     /* Bind the listener on port [config::PN_PORT] */
     // let listener = match TcpListener::bind(format!("{}:{}", self_ip, config::PN_PORT)).await {
@@ -533,6 +518,41 @@ async fn close_tcp_stream(stream: &mut TcpStream) {
 
 /* __________ END PRIVATE FUNCTIONS __________ */
 
+fn listener_from_socket(socket: Socket) -> Option<TcpListener> {
+    let self_ip: SocketAddr = match format!("{}.{}:{}", config::NETWORK_PREFIX, network::read_self_id(), config::PN_PORT).parse() {
+        Ok(addr) => addr,
+        Err(e) => {
+            print::err(format!("Failed to setup self listener socketaddr: {}", e));
+            return None;
+        }
+    };
+
+    match socket.bind(&self_ip.into()) {
+        Ok(_) => {},
+        Err(e) => {
+            print::err(format!("Failed to bind socket: {}", e));
+            return None
+        }
+    }
+    match socket.listen(128) {
+        Ok(_) => {},
+        Err(e) => {
+            print::err(format!("Failed to start listening: {}", e));
+            return None;
+        }
+    }
+
+    match TcpListener::from_std(socket.into()) {
+        Ok(listener) => {
+            print::ok(format!("System listening on {}:{}", self_ip, config::PN_PORT));
+            return Some(listener);
+        },
+        Err(e) => {
+            print::err(format!("Failed to parse socket to tcplistener: {}", e));
+            return None;
+        }
+    };
+}
 
 fn connect_socket(socket: Socket, target: &String) -> Option<TcpStream> {
     let master_sock_addr: SockAddr = match target.parse::<SocketAddr>() {
