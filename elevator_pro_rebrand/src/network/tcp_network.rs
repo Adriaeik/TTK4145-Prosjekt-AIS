@@ -1,8 +1,9 @@
 //! ## Håndterer TCP-logikk i systemet
 
-use std::sync::atomic::{AtomicBool, Ordering};
-use tokio::{io::{AsyncReadExt, AsyncWriteExt}, net::{TcpListener, TcpStream}, task::JoinHandle, sync::{mpsc, watch}, time::{sleep, Duration, Instant}};
+use std::{fmt::Debug, io::Error, net::IpAddr, os::windows::io::FromRawSocket, sync::atomic::{AtomicBool, Ordering}};
+use tokio::{io::{AsyncReadExt, AsyncWriteExt}, net::{TcpListener, TcpSocket, TcpStream}, sync::{mpsc, watch}, task::JoinHandle, time::{sleep, Duration, Instant}};
 use std::net::SocketAddr;
+use socket2::{Domain, Protocol, SockAddr, Socket, TcpKeepalive, Type};
 use crate::{config, print, network, ip_help_functions::{self}, world_view::{self, serial}};
 
 
@@ -32,18 +33,47 @@ pub async fn listener_task(socket_tx: mpsc::Sender<(TcpStream, SocketAddr)>) {
         tokio::time::sleep(config::TCP_PERIOD).await;
     }
     
-    let self_ip = format!("{}.{}", config::NETWORK_PREFIX, network::read_self_id());
-    /* Bind the listener on port [config::PN_PORT] */
-    let listener = match TcpListener::bind(format!("{}:{}", self_ip, config::PN_PORT)).await {
-        Ok(l) => {
-            print::ok(format!("System listening on {}:{}", self_ip, config::PN_PORT));
-            l
-        }
+    let socket = match create_tcp_socket() {
+        Ok(sock) => sock,
         Err(e) => {
-            print::err(format!("Error while setting up TCP listener: {}", e));
-            return;
+            print::err(format!("Failed to set up TCP listener: {}", e));
+            panic!();
         }
     };
+    let self_ip: SocketAddr = match format!("{}.{}:{}", config::NETWORK_PREFIX, network::read_self_id(), config::PN_PORT).parse() {
+        Ok(addr) => addr,
+        Err(e) => {
+            print::err(format!("Failed to setup self listener socketaddr: {}", e));
+            panic!();
+        }
+    };
+
+    socket.bind(&self_ip.into())
+        .expect("Couldnt bind the socket");
+    socket.listen(128)
+        .expect("Couldnt listen on the socket");
+
+    let listener = match TcpListener::from_std(socket.into()) {
+        Ok(list) => list,
+        Err(e) => {
+            print::err(format!("Failed to parse socket to tcplistener: {}", e));
+            panic!();
+        }
+    };
+
+    print::ok(format!("System listening on {}:{}", self_ip, config::PN_PORT));
+
+    /* Bind the listener on port [config::PN_PORT] */
+    // let listener = match TcpListener::bind(format!("{}:{}", self_ip, config::PN_PORT)).await {
+    //     Ok(l) => {
+    //         print::ok(format!("System listening on {}:{}", self_ip, config::PN_PORT));
+    //         l
+    //     }
+    //     Err(e) => {
+    //         print::err(format!("Error while setting up TCP listener: {}", e));
+    //         return;
+    //     }
+    // };
 
     loop {
         /* Check if you are online */
@@ -245,15 +275,16 @@ async fn tcp_while_slave(wv: &mut Vec<u8>, wv_watch_rx: watch::Receiver<Vec<u8>>
     /* Try to connect with master over TCP */
     let mut master_accepted_tcp = false;
     let mut stream:Option<TcpStream> = None;
-    if let Some(s) = connect_to_master(wv_watch_rx.clone(), connection_to_master_failed_tx.clone()).await {
+    if let Some(s) = connect_to_master(wv_watch_rx.clone()).await {
         println!("Master accepted the TCP-connection");
-        s.set_nodelay(true);
-        s.set_linger(Some(Duration::from_millis(1000)));
-        s.set_ttl(10);
+        // s.set_nodelay(true);
+        // s.set_linger(Some(Duration::from_millis(1000)));
+        // s.set_ttl(10);
         master_accepted_tcp = true;
         stream = Some(s);
     } else {
         println!("Master adid not accept the TCP-connection");
+        let _ = connection_to_master_failed_tx.send(true).await;
     }
 
     let mut prev_master: u8;
@@ -300,7 +331,7 @@ async fn tcp_while_slave(wv: &mut Vec<u8>, wv_watch_rx: watch::Receiver<Vec<u8>>
 /// The functions tries to connect to the current master, based on the master_id in the worldview. 
 /// If the connection is successfull, it returns the stream, otherwise it returns None.
 /// If the connection failed, it sends a signal to the worldview updater over `connection_to_master_failed_tx` indicating that the connection failed.
-async fn connect_to_master(wv_watch_rx: watch::Receiver<Vec<u8>>, connection_to_master_failed_tx: mpsc::Sender<bool>) -> Option<TcpStream> {
+async fn connect_to_master(wv_watch_rx: watch::Receiver<Vec<u8>>) -> Option<TcpStream> {
     let wv = world_view::get_wv(wv_watch_rx.clone());
 
     /* Check if we are online */
@@ -308,23 +339,39 @@ async fn connect_to_master(wv_watch_rx: watch::Receiver<Vec<u8>>, connection_to_
         let master_ip = format!("{}.{}:{}", config::NETWORK_PREFIX, wv[config::MASTER_IDX], config::PN_PORT);
         print::info(format!("Trying to connect to : {} in connect_to_master()", master_ip));
 
-        /* Try to connect to master */
-        match TcpStream::connect(&master_ip).await {
-            Ok(stream) => {
-                print::ok(format!("Connected to Master: {} i TCP_listener()", master_ip));
-                // Klarte å koble til master, returner streamen
-                Some(stream)
-            }
+        let socket = match create_tcp_socket() {
+            Ok(sock) => {
+                sock
+            },
             Err(e) => {
-                print::err(format!("Failed to connect to master over tcp: {}", e));
+                print::err(format!("Error while creating tcp-socket for connecting to master: {}", e));
+                return None;
+            } 
+        };
 
-                match connection_to_master_failed_tx.send(true).await {
-                    Ok(_) => print::info("Notified that connection to master failed".to_string()),
-                    Err(err) => print::err(format!("Error while sending message on connection_to_master_failed: {}", err)),
-                }
-                None
-            }
-        }
+        return connect_socket(socket, &master_ip);
+
+
+        
+
+        // Originalt:
+        // /* Try to connect to master */
+        // match TcpStream::connect(&master_ip).await {
+        //     Ok(stream) => {
+        //         print::ok(format!("Connected to Master: {} i TCP_listener()", master_ip));
+        //         // Klarte å koble til master, returner streamen
+        //         Some(stream)
+        //     }
+        //     Err(e) => {
+        //         print::err(format!("Failed to connect to master over tcp: {}", e));
+
+        //         match connection_to_master_failed_tx.send(true).await {
+        //             Ok(_) => print::info("Notified that connection to master failed".to_string()),
+        //             Err(err) => print::err(format!("Error while sending message on connection_to_master_failed: {}", err)),
+        //         }
+        //         None
+        //     }
+        // }
     } else {
         None
     }
@@ -485,3 +532,62 @@ async fn close_tcp_stream(stream: &mut TcpStream) {
 }
 
 /* __________ END PRIVATE FUNCTIONS __________ */
+
+
+fn connect_socket(socket: Socket, target: &String) -> Option<TcpStream> {
+    let master_sock_addr: SockAddr = match target.parse::<SocketAddr>() {
+        Ok(addr) => SockAddr::from(addr),
+        Err(e) => {
+            print::err(format!("Failed to parse string: {} into address: {}", target, e));
+            return None;
+        }
+    };
+
+    match socket.connect(&master_sock_addr) {
+        Ok(()) => {
+            print::ok(format!("Connected to Master: {} i TCP_listener()", target));
+        },
+        Err(e) => {
+            print::err(format!("Failed to connect to master: {}", e));
+            return None;
+        },
+    };     
+
+    let std_stream: std::net::TcpStream = socket.into();
+
+    match TcpStream::from_std(std_stream) {
+        Ok(stream) => {
+            return Some(stream);
+        },
+        Err(e) => {
+            eprintln!("Failed to convert socket to TcpStream: {}", e);
+            return None;
+        }
+    };
+}
+
+fn create_tcp_socket() -> Result<Socket, Error> {
+    let socketres = Socket::new(Domain::IPV4, Type::STREAM, Some(Protocol::TCP));
+    let socket: Socket = match socketres {
+        Ok(sock) => sock,
+        Err(e) => {return Err(e);},
+    };
+
+    // Set read and write buffers
+    socket.set_send_buffer_size(16_777_216)?;
+    socket.set_recv_buffer_size(16_777_216)?;
+
+    // Set keepalive settings
+    let keepalive = TcpKeepalive::new()
+        .with_time(Duration::from_secs(5))
+        .with_interval(Duration::from_secs(5));
+
+    socket.set_tcp_keepalive(&keepalive)?;
+
+    // Set non blocking, so it can be used bu tokio
+    socket.set_nonblocking(true)?;
+
+    Ok(socket)
+}
+
+
