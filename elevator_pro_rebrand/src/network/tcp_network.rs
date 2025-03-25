@@ -344,13 +344,13 @@ async fn read_from_stream(
     remove_container_tx: mpsc::Sender<u8>, 
     stream: &mut TcpStream
 ) -> Option<ElevatorContainer> {
+    let id = ip_help_functions::ip2id(stream.peer_addr().expect("Slave has no IP?").ip());
     let mut len_buf = [0u8; 2];
     tokio::select! {
         result = stream.read_exact(&mut len_buf) => {
             match result {
                 Ok(0) => {
                     print::info("Slave disconnected.".to_string());
-                    let id = ip_help_functions::ip2id(stream.peer_addr().expect("Slave has no IP?").ip());
                     let _ =  remove_container_tx.send(id).await;
                     return None;
                 }
@@ -361,7 +361,6 @@ async fn read_from_stream(
                     match stream.read_exact(&mut buffer).await { 
                         Ok(0) => {
                             print::info("Slave disconnected".to_string());
-                            let id = ip_help_functions::ip2id(stream.peer_addr().expect("Slave has no IP?").ip());
                             let _ =  remove_container_tx.send(id).await;
                             return None;
                         }
@@ -375,7 +374,6 @@ async fn read_from_stream(
                         },
                         Err(e) => {
                             print::err(format!("Error while reading from stream: {}", e));
-                            let id = ip_help_functions::ip2id(stream.peer_addr().expect("Slave has no IP?").ip());
                             let _ =  remove_container_tx.send(id).await;
                             return None;
                         }
@@ -383,7 +381,6 @@ async fn read_from_stream(
                 }
                 Err(e) => {
                     print::err(format!("Error while reading from stream: {}", e));
-                    let id = ip_help_functions::ip2id(stream.peer_addr().expect("Slave has no IP?").ip());
                     let _ =  remove_container_tx.send(id).await;
                     return None;
                 }
