@@ -446,7 +446,7 @@ async fn send_tcp_message(
         let mut buf: [u8; 3] = [0, 0, 0];
         match stream.read_exact(&mut buf).await {
             Ok(_) => {
-                println!("Master acka: {:?}", buf.to_ascii_uppercase());
+                // println!("Master acka: {:?}", buf.to_ascii_uppercase());
                 let _ = sent_tcp_container_tx.send(self_elev_container.clone()).await;
             },
             Err(e) => {
