@@ -588,8 +588,6 @@ fn connect_socket(socket: Socket, target: &String) -> Option<TcpStream> {
         },
         Err(e) => {
             print::err(format!("Failed to connect to master: {}", e));
-            std::thread::sleep(Duration::from_secs(100));
-            
             return None;
         },
     };     
@@ -637,7 +635,7 @@ fn create_tcp_socket() -> Result<Socket, Error> {
     // Make sure header and message is sent in one payload
     socket.set_cork(true)?;
 
-    
+
     socket.set_nodelay(true)?;
 
     Ok(socket)
