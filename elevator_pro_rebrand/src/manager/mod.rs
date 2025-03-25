@@ -1,3 +1,8 @@
+//! ## Manager Module
+//! 
+//! This module is responsible for allocating tasks on the network.
+//! It executes the hall assigner script give under project resources.
+
 use std::collections::HashMap;
 use tokio::{sync::{mpsc, watch}, time::sleep};
 use crate::{config, world_view::{self, WorldView}};

@@ -1,3 +1,9 @@
+//! ## Printing Module
+//! 
+//! This module is onle here to make logging in the terminal easier to read. 
+//! It allows to print in appropriate colors depening on the situation.
+//! It also provides a nice print-format for the WorldView. 
+
 use crate::{config, world_view::{Dirn, ElevatorBehaviour, WorldView}};
 use ansi_term::Colour::{self, Green, Red, Yellow, Purple};
 

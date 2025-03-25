@@ -5,7 +5,7 @@ use std::fs::File;
 use std::io::Write;
 // Library for executing terminal commands
 use tokio::process::Command;
-use crate::{config, world_view::{self, ElevatorBehaviour, WorldView}};
+use crate::{config, world_view::{ElevatorBehaviour, WorldView}};
 
 #[allow(non_snake_case)]
 #[derive(Debug, Clone, Serialize, Deserialize)]

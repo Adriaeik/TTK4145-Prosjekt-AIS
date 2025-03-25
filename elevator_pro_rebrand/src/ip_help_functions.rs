@@ -1,3 +1,9 @@
+//! This module contains some help functions regarding the IP address
+//! 
+//! Functions
+//! - [ip2id]: Generates an ID for the node based on the IP-address.
+//! - [get_root_ip]: Extracts the root-ip excluding the ID of the node. 
+
 use std::net::IpAddr;
 use std::u8;
 use crate::config;
