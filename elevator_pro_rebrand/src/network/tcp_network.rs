@@ -1,6 +1,6 @@
 //! ## Håndterer TCP-logikk i systemet
 
-use std::{fmt::Debug, io::Error, net::IpAddr, os::windows::io::FromRawSocket, sync::atomic::{AtomicBool, Ordering}};
+use std::{fmt::Debug, io::Error, net::IpAddr, sync::atomic::{AtomicBool, Ordering}};
 use tokio::{io::{AsyncReadExt, AsyncWriteExt}, net::{TcpListener, TcpSocket, TcpStream}, sync::{mpsc, watch}, task::JoinHandle, time::{sleep, Duration, Instant}};
 use std::net::SocketAddr;
 use socket2::{Domain, Protocol, SockAddr, Socket, TcpKeepalive, Type};
