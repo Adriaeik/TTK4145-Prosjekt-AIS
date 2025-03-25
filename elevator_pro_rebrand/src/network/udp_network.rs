@@ -136,7 +136,6 @@ pub async fn start_udp_listener(
     while !network::read_network_status() {
         
     }
-    let mut prev_network_status = false;
     //Set up sockets
     let self_id = network::read_self_id();
     let broadcast_listen_addr = format!("{}:{}", config::BC_LISTEN_ADDR, config::DUMMY_PORT);
@@ -174,11 +173,6 @@ pub async fn start_udp_listener(
                     // The message came from the current master -> reset the watchdog
                     get_udp_timeout().store(false, Ordering::SeqCst);
                 }
-
-                if network::read_network_status() && !prev_network_status {
-                    local_network::update_wv::merge_wv_after_offline(&mut my_wv, &mut read_wv);
-                }
-                prev_network_status = network::read_network_status();
 
                 // Pass the recieved WorldView if the message came from the master or a node with a lower ID than current master, 
                 // and this node is not the master
@@ -274,7 +268,7 @@ fn build_message(
 /// # Behavior
 /// The function first looks for the [config::KEY_STR] in the beginning og the message, returning `None` if it is not found.  
 /// If it is found, the function tries to deserialize a [WorldView] from the rest of the message, returning it wrapped in an `Option` if it succeeded, returning `None` if it failed. 
-fn parse_message(
+pub fn parse_message(
     buf: &[u8]
 ) -> Option<WorldView> {
     // 1. Prøv å deserialisere nøkkelen
