@@ -5,7 +5,7 @@ pub mod local_network;
 
 use crate::world_view::WorldView;
 use crate::{init, config, print, ip_help_functions, world_view, };
-
+use serde::{Serialize, Deserialize};
 use tokio::net::UdpSocket;
 use tokio::time::{timeout, Duration, Instant};
 use tokio::sync::{mpsc, watch};
@@ -15,7 +15,32 @@ use std::thread::sleep;
 use local_ip_address::local_ip;
 use std::net::IpAddr;
 
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct ConnectionStatus {
+    /// true if we have network on the subnet, regardless of the packet loss
+    pub on_internett: bool,
 
+    /// true if we decide to be connected to the elevator network
+    pub connected_on_elevator_network: bool,
+
+    /// percentage of packet loss (0 - 100)%
+    pub packet_loss: u8,
+}
+
+impl ConnectionStatus {
+    /// Lag ein ny standard status (alt false / 0%)
+    pub fn new() -> Self {
+        Self {
+            on_internett: false,
+            connected_on_elevator_network: false,
+            packet_loss: 0,
+        }
+    }
+    ///convert float to a percentage
+    pub fn set_packet_loss(&mut self, loss: f32) {
+        self.packet_loss = (loss * 100.0) as u8;
+    }
+}
 
 /// Returns the local IPv4 address of the machine as `IpAddr`.
 ///
@@ -70,8 +95,11 @@ pub fn get_self_ip() -> Result<IpAddr, local_ip_address::Error> {
 // / });
 // / # }
 // / ```
-pub async fn watch_ethernet(wv_watch_rx: watch::Receiver<WorldView>, new_wv_after_offline_tx: mpsc::Sender<WorldView>) {
-    let mut net_status = false;
+pub async fn watch_ethernet(
+    wv_watch_rx: watch::Receiver<WorldView>, 
+    network_watch_tx: watch::Sender<ConnectionStatus>, 
+    new_wv_after_offline_tx: mpsc::Sender<WorldView>
+) {
     let mut last_net_status = false;
     
     let network_quality_rx = start_packet_loss_monitor(
@@ -81,42 +109,57 @@ pub async fn watch_ethernet(wv_watch_rx: watch::Receiver<WorldView>, new_wv_afte
         0.6
     ).await;
     
+    
     loop {
         let ip = get_self_ip();
+        println!("fikk _");
+        let mut connection_status = ConnectionStatus::new();
+        let mut net_status = false;
 
         match ip {
-            Ok(ip) => {
-                if ip_help_functions::get_root_ip(ip) == config::NETWORK_PREFIX {
-                    net_status = network_quality_rx.borrow().clone();
-                    sleep(config::POLL_PERIOD);
-                }
-                else {
-                    net_status = false   
-                }
-        
+            Ok(ip) if ip_help_functions::get_root_ip(ip) == config::NETWORK_PREFIX => {
+                let (is_ok, loss)  = network_quality_rx.borrow().clone();
+                net_status = is_ok;
+                
+                connection_status.on_internett = true;
+                connection_status.connected_on_elevator_network = is_ok;
+                connection_status.set_packet_loss(loss);
+
+                println!("{:?}", connection_status);
+
+                let _ = network_watch_tx.send(connection_status.clone());
             }
-            Err(_) => {
-                net_status = false
+            _ => {
+                // Mistet IP eller feil subnet → nullstill status
+                connection_status.on_internett = false;
+                connection_status.connected_on_elevator_network = false;
+                connection_status.packet_loss = 100;
+                net_status = false;
+
+                let _ = network_watch_tx.send(connection_status.clone());
             }
         }
 
-        if last_net_status != net_status {  
+        if last_net_status != net_status {
             if net_status {
+                // Gjekk frå offline → online
                 let mut wv = world_view::get_wv(wv_watch_rx.clone());
                 let self_elev = world_view::extract_self_elevator_container(&wv);
                 wv = init::initialize_worldview(self_elev).await;
                 let _ = new_wv_after_offline_tx.send(wv).await;
+
                 print::ok("System is online".to_string());
-            }
-            else {
+            } else {
                 print::warn("System is offline".to_string());
             }
+
             set_network_status(net_status);
             last_net_status = net_status;
         }
+
+        sleep(config::POLL_PERIOD);
     }
 }
-
 
 
 async fn wait_for_ip() -> IpAddr {
@@ -129,31 +172,31 @@ async fn wait_for_ip() -> IpAddr {
     }
 }
 
-/// Startar ein parallell pingmålar som returnerer `true` dersom
-/// gjennomsnittleg *tap* i vinduet er UNDER `max_loss_rate`.
+/// Startar ein pingmålar som returnerer (status, pakketap)
 ///
-/// - `target`: IP-adresse eller hostname (f.eks. "127.0.0.1")
-/// - `port`: porten du vil teste
-/// - `protocol`: TCP eller UDP
-/// - `interval_ms`: pause mellom kvar ping
-/// - `timeout_ms`: kor lenge kvar ping får prøve
-/// - `max_window`: maks antal pings i glidande vindu
-/// - `max_loss_rate`: t.d. 0.2 (20 % tap = feil)
+/// - `interval_ms`: tid mellom ping
+/// - `timeout_ms`: ping-timeout
+/// - `max_window`: storleik på glidande vindu
+/// - `max_loss_rate`: maks akseptert pakketap (t.d. 0.2 for 20%)
 ///
-/// Retur: `tokio::sync::watch::Receiver<bool>` som alltid inneheld siste status (`true` = OK)
-async fn start_packet_loss_monitor(
+/// Retur: `watch::Receiver<(bool, f32)>`, der:
+/// - `true` betyr OK (god nok kvalitet)
+/// - `f32` er pakketap (0.0–1.0)
+pub async fn start_packet_loss_monitor(
     interval_ms: u64,
     timeout_ms: u64,
     max_window: usize,
     max_loss_rate: f32,
-) -> tokio::sync::watch::Receiver<bool> {
+) -> watch::Receiver<(bool, f32)> {
     use tokio::sync::watch;
     use socket2::{Socket, Domain, Type};
-    let (tx, rx) = watch::channel(true); // start som OK
+    let (tx, rx) = watch::channel((true, 0.0)); // start som OK
     let addr = format!("{}:{}", wait_for_ip().await, config::DUMMY_PORT);
 
     
     tokio::spawn(async move {
+        let mut last_loss: f32 = 0.0;
+        let mut last_status: bool = false;
         let mut last_instant = Instant::now();
         let mut window = VecDeque::new();
 
@@ -174,7 +217,7 @@ async fn start_packet_loss_monitor(
                         break false;
                     }
                 };
-                
+
                 if socket_temp.set_nonblocking(true).is_err() {break false}
                 
                 if socket_temp.set_reuse_address(true).is_err() {break false}
@@ -184,6 +227,7 @@ async fn start_packet_loss_monitor(
                 if socket_temp.bind(&socket_addr.into()).is_err() {break false}
                 
                 match UdpSocket::from_std(socket_temp.into()) {
+
                     Ok(socket) => {
                         let payload = b"ping";
                         if socket.send_to(payload, &addr).await.is_err() {
@@ -213,18 +257,19 @@ async fn start_packet_loss_monitor(
             // Berekn tap i vinduet
             let fail_count = window.iter().filter(|&&ok| !ok).count();
             let loss_rate = fail_count as f32 / window.len() as f32;
-
-            // println!("Pakketap: {}%\n\n", loss_rate);
             
             let new_status = loss_rate <= max_loss_rate;
             // Send ny status viss han har endra seg
-            if *tx.borrow() != new_status {
+            if (last_status != new_status) || (loss_rate - last_loss).abs() > 0.01 {
                 if Instant::now() - last_instant > Duration::from_secs(5) {
                     last_instant = Instant::now();
-                    let _ = tx.send(new_status);
+                    let _ = tx.send((new_status, loss_rate));
+                    last_status = new_status;
+                }else {
+                    let _ = tx.send((last_status, loss_rate));
+                    last_loss = loss_rate;
                 }
             }
-            // println!("Array: {:?},\n\n status: {}, \n\n", window, new_status);
 
             // Pause før neste ping
             tokio::time::sleep(Duration::from_millis(interval_ms)).await;
@@ -233,6 +278,8 @@ async fn start_packet_loss_monitor(
 
     rx
 }
+
+
 
 use std::collections::VecDeque;
 fn moving_average(samples: &VecDeque<u64>) -> f64 {

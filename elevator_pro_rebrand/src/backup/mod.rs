@@ -8,11 +8,17 @@ use tokio::net::{TcpListener, TcpStream};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::sync::watch;
 use tokio::time::{sleep, Duration, timeout};
-
-use crate::world_view::{ElevatorContainer, WorldView};
-use crate::{config, init, world_view};
+use serde::{Serialize, Deserialize};
+use crate::network::ConnectionStatus;
+use crate::world_view::{ElevatorContainer, WorldView, serialize};
+use crate::{config, init, network, world_view};
 use crate::print;
 
+#[derive(Serialize, Deserialize, Clone, Debug)]
+struct BackupPayload {
+    pub worldview: world_view::WorldView,
+    pub network_status: ConnectionStatus,
+}
 // Static variable to see if backup has started
 static BACKUP_STARTED: AtomicBool = AtomicBool::new(false);
 
@@ -60,29 +66,28 @@ fn start_backup_terminal() {
     }
 }
 
-/// Handles backup clients: Sends worldview continously
-/// TODO: send litt raskere enn en gang i sekundet
-async fn handle_backup_client(
+/// Sender serialisert `BackupPayload` kontinuerleg til backup-klient
+pub async fn handle_backup_client(
     mut stream: TcpStream, 
-    rx: watch::Receiver<WorldView>
+    rx: watch::Receiver<BackupPayload>
 ) {
     loop {
-        let wv = rx.borrow().clone();
+        let payload = rx.borrow().clone();
+        let serialized = serialize(&payload);
 
-        let wv_serial = world_view::serialize(&wv);
-
-
-        if let Err(e) = stream.write_all(&wv_serial).await {
+        if let Err(e) = stream.write_all(&serialized).await {
             print::err(format!("Backup send error: {}", e));
-            print::warn(format!("Trying again in {:?}", config::BACKUP_TIMEOUT));
+            print::warn(format!("Prøver igjen om {:?}", config::BACKUP_TIMEOUT));
             sleep(config::BACKUP_TIMEOUT).await;
             BACKUP_STARTED.store(false, Ordering::SeqCst);
             start_backup_terminal();
             break;
         }
+
         sleep(config::BACKUP_SEND_INTERVAL).await;
     }
 }
+
 
 /// Function to start and maintain connection to the backup-program
 /// 
@@ -97,13 +102,19 @@ async fn handle_backup_client(
 /// ## Note
 /// This function is permanently blocking, and should be ran asynchronously 
 pub async fn start_backup_server(
-    wv_watch_rx: watch::Receiver<WorldView>
+    wv_watch_rx: watch::Receiver<WorldView>,
+    mut network_watch_rx: watch::Receiver<network::ConnectionStatus>,
 ) {
     println!("Backup-server starting...");
     
     let listener = create_reusable_listener(config::BCU_PORT);
     let wv = world_view::get_wv(wv_watch_rx.clone());
-    let (tx, rx) = watch::channel(wv.clone());
+    let initial_payload = BackupPayload {
+        worldview: wv.clone(),
+        network_status: ConnectionStatus::new(),
+    };
+    let (tx, rx) = watch::channel(initial_payload);
+    
     
     start_backup_terminal();
     
@@ -118,12 +129,44 @@ pub async fn start_backup_server(
         }
     });
     
-    // Oppdater kontinuerleg worldview til backup-klientane.
-    loop {
-        let new_wv = world_view::get_wv(wv_watch_rx.clone());
-        tx.send(new_wv).expect("Failed to send to the backup-client");
-        sleep(config::BACKUP_WORLDVIEW_REFRESH_INTERVAL).await;
-    }
+    // Task for å oppdatere world view
+    let tx_clone = tx.clone();
+    let wv_rx_clone = wv_watch_rx.clone();
+
+    tokio::spawn(async move {
+        loop {
+            let new_wv = world_view::get_wv(wv_rx_clone.clone());
+            let status = network_watch_rx.borrow().clone();
+
+            let payload = BackupPayload {
+                worldview: new_wv,
+                network_status: status,
+            };
+
+            if tx_clone.send(payload).is_err() {
+                println!("Klarte ikkje sende payload til backup-klient");
+            }
+
+            sleep(config::BACKUP_WORLDVIEW_REFRESH_INTERVAL).await;
+        }
+    });
+
+    
+
+    // // Task for å printe ny nettverksstatus når den endrar seg
+    // tokio::spawn(async move {
+    //     loop {
+    //         if network_watch_rx.changed().await.is_ok() {
+    //             let status = network_watch_rx.borrow().clone();
+    //             println!(
+    //                 "🔄 Backup-mottatt status: on_internett={}, connected_on_elevator_network={}, packet_loss={}%",
+    //                 status.on_internett,
+    //                 status.connected_on_elevator_network,
+    //                 status.packet_loss
+    //             );
+    //         }
+    //     }
+    // });
 }
 
 
@@ -140,7 +183,7 @@ pub async fn run_as_backup() -> Option<world_view::ElevatorContainer> {
             Ok(Ok(mut stream)) => {
                 retries = 0;
                 let mut buf = vec![0u8; 1024];
-                // Les data i ein løkke for kontinuerleg oppdatering
+
                 loop {
                     match stream.read(&mut buf).await {
                         Ok(0) => {
@@ -148,20 +191,21 @@ pub async fn run_as_backup() -> Option<world_view::ElevatorContainer> {
                             break;
                         },
                         Ok(n) => {
-                            let wv_serial= buf[..n].to_vec();
-                            current_wv = match world_view::deserialize(&wv_serial) {
-                                Some(wv) => wv,
-                                None => {println!("none");
-                                        continue
-                            },
-                            };
-                            // Rydd skjermen og sett markøren øvst
-                            print!("\x1B[2J\x1B[H");
+                            let raw = &buf[..n];
+                            let payload: Option<BackupPayload> = bincode::deserialize(raw).ok();
 
-                            // Sørg for at utskrifta skjer umiddelbart
-                            io::stdout().flush().unwrap();
+                            if let Some(payload) = payload {
+                                current_wv = payload.worldview;
+                                let status = payload.network_status;
 
-                            print::worldview(&current_wv);
+                                print!("\x1B[2J\x1B[H");
+                                io::stdout().flush().unwrap();
+
+                                print::worldview(&current_wv, Some(status));
+                            } else {
+                                println!("Klarte ikkje deserialisere payload.");
+                                continue;
+                            }
                         },
                         Err(e) => {
                             eprintln!("Error while reading from master: {}", e);
@@ -169,6 +213,7 @@ pub async fn run_as_backup() -> Option<world_view::ElevatorContainer> {
                         }
                     }
                 }
+
             },
             _ => {
                 retries += 1;

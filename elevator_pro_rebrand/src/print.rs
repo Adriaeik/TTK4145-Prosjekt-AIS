@@ -1,4 +1,4 @@
-use crate::{config, world_view::{Dirn, ElevatorBehaviour, WorldView}};
+use crate::{config, network, world_view::{Dirn, ElevatorBehaviour, WorldView}};
 use ansi_term::Colour::{self, Green, Red, Yellow, Purple};
 
 use unicode_width::UnicodeWidthStr;
@@ -255,12 +255,86 @@ fn pad_text(text: &str, width: usize) -> String {
     format!("{}{}", text, " ".repeat(padding))
 }
 
+fn rgb_color_for_loss(loss: u8) -> String {
+    // loss frå 0 → 100 skal gå frå grøn (0,255,0) → gul (255,255,0) → raud (255,0,0)
+    let (r, g) = if loss <= 50 {
+        let ratio = loss as f32 / 50.0;
+        let r = (ratio * 255.0) as u8;
+        (r, 255)
+    } else {
+        let ratio = (loss as f32 - 50.0) / 50.0;
+        let g = ((1.0 - ratio) * 255.0) as u8;
+        (255, g)
+    };
+    format!("\x1b[38;2;{};{};0m", r, g)
+}
+
+fn colored_loss_bar(loss: u8, width: usize) -> String {
+    let filled = (loss as usize * width) / 100;
+    let mut bar = String::new();
+    for i in 0..width {
+        let symbol = if i < filled { "█" } else { " " };
+
+        // Berekn farge basert på "lokal loss" i baren
+        let segment_loss = (i as f32 / width as f32) * 100.0;
+        let (r, g) = if segment_loss <= 50.0 {
+            let ratio = segment_loss / 50.0;
+            let r = (ratio * 255.0) as u8;
+            (r, 255)
+        } else {
+            let ratio = (segment_loss - 50.0) / 50.0;
+            let g = ((1.0 - ratio) * 255.0) as u8;
+            (255, g)
+        };
+
+        let color = format!("\x1b[38;2;{};{};0m", r, g);
+        bar.push_str(&format!("{}{}{}", color, symbol, "\x1b[0m"));
+    }
+    bar
+}
+
+
 /// Logger `wv` i eit fint tabellformat
-pub fn worldview(worldview: &WorldView, ) {
+pub fn worldview(worldview: &WorldView, connection: Option<network::ConnectionStatus> ) {
     let print_stat = config::PRINT_WV_ON.lock().unwrap().clone();
     if !print_stat {
         return;
     }
+
+    match connection {
+        Some(status) => {
+            let on_net_color = if status.on_internett {
+                Green.paint("true")
+            } else {
+                Red.paint("false")
+            };
+    
+            let elev_net_color = if status.connected_on_elevator_network {
+                Green.paint("true")
+            } else {
+                Red.paint("false")
+            };
+    
+            let color_prefix = rgb_color_for_loss(status.packet_loss);
+            let reset = "\x1b[0m";
+            let bar = colored_loss_bar(status.packet_loss, 27);
+    
+            println!("┌───────────────────────────────┐");
+            println!("│ On internett:           {:<8} │", on_net_color);
+            println!("│ Elevator network:       {:<8} │", elev_net_color);
+            println!("│ Packet loss:        {}{:>8}%{:>2} │", color_prefix, status.packet_loss, reset);
+            println!("│ [{}] │", bar);
+            println!("└───────────────────────────────┘");
+        }
+        None => {
+            println!("┌───────────────────────────────┐");
+            println!("│ Connection status: Not set    │");
+            println!("└───────────────────────────────┘");
+        }
+    }
+    
+
+    use ansi_term::Colour::{Purple, White};
 
     // Overskrift
     println!("{}", Purple.bold().paint("┌────────────────────────────────┐"));
@@ -269,7 +343,7 @@ pub fn worldview(worldview: &WorldView, ) {
 
     // Generell info-tabell
     println!("┌─────────────┬──────────┬────────────────────┐");
-    println!("{}", ansi_term::Colour::White.bold().paint("│ Num heiser  │ MasterID │ Pending tasks      │"));
+    println!("{}", White.bold().paint("│ Num heiser  │ MasterID │ Pending tasks      │"));
     println!("├─────────────┼──────────┼────────────────────┤");
 
     println!(
@@ -284,13 +358,13 @@ pub fn worldview(worldview: &WorldView, ) {
         } else {
             "  " // Ingen opp-knapp i øvste etasje
         };
-    
+
         let down = if floor != 0 {
             if calls[1] { "🟢" } else { "🔴" }
         } else {
             "  " // Ingen ned-knapp i nederste etasje
         };
-    
+
         println!(
             "│ floor:{:<5} │          │ {} {}              │",
             floor,
@@ -298,8 +372,13 @@ pub fn worldview(worldview: &WorldView, ) {
             up
         );
     }
-    
+
     println!("└─────────────┴──────────┴────────────────────┘");
+
+    // Legg til utskrift av nettverksstatus viss det er med
+    println!("{}", Purple.bold().paint("┌────────────────────────────────┐"));
+    println!("{}", Purple.bold().paint("│       NETWORK CONNECTION       │"));
+    println!("{}", Purple.bold().paint("└────────────────────────────────┘"));
 
     // Heisstatus-tabell
     println!("┌──────┬──────────┬──────────────┬──────────────┬─────────────┬──────────────────────┬───────────────┐");

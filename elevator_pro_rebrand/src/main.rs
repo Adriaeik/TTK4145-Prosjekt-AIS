@@ -29,12 +29,16 @@ async fn main() {
     
     /* Initialize a worldview */
     let mut worldview = init::initialize_worldview(self_container.as_ref()).await;
-    print::worldview(&worldview);
+    print::worldview(&worldview, Some(network::ConnectionStatus::new()));
     
     
     /* START ----------- Initializing of channels used for the worldview updater ---------------------- */
     let main_mpscs = local_network::Mpscs::new();
     let (wv_watch_tx, wv_watch_rx) = watch::channel(worldview.clone());
+    /* END ----------- Initializing of channels used for the worldview updater ---------------------- */
+
+    /* START ----------- Initializing of channels used for the networkstus update ---------------------- */
+    let (network_watch_tx, network_watch_rx) = watch::channel(network::ConnectionStatus::new());
     /* END ----------- Initializing of channels used for the worldview updater ---------------------- */
     
     // // Send the initialized worldview on the worldview watch, so its not empty when rx tries to borrow it
@@ -71,7 +75,7 @@ async fn main() {
         let wv_watch_rx = wv_watch_rx.clone();
         let _network_status_watcher_task = tokio::spawn(async move {
             print::info("Starting to monitor internet".to_string());
-            let _ = network::watch_ethernet(wv_watch_rx, new_wv_after_offline_tx).await;
+            let _ = network::watch_ethernet(wv_watch_rx, network_watch_tx, new_wv_after_offline_tx).await;
         });
     }
     /* END ----------- Task to watch over the internet connection ---------------------- */
@@ -122,7 +126,7 @@ async fn main() {
         let wv_watch_rx = wv_watch_rx.clone();
         let _backup_task = tokio::spawn(async move {
             print::info("Starting backup".to_string());
-            tokio::spawn(backup::start_backup_server(wv_watch_rx));
+            tokio::spawn(backup::start_backup_server(wv_watch_rx, network_watch_rx));
         });
     }
     /* END ----------- Backup server ----------- */
