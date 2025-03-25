@@ -411,6 +411,7 @@ async fn read_from_stream(remove_container_tx: mpsc::Sender<u8>, stream: &mut Tc
                         Ok(_) => {
                             //TODO: ikke let _ = 
                             let _ =  stream.write_all(&[69]).await;
+                            let _ = stream.flush().await;
                         
                             return Some(buffer)
                         },
@@ -622,8 +623,8 @@ fn create_tcp_socket() -> Result<Socket, Error> {
 
     // Set keepalive settings
     let keepalive = TcpKeepalive::new()
-        .with_time(Duration::from_secs(5))
-        .with_interval(Duration::from_secs(5));
+        .with_time(Duration::from_secs(10))
+        .with_interval(Duration::from_secs(10));
 
     socket.set_tcp_keepalive(&keepalive)?;
 
