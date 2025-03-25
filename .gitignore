@@ -9,7 +9,7 @@
 
 # Ting vi vil ha med
 !/libs/
-libs/Project_resources/cost_fns/hall_request_assigner/hall_request_assigner
+elevator_pro_rebrand/libs/Project_resources/cost_fns/hall_request_assigner/hall_request_assigner
 
 # Go
 /bin/
