@@ -1,9 +1,13 @@
-//! Handles messages on internal channels regarding changes in worldview
+//! This module handles messages on internal channels related to changes in the worldview. 
+//! It is primarily responsible for updating the worldview based on information received from other parts of the program, 
+//! such as the UDP-network, TCP-network, local elevator and network manager.
+//! 
+//! The module also includes a MPSC-struct, making it easier to initialize all the channels used for passing this information.
 mod update_wv;
 
-use crate::{print, world_view::{ElevatorContainer, WorldView}};
+use crate::print;
+use crate::world_view::{ElevatorContainer, WorldView};
 
-// use crate::manager::task_allocator::Task;
 use update_wv::{ 
     join_wv_from_udp, 
     abort_network, 
@@ -140,19 +144,29 @@ pub async fn update_wv_watch(mut mpsc_rxs: MpscRxs, worldview_watch_tx: watch::S
 pub struct MpscTxs {
     /// Sends a UDP worldview packet.
     pub udp_wv: mpsc::Sender<WorldView>,
+
     /// Notifies if the TCP connection to the master has failed.
     pub connection_to_master_failed: mpsc::Sender<bool>,
+
     /// Sends elevator containers recieved from slaves on TCP.
     pub container: mpsc::Sender<ElevatorContainer>,
+
     /// Requests the removal of a container by ID.
     pub remove_container: mpsc::Sender<u8>,
+
     /// Sends a TCP container message that has been transmitted to the master.
     pub sent_tcp_container: mpsc::Sender<ElevatorContainer>,
-    /// Additional buffered channels for various data streams.
-    // pub pending_tasks: mpsc::Sender<Vec<Task>>,
+
+    /// Sends delegated tasks from the manager
     pub delegated_tasks: mpsc::Sender<HashMap<u8, Vec<[bool; 2]>>>,
+
+    /// Send ElevatorContainer from the local elevator handler
     pub elevator_states: mpsc::Sender<ElevatorContainer>,
+
+    /// Sends the new worldview after reconnecting to the network
     pub new_wv_after_offline: mpsc::Sender<WorldView>,
+
+    /// Additional buffer channels that can be used if necessary
     pub mpsc_buffer_ch6: mpsc::Sender<Vec<u8>>,
     pub mpsc_buffer_ch7: mpsc::Sender<Vec<u8>>,
     pub mpsc_buffer_ch8: mpsc::Sender<Vec<u8>>,
@@ -163,21 +177,31 @@ pub struct MpscTxs {
 /// These channels are used to receive data from different parts of the system.
 #[allow(missing_docs)]
 pub struct MpscRxs {
-    /// Receives a UDP worldview packet.
+    /// Recieves a UDP worldview packet.
     pub udp_wv: mpsc::Receiver<WorldView>,
-    /// Receives a notification if the TCP connection to the master has failed.
+
+    /// Recieves a notification if the TCP connection to the master has failed.
     pub connection_to_master_failed: mpsc::Receiver<bool>,
-    /// Receives elevator containers recieved from slaves on TCP.
+
+    /// Recieves elevator containers recieved from slaves on TCP.
     pub container: mpsc::Receiver<ElevatorContainer>,
-    /// Receives requests to remove a container by ID.
+
+    /// Recieves requests to remove a container by ID.
     pub remove_container: mpsc::Receiver<u8>,
-    /// Receives TCP container messages that have been transmitted.
+
+    /// Recieves TCP container messages that have been transmitted.
     pub sent_tcp_container: mpsc::Receiver<ElevatorContainer>,
-    /// Additional buffered channels for various data streams.
-    // pub pending_tasks: mpsc::Receiver<Vec<Task>>,
+
+    /// Recieves delegated tasks from the manager
     pub delegated_tasks: mpsc::Receiver<HashMap<u8, Vec<[bool; 2]>>>,
+
+    /// Recieves ElevatorContainer from the local elevator handler
     pub elevator_states: mpsc::Receiver<ElevatorContainer>,
+
+    /// Recieves new worldview after reconnecting to the network 
     pub new_wv_after_offline: mpsc::Receiver<WorldView>,
+
+    /// Additional buffer channels which can be used if necessary
     pub mpsc_buffer_ch6: mpsc::Receiver<Vec<u8>>,
     pub mpsc_buffer_ch7: mpsc::Receiver<Vec<u8>>,
     pub mpsc_buffer_ch8: mpsc::Receiver<Vec<u8>>,
@@ -200,8 +224,6 @@ impl Mpscs {
         let (tx_container, rx_container) = mpsc::channel(300);
         let (tx_remove_container, rx_remove_container) = mpsc::channel(300);
         let (tx_sent_tcp_container, rx_sent_tcp_container) = mpsc::channel(300);
-        // let (tx_new_task, rx_new_task) = mpsc::channel(300);
-        // let (tx_pending_tasks, rx_pending_tasks) = mpsc::channel(300);
         let (tx_buf3, rx_buf3) = mpsc::channel(300);
         let (tx_buf4, rx_buf4) = mpsc::channel(300);
         let (tx_buf5, rx_buf5) = mpsc::channel(300);
