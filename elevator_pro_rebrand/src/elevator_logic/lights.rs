@@ -22,7 +22,7 @@
 //! # Related
 //! See [`world_view`] for worldview structure and serialization logic.
 
-use crate::{elevio::elev::Elevator, world_view::{self, WorldView}};
+use crate::{elevio::elev::Elevator, world_view::WorldView};
 
 
 /// Sets all hall lights

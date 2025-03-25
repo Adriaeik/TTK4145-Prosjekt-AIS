@@ -1,3 +1,24 @@
+//! # Local Elevator Module
+//!
+//! This module is responsible for managing the local elevator instance, including:
+//! - Initializing the local elevator (`init`)
+//! - Handling communication with the elevator server (`start_elevator_server`)
+//! - Polling and processing elevator sensor data (`read_from_local_elevator`)
+//! - Updating the local elevator state (`update_elev_container_from_msgs`)
+//!
+//! ## Overview
+//! The module establishes a communication channel with the local elevator hardware, allowing
+//! sensor readings (call buttons, floor sensors, stop button, obstruction status) to be processed
+//! asynchronously. It also provides an interface for starting the elevator server on different platforms.
+//!
+//!
+//! ## Functionality
+//! - **Initialization**: Sets up the elevator instance, starts the elevator server, and initializes
+//!   message polling from the hardware.
+//! - **Message Handling**: Processes messages received from the elevator, updating the `ElevatorContainer`
+//!   accordingly.
+//! - **Asynchronous Processing**: Uses `tokio` tasks to handle sensor polling and inter-process communication.
+
 use tokio::time::{sleep, Duration};
 use crossbeam_channel as cbc;
 use tokio::process::Command;
@@ -44,15 +65,13 @@ impl LocalElevChannels {
 }
 
 
-/// ### Henter ut lokal IP adresse
+/// ### Get local IP address
 fn get_ip_address() -> String {
     let self_id = network::read_self_id();
     format!("{}.{}", config::NETWORK_PREFIX, self_id)
 }
 
-/// ### Starter elevator_server
-/// 
-/// Tar høyde for om du er på windows eller ubuntu.
+/// ### Starts the elevator_server
 async fn start_elevator_server() {
     let ip_address = get_ip_address();
     let ssh_password = "Sanntid15"; // Hardkodet passord, vurder sikkerhetsrisiko
@@ -66,15 +85,11 @@ async fn start_elevator_server() {
     } else {
         print::info(format!("Starting elevatorserver on Linux..."));
         
+        // Start the elevator server without opening a terminal
         let elevator_server_command = format!(
             "sshpass -p '{}' ssh student@{} 'nohup elevatorserver > /dev/null 2>&1 &'",
             ssh_password, ip_address
         );
-        // Det starter serveren uten terminal. Om du vil avslutte serveren: pkill -f elevatorserver
-        
-        // Alternativt:                                                     pgrep -f elevatorserver  # Finner PID (Process ID)
-        //                                                                  kill <PID>               # Avslutter prosessen
-
 
         print::info(format!("\nStarting elevatorserver in new terminal:\n\t{}", elevator_server_command));
 
@@ -150,12 +165,10 @@ pub async fn init(local_elev_tx: mpsc::Sender<elevio::ElevMessage>) -> e::Elevat
     elevator
 }
 
-/// ### Videresender melding fra egen heis til update_wv
+/// Send forth messages from local elevator to worldview updater
 async fn read_from_local_elevator(rxs: LocalElevRxs, local_elev_tx: mpsc::Sender<elevio::ElevMessage>) -> std::io::Result<()> {
     loop {
-        // Sjekker hver kanal med `try_recv()`
         if let Ok(call_button) = rxs.call_button.try_recv() {
-            //println!("CB: {:#?}", call_button);
             let msg = elevio::ElevMessage {
                 msg_type: elevio::ElevMsgType::CALLBTN,
                 call_button: Some(call_button),
@@ -167,7 +180,6 @@ async fn read_from_local_elevator(rxs: LocalElevRxs, local_elev_tx: mpsc::Sender
         }
 
         if let Ok(floor) = rxs.floor_sensor.try_recv() {
-            //println!("Floor: {:#?}", floor);
             let msg = elevio::ElevMessage {
                 msg_type: elevio::ElevMsgType::FLOORSENS,
                 call_button: None,
@@ -179,7 +191,6 @@ async fn read_from_local_elevator(rxs: LocalElevRxs, local_elev_tx: mpsc::Sender
         }
 
         if let Ok(stop) = rxs.stop_button.try_recv() {
-            //println!("Stop button: {:#?}", stop);
             let msg = elevio::ElevMessage {
                 msg_type: elevio::ElevMsgType::STOPBTN,
                 call_button: None,
@@ -191,7 +202,6 @@ async fn read_from_local_elevator(rxs: LocalElevRxs, local_elev_tx: mpsc::Sender
         }
 
         if let Ok(obstr) = rxs.obstruction.try_recv() {
-            //println!("Obstruction: {:#?}", obstr);
             let msg = elevio::ElevMessage {
                 msg_type: elevio::ElevMsgType::OBSTRX,
                 call_button: None,
@@ -201,8 +211,6 @@ async fn read_from_local_elevator(rxs: LocalElevRxs, local_elev_tx: mpsc::Sender
             };
             let _ = local_elev_tx.send(msg).await;
         }
-
-        // Kort pause for å unngå å spinne CPU unødvendig
         sleep(Duration::from_millis(10)).await;
     }
 }
