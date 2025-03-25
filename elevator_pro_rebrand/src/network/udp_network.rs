@@ -157,14 +157,14 @@ pub async fn start_udp_listener(wv_watch_rx: watch::Receiver<Vec<u8>>, udp_wv_tx
                     if ignore_counter > 0 {
                         ignore_counter = ignore_counter.saturating_sub(1);
                     }
-                    println!("container id: {}", cont.elevator_id);
+                    // println!("container id: {}", cont.elevator_id);
                 },
                 None => {
                     ignore_counter += 1;
                 }
             }
             
-            print::warn(format!("ignore count:: {}", ignore_counter));
+            // print::warn(format!("ignore count:: {}", ignore_counter));
 
             // Oppdater lokal worldview
             world_view::update_wv(wv_watch_rx.clone(), &mut my_wv).await;
