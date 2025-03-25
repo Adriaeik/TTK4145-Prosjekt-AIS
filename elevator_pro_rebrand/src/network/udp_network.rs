@@ -40,6 +40,8 @@ use socket2::{Domain, Socket, Type};
 use tokio::sync::mpsc;
 use tokio::sync::watch;
 
+use super::local_network;
+
 static UDP_TIMEOUT: OnceLock<AtomicBool> = OnceLock::new();
 
 
@@ -162,7 +164,7 @@ pub async fn start_udp_listener(
         }
         
         match read_wv {
-            Some(read_wv) => {
+            Some(mut read_wv) => {
                 world_view::update_wv(wv_watch_rx.clone(), &mut my_wv).await;
 
                 if read_wv.master_id != my_wv.master_id {
@@ -203,7 +205,7 @@ pub async fn udp_watchdog(connection_to_master_failed_tx: mpsc::Sender<bool>) {
     loop {
         if get_udp_timeout().load(Ordering::SeqCst) == false || !network::read_network_status(){
             get_udp_timeout().store(true, Ordering::SeqCst);
-            tokio::time::sleep(Duration::from_millis(1000)).await;
+            tokio::time::sleep(Duration::from_millis(5000)).await;
         }
         else {
             get_udp_timeout().store(false, Ordering::SeqCst);
@@ -266,7 +268,7 @@ fn build_message(
 /// # Behavior
 /// The function first looks for the [config::KEY_STR] in the beginning og the message, returning `None` if it is not found.  
 /// If it is found, the function tries to deserialize a [WorldView] from the rest of the message, returning it wrapped in an `Option` if it succeeded, returning `None` if it failed. 
-fn parse_message(
+pub fn parse_message(
     buf: &[u8]
 ) -> Option<WorldView> {
     // 1. Prøv å deserialisere nøkkelen

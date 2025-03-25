@@ -126,7 +126,7 @@ pub async fn watch_ethernet(
         1, 
         5, 
         1000 as usize, 
-        0.6
+        1.0
     ).await;
     
     
@@ -148,6 +148,7 @@ pub async fn watch_ethernet(
             }
             _ => {
                 // Mistet IP eller feil subnet → nullstill status
+                println!("FALSE");
                 connection_status.on_internett = false;
                 connection_status.connected_on_elevator_network = false;
                 connection_status.packet_loss = 100;
@@ -215,7 +216,7 @@ pub async fn start_packet_loss_monitor(
         let mut last_loss: f32 = 0.0;
         let mut last_status: bool = false;
         let mut last_instant = Instant::now();
-        let mut window = VecDeque::new();
+        let mut window: VecDeque<bool> = VecDeque::from(vec![true; max_window]);
 
         loop {
             // Send ping
@@ -265,6 +266,7 @@ pub async fn start_packet_loss_monitor(
                 
             };
 
+            
             // Oppdater vindu
             window.push_back(success);
             if window.len() > max_window {
@@ -274,8 +276,8 @@ pub async fn start_packet_loss_monitor(
             // Berekn tap i vinduet
             let fail_count = window.iter().filter(|&&ok| !ok).count();
             let raw_loss = fail_count as f32 / window.len() as f32;
-            let loss_rate = 1.0 - (1.0 - raw_loss).powi(2);
-
+            let loss_rate = 1.0 - (1.0 - raw_loss).sqrt();
+            
             
             let new_status = loss_rate <= max_loss_rate;
             // Send ny status viss han har endra seg
@@ -285,7 +287,7 @@ pub async fn start_packet_loss_monitor(
                     let _ = tx.send((new_status, loss_rate));
                     last_status = new_status;
                 }else {
-                    let _ = tx.send((last_status, loss_rate));
+                    let _ = tx.send((new_status, loss_rate));
                     last_loss = loss_rate;
                 }
             }

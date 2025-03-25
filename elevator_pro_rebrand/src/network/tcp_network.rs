@@ -250,7 +250,8 @@ async fn tcp_while_slave(
         master_accepted_tcp = true;
         stream = Some(s);
     } else {
-        println!("Master adid not accept the TCP-connection");
+        println!("Master did not accept the TCP-connection");
+        sleep(Duration::from_secs(100)).await;
         let _ = connection_to_master_failed_tx.send(true).await;
     }
 
@@ -343,13 +344,13 @@ async fn read_from_stream(
     remove_container_tx: mpsc::Sender<u8>, 
     stream: &mut TcpStream
 ) -> Option<ElevatorContainer> {
+    let id = ip_help_functions::ip2id(stream.peer_addr().expect("Slave has no IP?").ip());
     let mut len_buf = [0u8; 2];
     tokio::select! {
         result = stream.read_exact(&mut len_buf) => {
             match result {
                 Ok(0) => {
                     print::info("Slave disconnected.".to_string());
-                    let id = ip_help_functions::ip2id(stream.peer_addr().expect("Slave has no IP?").ip());
                     let _ =  remove_container_tx.send(id).await;
                     return None;
                 }
@@ -360,13 +361,12 @@ async fn read_from_stream(
                     match stream.read_exact(&mut buffer).await { 
                         Ok(0) => {
                             print::info("Slave disconnected".to_string());
-                            let id = ip_help_functions::ip2id(stream.peer_addr().expect("Slave has no IP?").ip());
                             let _ =  remove_container_tx.send(id).await;
                             return None;
                         }
                         Ok(_) => {
                             //TODO: ikke let _ = 
-                            let _ =  stream.write_all(&[69]).await;
+                            let _ =  stream.write_all("ACK".as_bytes()).await;
                             let _ = stream.flush().await;
                             
                             return world_view::deserialize(&buffer) 
@@ -374,7 +374,6 @@ async fn read_from_stream(
                         },
                         Err(e) => {
                             print::err(format!("Error while reading from stream: {}", e));
-                            let id = ip_help_functions::ip2id(stream.peer_addr().expect("Slave has no IP?").ip());
                             let _ =  remove_container_tx.send(id).await;
                             return None;
                         }
@@ -382,7 +381,6 @@ async fn read_from_stream(
                 }
                 Err(e) => {
                     print::err(format!("Error while reading from stream: {}", e));
-                    let id = ip_help_functions::ip2id(stream.peer_addr().expect("Slave has no IP?").ip());
                     let _ =  remove_container_tx.send(id).await;
                     return None;
                 }
@@ -445,9 +443,10 @@ async fn send_tcp_message(
     } else if let Err(_) = stream.flush().await {
         let _ = connection_to_master_failed_tx.send(true).await; 
     } else {
-        let mut buf: [u8; 1] = [0];
+        let mut buf: [u8; 3] = [0, 0, 0];
         match stream.read_exact(&mut buf).await {
             Ok(_) => {
+                println!("Master acka: {:?}", buf.to_ascii_uppercase());
                 let _ = sent_tcp_container_tx.send(self_elev_container.clone()).await;
             },
             Err(e) => {
@@ -630,8 +629,8 @@ fn create_tcp_socket() -> Result<Socket, Error> {
     }
 
     // Set read and write timeouts to 10 seconds.
-    socket.set_read_timeout(Some(Duration::from_secs(10)))?;
-    socket.set_write_timeout(Some(Duration::from_secs(10)))?;
+    socket.set_read_timeout(Some(Duration::from_secs(20)))?;
+    socket.set_write_timeout(Some(Duration::from_secs(20)))?;
 
     #[cfg(target_os = "linux")]
     {
@@ -639,7 +638,7 @@ fn create_tcp_socket() -> Result<Socket, Error> {
         socket.set_thin_linear_timeouts(true)?;
 
         // Set TCP user timeout (Linux only) to close the connection if no acknowledgments are received within 10s.
-        socket.set_tcp_user_timeout(Some(Duration::from_secs(10)))?;
+        socket.set_tcp_user_timeout(Some(Duration::from_secs(20)))?;
 
         // Enable TCP Quick ACK (Linux only), reducing latency by immediately acknowledging received packets.
         socket.set_quickack(true)?;

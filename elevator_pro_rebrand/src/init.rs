@@ -154,10 +154,8 @@ async fn check_for_udp() -> Option<WorldView> {
 
     // Buffer for receiving UDP data
     let mut buf = [0; config::UDP_BUFFER];
-    let mut read_wv: Vec<u8> = Vec::new();
+    let mut read_wv: Option<WorldView>;
     
-    // Placeholder for received message
-    let mut message: Cow<'_, str>;
 
     // Start the timer for 1-second listening duration
     let time_start = Instant::now();
@@ -170,7 +168,7 @@ async fn check_for_udp() -> Option<WorldView> {
         match recv_result {
             Ok(Ok((len, _))) => {
                 // Convert the received bytes into a string
-                message = String::from_utf8_lossy(&buf[..len]).into_owned().into();
+                read_wv = network::udp_network::parse_message(&buf[..len]);
             }
             Ok(Err(e)) => {
                 // Log errors if receiving fails
@@ -184,21 +182,13 @@ async fn check_for_udp() -> Option<WorldView> {
             }
         }
 
-        // Verify that the UDP message is from our expected network
-        if message.len() < 10 {
-
-        }
-        else if &message[1..config::KEY_STR.len() + 1] == config::KEY_STR {
-            // Extract and clean the message by removing the key and surrounding characters
-            let clean_message = &message[config::KEY_STR.len() + 3..message.len() - 1];
-
-            // Parse the message as a comma-separated list of u8 values
-            read_wv = clean_message
-                .split(", ") // Split on ", "
-                .filter_map(|s| s.parse::<u8>().ok()) // Convert to u8, ignore errors
-                .collect(); // Collect into a Vec<u8>
-
-            break; // Exit loop as a valid message was received
+        match read_wv {
+            Some(wv) => {
+                return Some(wv);
+            },
+            None => {
+                continue;
+            }
         }
     }
 
@@ -206,7 +196,7 @@ async fn check_for_udp() -> Option<WorldView> {
     drop(socket);
 
     // Return the parsed UDP message data
-    world_view::deserialize(&read_wv)
+    None
 }
 
 
@@ -343,3 +333,6 @@ pub async fn build_cost_fn() {
     }
     sleep(Duration::from_millis(2000)).await;
 }
+
+pub async fn build_netimpair_fn() {}
+
