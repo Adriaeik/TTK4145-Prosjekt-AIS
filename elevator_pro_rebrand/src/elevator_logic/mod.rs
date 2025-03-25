@@ -19,6 +19,7 @@ use crate::world_view;
 use crate::world_view::Dirn;
 use crate::world_view::ElevatorBehaviour;
 use crate::world_view::ElevatorContainer;
+use crate::world_view::WorldView;
 
 /// Initializes and runs the local elevator logic as a set of async tasks.
 ///
@@ -40,7 +41,10 @@ use crate::world_view::ElevatorContainer;
 /// # Note
 /// The hall light updater task continuously reads the world view and sets the hall lights based on
 /// the current state of the local elevator. Failure to extract the local container results in a warning.
-pub async fn run_local_elevator(wv_watch_rx: watch::Receiver<Vec<u8>>, elevator_states_tx: mpsc::Sender<Vec<u8>>) {
+pub async fn run_local_elevator(
+    wv_watch_rx: watch::Receiver<WorldView>, 
+    elevator_states_tx: mpsc::Sender<ElevatorContainer>
+) {
     let (local_elev_tx, local_elev_rx) = mpsc::channel::<ElevMessage>(100);
     
     let elevator = self_elevator::init(local_elev_tx).await;
@@ -63,9 +67,9 @@ pub async fn run_local_elevator(wv_watch_rx: watch::Receiver<Vec<u8>>, elevator_
             let mut wv = world_view::get_wv(wv_watch_rx);
             loop {
                 world_view::update_wv(wv_watch_rx_c.clone(), &mut wv).await;
-                match world_view::extract_self_elevator_container(wv.clone()) {
+                match world_view::extract_self_elevator_container(&wv) {
                     Some(_) => {
-                        lights::set_hall_lights(wv.clone(), e.clone());
+                        lights::set_hall_lights(&wv, e.clone());
                     }
                     None => {
                         print::warn(format!("Failed to extract self elevator container"));
@@ -109,7 +113,12 @@ pub async fn run_local_elevator(wv_watch_rx: watch::Receiver<Vec<u8>>, elevator_
 ///   to reach the closest floor in downward direction (via `fsm::onInit`).
 /// - If the elevator starts on floor 0, special care must be taken (known crash case).
 /// - Errors are handled internally via timers and behavior transitions.
-async fn handle_elevator(wv_watch_rx: watch::Receiver<Vec<u8>>, elevator_states_tx: mpsc::Sender<Vec<u8>>, mut local_elev_rx: mpsc::Receiver<elevio::ElevMessage>, e: Elevator) {
+async fn handle_elevator(
+    wv_watch_rx: watch::Receiver<WorldView>, 
+    elevator_states_tx: mpsc::Sender<ElevatorContainer>, 
+    mut local_elev_rx: mpsc::Receiver<elevio::ElevMessage>, 
+    e: Elevator
+) {
     
     let mut wv = world_view::get_wv(wv_watch_rx.clone());
     let mut self_container = await_valid_self_container(wv_watch_rx.clone()).await;
@@ -132,7 +141,12 @@ async fn handle_elevator(wv_watch_rx: watch::Receiver<Vec<u8>>, elevator_states_
     let mut prev_stop_btn: bool = self_container.stop;
     
     loop {        
-        self_elevator::update_elev_container_from_msgs(&mut local_elev_rx, &mut self_container, &mut timers.cab_priority , &mut timers.error ).await;
+        self_elevator::update_elev_container_from_msgs(
+            &mut local_elev_rx, 
+            &mut self_container, 
+            &mut timers.cab_priority , 
+            &mut timers.error 
+        ).await;
         
         /*======================================================================*/
         /*                           START: FSM Events                          */
@@ -186,11 +200,11 @@ async fn handle_elevator(wv_watch_rx: watch::Receiver<Vec<u8>>, elevator_states_
         
         
         //Send til update_wv -> nye self_container
-        let _ = elevator_states_tx.send(world_view::serial::serialize_elev_container(&self_container)).await;    
+        let _ = elevator_states_tx.send(self_container.clone()).await;    
         
         //Hent nyeste worldview
         if world_view::update_wv(wv_watch_rx.clone(), &mut wv).await{
-            update_tasks_and_hall_requests(&mut self_container, wv.clone()).await;
+            update_tasks_and_hall_requests(&mut self_container, &wv).await;
         }
         yield_now().await;
         sleep(config::POLL_PERIOD).await;
@@ -220,10 +234,13 @@ async fn handle_elevator(wv_watch_rx: watch::Receiver<Vec<u8>>, elevator_states_
 /// ```ignore
 /// update_tasks_and_hall_requests(&mut local_container, serialized_worldview).await;
 /// ```
-async fn update_tasks_and_hall_requests(self_container: &mut ElevatorContainer, wv: Vec<u8>){
+async fn update_tasks_and_hall_requests(
+    self_container: &mut ElevatorContainer, 
+    wv: &WorldView
+){
     if let Some(task_container) = world_view::extract_self_elevator_container(wv) {
-        self_container.tasks = task_container.tasks;
-        self_container.unsent_hall_request = task_container.unsent_hall_request;
+        self_container.tasks = task_container.tasks.clone();
+        self_container.unsent_hall_request = task_container.unsent_hall_request.clone();
     } else {
         print::warn(format!("Failed to extract self elevator container – keeping previous value"));
     }
@@ -249,11 +266,13 @@ async fn update_tasks_and_hall_requests(self_container: &mut ElevatorContainer, 
 /// ```ignore
 /// let container = await_valid_self_container(wv_rx).await;
 /// ```
-async fn await_valid_self_container(wv_rx: watch::Receiver<Vec<u8>>) -> ElevatorContainer {
+async fn await_valid_self_container(
+    wv_rx: watch::Receiver<WorldView>
+) -> ElevatorContainer {
     loop {
         let wv = world_view::get_wv(wv_rx.clone());
-        if let Some(container) = world_view::extract_self_elevator_container(wv) {
-            return container;
+        if let Some(container) = world_view::extract_self_elevator_container(&wv) {
+            return container.clone();
         } else {
             print::warn(format!("Failed to extract self elevator container, retrying..."));
             sleep(Duration::from_millis(100)).await;

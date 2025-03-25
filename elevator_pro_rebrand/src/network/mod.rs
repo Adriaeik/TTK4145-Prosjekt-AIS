@@ -3,6 +3,7 @@ pub mod udp_network;
 pub mod local_network;
 
 
+use crate::world_view::WorldView;
 use crate::{init, config, print, ip_help_functions, world_view, };
 
 use tokio::net::UdpSocket;
@@ -69,7 +70,7 @@ pub fn get_self_ip() -> Result<IpAddr, local_ip_address::Error> {
 // / });
 // / # }
 // / ```
-pub async fn watch_ethernet(wv_watch_rx: watch::Receiver<Vec<u8>>, new_wv_after_offline_tx: mpsc::Sender<Vec<u8>>) {
+pub async fn watch_ethernet(wv_watch_rx: watch::Receiver<WorldView>, new_wv_after_offline_tx: mpsc::Sender<WorldView>) {
     let mut net_status = false;
     let mut last_net_status = false;
     
@@ -102,7 +103,7 @@ pub async fn watch_ethernet(wv_watch_rx: watch::Receiver<Vec<u8>>, new_wv_after_
         if last_net_status != net_status {  
             if net_status {
                 let mut wv = world_view::get_wv(wv_watch_rx.clone());
-                let self_elev = world_view::extract_self_elevator_container(wv.clone());
+                let self_elev = world_view::extract_self_elevator_container(&wv);
                 wv = init::initialize_worldview(self_elev).await;
                 let _ = new_wv_after_offline_tx.send(wv).await;
                 print::ok("System is online".to_string());

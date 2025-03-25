@@ -4,7 +4,7 @@ use std::{fmt::{format, Debug}, io::Error, net::IpAddr, sync::atomic::{AtomicBoo
 use tokio::{io::{AsyncReadExt, AsyncWriteExt}, net::{TcpListener, TcpSocket, TcpStream}, sync::{mpsc, watch}, task::JoinHandle, time::{sleep, Duration, Instant}};
 use std::net::SocketAddr;
 use socket2::{Domain, Protocol, SockAddr, Socket, TcpKeepalive, Type};
-use crate::{config, print, network, ip_help_functions::{self}, world_view::{self, serial}};
+use crate::{config, ip_help_functions::{self}, network, print, world_view::{self, serial, ElevatorContainer, WorldView}};
 
 
 /* __________ START PUBLIC FUNCTIONS __________ */
@@ -103,11 +103,11 @@ pub async fn listener_task(socket_tx: mpsc::Sender<(TcpStream, SocketAddr)>) {
 /// - The function is dependant on [listener_task] to be running for the master-behavior to work as excpected.
 /// 
 pub async fn tcp_handler(
-    wv_watch_rx: watch::Receiver<Vec<u8>>, 
+    wv_watch_rx: watch::Receiver<WorldView>, 
     remove_container_tx: mpsc::Sender<u8>, 
-    container_tx: mpsc::Sender<Vec<u8>>, 
+    container_tx: mpsc::Sender<ElevatorContainer>, 
     connection_to_master_failed_tx: mpsc::Sender<bool>, 
-    sent_tcp_container_tx: mpsc::Sender<Vec<u8>>, 
+    sent_tcp_container_tx: mpsc::Sender<ElevatorContainer>, 
     mut socket_rx: mpsc::Receiver<(TcpStream, SocketAddr)>
 ) 
 {
@@ -140,7 +140,7 @@ pub async fn tcp_handler(
 
 /* __________ START PRIVATE FUNCTIONS __________ */
 
-async fn start_reading_from_slave(mut stream: TcpStream, remove_container_tx: mpsc::Sender<u8>, container_tx: mpsc::Sender<Vec<u8>>) {
+async fn start_reading_from_slave(mut stream: TcpStream, remove_container_tx: mpsc::Sender<u8>, container_tx: mpsc::Sender<ElevatorContainer>) {
 
     loop {
 
@@ -172,9 +172,15 @@ async fn start_reading_from_slave(mut stream: TcpStream, remove_container_tx: mp
 /// While the system is master on the network:
 /// - Recieve new TcpStreams on `socket_rx`.  
 /// - If a new TcpStream is recieved, it starts [TcpWatchdog::start_reading_from_slave] on the stream 
-async fn tcp_while_master(wv: &mut Vec<u8>, wv_watch_rx: watch::Receiver<Vec<u8>>, socket_rx: &mut mpsc::Receiver<(TcpStream, SocketAddr)>, remove_container_tx: mpsc::Sender<u8>, container_tx: mpsc::Sender<Vec<u8>>) {
+async fn tcp_while_master(
+    wv: &mut WorldView, 
+    wv_watch_rx: watch::Receiver<WorldView>, 
+    socket_rx: &mut mpsc::Receiver<(TcpStream, SocketAddr)>, 
+    remove_container_tx: mpsc::Sender<u8>, 
+    container_tx: mpsc::Sender<ElevatorContainer>
+) {
     /* While you are master */
-    while world_view::is_master(wv.clone()) {
+    while world_view::is_master(&wv) {
         /* Check if you are online */
         if network::read_network_status() {
             /* Revieve TCP-streams to newly connected slaves */
@@ -212,7 +218,12 @@ async fn tcp_while_master(wv: &mut Vec<u8>, wv_watch_rx: watch::Receiver<Vec<u8>
 /// While the system is a slave on the network and connection to the master is valid:
 /// - Send TCP message to the master
 /// - Check for new master on the system
-async fn tcp_while_slave(wv: &mut Vec<u8>, wv_watch_rx: watch::Receiver<Vec<u8>>, connection_to_master_failed_tx: mpsc::Sender<bool>, sent_tcp_container_tx: mpsc::Sender<Vec<u8>>) {
+async fn tcp_while_slave(
+    wv: &mut WorldView, 
+    wv_watch_rx: watch::Receiver<WorldView>, 
+    connection_to_master_failed_tx: mpsc::Sender<bool>, 
+    sent_tcp_container_tx: mpsc::Sender<ElevatorContainer>
+) {
     /* Try to connect with master over TCP */
     let mut master_accepted_tcp = false;
     let mut stream:Option<TcpStream> = None;
@@ -231,20 +242,20 @@ async fn tcp_while_slave(wv: &mut Vec<u8>, wv_watch_rx: watch::Receiver<Vec<u8>>
     let mut prev_master: u8;
     let mut new_master = false;
     /* While you are slave and tcp-connection to master is good */
-    while !world_view::is_master(wv.clone()) && master_accepted_tcp {
+    while !world_view::is_master(wv) && master_accepted_tcp {
         /* Check if you are online */
         if network::read_network_status() {
             if let Some(ref mut s) = stream {
                 /* Send TCP message to master */
-                send_tcp_message(connection_to_master_failed_tx.clone(), sent_tcp_container_tx.clone(), s, wv.clone()).await;
+                send_tcp_message(connection_to_master_failed_tx.clone(), sent_tcp_container_tx.clone(), s, wv).await;
                 if new_master {
                     print::slave(format!("New master on the network"));
                     master_accepted_tcp = false;
                     let _ = sleep(config::SLAVE_TIMEOUT);
                 }
-                prev_master = wv[config::MASTER_IDX];
+                prev_master = wv.master_id;
                 world_view::update_wv(wv_watch_rx.clone(), wv).await;
-                if prev_master != wv[config::MASTER_IDX] {
+                if prev_master != wv.master_id {
                     new_master = true;
                 }
                 tokio::time::sleep(config::TCP_PERIOD).await; 
@@ -272,13 +283,13 @@ async fn tcp_while_slave(wv: &mut Vec<u8>, wv_watch_rx: watch::Receiver<Vec<u8>>
 /// The functions tries to connect to the current master, based on the master_id in the worldview. 
 /// If the connection is successfull, it returns the stream, otherwise it returns None.
 /// If the connection failed, it sends a signal to the worldview updater over `connection_to_master_failed_tx` indicating that the connection failed.
-async fn connect_to_master(wv_watch_rx: watch::Receiver<Vec<u8>>) -> Option<TcpStream> {
+async fn connect_to_master(wv_watch_rx: watch::Receiver<WorldView>) -> Option<TcpStream> {
     let wv = world_view::get_wv(wv_watch_rx.clone());
 
     /* Check if we are online */
     if network::read_network_status() {
-        let master_ip = format!("{}.{}:{}", config::NETWORK_PREFIX, wv[config::MASTER_IDX], config::PN_PORT);
-        println!("Master id: {}", wv[config::MASTER_IDX]);
+        let master_ip = format!("{}.{}:{}", config::NETWORK_PREFIX, wv.master_id, config::PN_PORT);
+        println!("Master id: {}", wv.master_id);
         print::info(format!("Trying to connect to : {} in connect_to_master()", master_ip));
 
         let socket = match create_tcp_socket() {
@@ -342,7 +353,7 @@ async fn connect_to_master(wv_watch_rx: watch::Receiver<Vec<u8>>) -> Option<TcpS
 /// Based on the header it reads the message. If everything works without error, it returns the message.
 /// The function also asynchronously checks for loss of master status, and returns None if that is the case.
 ///  
-async fn read_from_stream(remove_container_tx: mpsc::Sender<u8>, stream: &mut TcpStream) -> Option<Vec<u8>> {
+async fn read_from_stream(remove_container_tx: mpsc::Sender<u8>, stream: &mut TcpStream) -> Option<ElevatorContainer> {
     let mut len_buf = [0u8; 2];
     tokio::select! {
         result = stream.read_exact(&mut len_buf) => {
@@ -368,8 +379,9 @@ async fn read_from_stream(remove_container_tx: mpsc::Sender<u8>, stream: &mut Tc
                             //TODO: ikke let _ = 
                             let _ =  stream.write_all(&[69]).await;
                             let _ = stream.flush().await;
-                        
-                            return Some(buffer)
+                            
+                            return world_view::serial::deserialize_elev_container(&buffer) 
+
                         },
                         Err(e) => {
                             print::err(format!("Error while reading from stream: {}", e));
@@ -417,7 +429,7 @@ async fn read_from_stream(remove_container_tx: mpsc::Sender<u8>, stream: &mut Tc
 /// - Length of the message
 /// - The message  
 /// After this, it flushes the stream, and sends the sent data over `ent_tcp_container_tx`. If writing to the stream fails, it signals on `connection_to_master_failed_tx`
-async fn send_tcp_message(connection_to_master_failed_tx: mpsc::Sender<bool>, sent_tcp_container_tx: mpsc::Sender<Vec<u8>>, stream: &mut TcpStream, wv: Vec<u8>) {
+async fn send_tcp_message(connection_to_master_failed_tx: mpsc::Sender<bool>, sent_tcp_container_tx: mpsc::Sender<ElevatorContainer>, stream: &mut TcpStream, wv: &WorldView) {
     let self_elev_container = match world_view::extract_self_elevator_container(wv) {
         Some(container) => container,
         None => {
@@ -426,7 +438,10 @@ async fn send_tcp_message(connection_to_master_failed_tx: mpsc::Sender<bool>, se
         }
     };
     
-    let self_elev_serialized = serial::serialize_elev_container(&self_elev_container);
+    let self_elev_serialized = match serial::serialize_elev_container(&self_elev_container) {
+        Some(elev) => elev,
+        None => return,
+    };
     
     /* Find number of bytes in the data to be sent */
     let len = (self_elev_serialized.len() as u16).to_be_bytes();    
@@ -442,7 +457,7 @@ async fn send_tcp_message(connection_to_master_failed_tx: mpsc::Sender<bool>, se
         let mut buf: [u8; 1] = [0];
         match stream.read_exact(&mut buf).await {
             Ok(_) => {
-                let _ = sent_tcp_container_tx.send(self_elev_serialized).await;
+                let _ = sent_tcp_container_tx.send(self_elev_container.clone()).await;
             },
             Err(e) => {
                 print::err(format!("Master did not ACK the message: {}", e));

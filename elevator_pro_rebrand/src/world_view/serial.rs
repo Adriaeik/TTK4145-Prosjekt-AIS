@@ -14,17 +14,17 @@ use crate::print;
 ///
 /// ## Returns
 /// - A `Vec<u8>` containing the serialized data.
-pub fn serialize_worldview(worldview: &WorldView) -> Vec<u8> {
+pub fn serialize_worldview(worldview: &WorldView) -> Option<Vec<u8>>{
     let encoded = bincode::serialize(worldview);
     match encoded {
         Ok(serialized_data) => {
             // Deserialisere WorldView fra binært format
-            return serialized_data;
+            return Some(serialized_data);
         }
         Err(e) => {
             println!("{:?}", worldview);
             print::err(format!("Serialization failed: {} (world_view.rs, serialize_worldview())", e));
-            panic!();
+            return None;
         }
     }
 }
@@ -39,7 +39,7 @@ pub fn serialize_worldview(worldview: &WorldView) -> Vec<u8> {
 ///
 /// ## Returns
 /// - A `WorldView` instance reconstructed from the binary data.
-pub fn deserialize_worldview(data: &[u8]) -> WorldView {
+pub fn deserialize_worldview(data: &[u8]) -> Option<WorldView> {
     let decoded = bincode::deserialize(data);
 
 
@@ -50,7 +50,7 @@ pub fn deserialize_worldview(data: &[u8]) -> WorldView {
         }
         Err(e) => {
             print::err(format!("Serialization failed: {} (world_view.rs, deserialize_worldview())", e));
-            panic!();
+            return None;
         }
     }
 }
@@ -65,16 +65,16 @@ pub fn deserialize_worldview(data: &[u8]) -> WorldView {
 ///
 /// ## Returns
 /// - A `Vec<u8>` containing the serialized data.
-pub fn serialize_elev_container(elev_container: &ElevatorContainer) -> Vec<u8> {
+pub fn serialize_elev_container(elev_container: &ElevatorContainer) -> Option<Vec<u8>> {
     let encoded = bincode::serialize(elev_container);
     match encoded {
         Ok(serialized_data) => {
             // Deserialisere WorldView fra binært format
-            return serialized_data;
+            return Some(serialized_data);
         }
         Err(e) => {
             print::err(format!("Serialization failed: {} (world_view.rs, serialize_elev_container())", e));
-            panic!();
+            return None;
         }
     }
 }
@@ -89,7 +89,7 @@ pub fn serialize_elev_container(elev_container: &ElevatorContainer) -> Vec<u8> {
 ///
 /// ## Returns
 /// - An `ElevatorContainer` instance reconstructed from the binary data.
-pub fn deserialize_elev_container(data: &[u8]) -> ElevatorContainer {
+pub fn deserialize_elev_container(data: &[u8]) -> Option<ElevatorContainer> {
     let decoded = bincode::deserialize(data);
 
 
@@ -100,7 +100,7 @@ pub fn deserialize_elev_container(data: &[u8]) -> ElevatorContainer {
         }
         Err(e) => {
             print::err(format!("Serialization failed: {} (world_view.rs, deserialize_elev_container())", e));
-            panic!();
+            return None
         }
     }
 }

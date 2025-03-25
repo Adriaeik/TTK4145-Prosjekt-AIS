@@ -31,15 +31,15 @@ use tokio::process::Command;
 /// let worldview_data: Vec<u8> = initialize_worldview().await;
 /// let worldview: worldview::WorldView = worldview::serial::deserialize_worldview(&worldview_data);
 /// ```
-pub async fn initialize_worldview(self_container : Option< world_view::ElevatorContainer>) -> Vec<u8> {
+pub async fn initialize_worldview(self_container : Option<&world_view::ElevatorContainer>) -> WorldView {
     let mut worldview = WorldView::default();
     
-    let mut elev_container = if let Some(container) = self_container {
-        container
+    let elev_container: &mut ElevatorContainer = if let Some(container) = self_container {
+        &mut container.to_owned()
     } else {
         // Opprett ein standard ElevatorContainer med ein initial placeholder-task
         let container = ElevatorContainer::default();
-        container
+        &mut container.clone()
     };
 
 
@@ -59,30 +59,29 @@ pub async fn initialize_worldview(self_container : Option< world_view::ElevatorC
     worldview.add_elev(elev_container.clone());
 
     // Listen for UDP messages for a short time to detect other elevators
-    let wv_from_udp = check_for_udp().await;
-    if wv_from_udp.is_empty() {
-        print::info("No other elevators detected on the network.".to_string());
-        return serial::serialize_worldview(&worldview);
-    }
-
-    // If other elevators are found, merge worldview and add the local elevator
-    let mut wv_from_udp_deser = serial::deserialize_worldview(&wv_from_udp);
+    let mut wv_from_udp = match check_for_udp().await {
+        Some(wv) => wv,
+        None => {
+            print::info("No other elevators detected on the network.".to_string());
+            return worldview
+        },
+    };
     
     // Check if the network has backed up any cab_requests from you, save them if that is the case
-    let saved_cab_requests: std::collections::HashMap<u8, Vec<bool>> = wv_from_udp_deser.cab_requests_backup.clone();
+    let saved_cab_requests: std::collections::HashMap<u8, Vec<bool>> = wv_from_udp.cab_requests_backup.clone();
     if let Some(saved_requests) = saved_cab_requests.get(&elev_container.elevator_id) {
         elev_container.cab_requests = saved_requests.clone();
     }
     // Add your elevator to the worldview
-    wv_from_udp_deser.add_elev(elev_container.clone());
+    wv_from_udp.add_elev(elev_container.clone());
 
     // Set self as master if the current master has a higher ID
-    if wv_from_udp_deser.master_id > network::read_self_id() {
-        wv_from_udp_deser.master_id = network::read_self_id();
+    if wv_from_udp.master_id > network::read_self_id() {
+        wv_from_udp.master_id = network::read_self_id();
     }
 
     // Serialize and return the updated worldview
-    serial::serialize_worldview(&wv_from_udp_deser)
+    wv_from_udp
 }
 
 
@@ -114,7 +113,7 @@ pub async fn initialize_worldview(self_container : Option< world_view::ElevatorC
 ///     println!("No UDP message received within 1 second.");
 /// }
 /// ```
-pub async fn check_for_udp() -> Vec<u8> {
+pub async fn check_for_udp() -> Option<WorldView> {
     // Construct the UDP broadcast listening address
     let broadcast_listen_addr = format!("{}:{}", config::BC_LISTEN_ADDR, config::DUMMY_PORT);
     let socket_addr: SocketAddr = broadcast_listen_addr.parse().expect("Invalid address");
@@ -186,7 +185,7 @@ pub async fn check_for_udp() -> Vec<u8> {
     drop(socket);
 
     // Return the parsed UDP message data
-    read_wv
+    world_view::serial::deserialize_worldview(&read_wv)
 }
 
 

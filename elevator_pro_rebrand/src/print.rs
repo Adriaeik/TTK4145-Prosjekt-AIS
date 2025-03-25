@@ -262,7 +262,10 @@ pub fn worldview(worldview: Vec<u8>) {
         return;
     }
 
-    let wv_deser = serial::deserialize_worldview(&worldview);
+    let wv_deser = match serial::deserialize_worldview(&worldview) {
+        Some(wv) => wv,
+        None => return,
+    };
 
     // Overskrift
     println!("{}", Purple.bold().paint("┌────────────────────────────────┐"));

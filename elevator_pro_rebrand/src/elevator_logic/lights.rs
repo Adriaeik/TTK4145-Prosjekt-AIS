@@ -22,7 +22,7 @@
 //! # Related
 //! See [`world_view`] for worldview structure and serialization logic.
 
-use crate::{elevio::elev::Elevator, world_view};
+use crate::{elevio::elev::Elevator, world_view::{self, WorldView}};
 
 
 /// Sets all hall lights
@@ -37,10 +37,8 @@ use crate::{elevio::elev::Elevator, world_view};
 /// 
 /// ## Note
 /// The function only sets the lights once per call, and needs to be recalled every time the lights needs to be updated
-pub fn set_hall_lights(wv: Vec<u8>, e: Elevator) {
-    let wv_deser = world_view::serial::deserialize_worldview(&wv);
-
-    for (i, [up, down]) in wv_deser.hall_request.iter().enumerate() {
+pub fn set_hall_lights(wv: &WorldView, e: Elevator) {
+    for (i, [up, down]) in wv.hall_request.iter().enumerate() {
         let floor = i as u8;
         if floor > e.num_floors {
             break;

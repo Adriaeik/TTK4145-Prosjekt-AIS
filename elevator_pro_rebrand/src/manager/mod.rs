@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use tokio::{sync::{mpsc, watch}, time::sleep};
-use crate::{config, world_view};
+use crate::{config, world_view::{self, WorldView}};
 use crate::print;
 mod json_serial;
 
@@ -21,7 +21,7 @@ mod json_serial;
 /// - `wv_watch_rx`: A watch channel providing updates to the shared world view state.
 /// - `delegated_tasks_tx`: A channel used to send the delegated hall tasks to other modules.
 pub async fn start_manager(
-    wv_watch_rx: watch::Receiver<Vec<u8>>, 
+    wv_watch_rx: watch::Receiver<WorldView>, 
     delegated_tasks_tx: mpsc::Sender<HashMap<u8, Vec<[bool; 2]>>>
 ) {
     let mut wv = world_view::get_wv(wv_watch_rx.clone());
@@ -30,9 +30,9 @@ pub async fn start_manager(
         // Update local copy of the world view
         if world_view::update_wv(wv_watch_rx.clone(), &mut wv).await {
             // Check if this node is the master
-            if world_view::is_master(wv.clone()) {
+            if world_view::is_master(&wv) {
                 // Calculate and send out delegated hall requests
-                let _ = delegated_tasks_tx.send(get_elev_tasks(wv.clone()).await).await;
+                let _ = delegated_tasks_tx.send(get_elev_tasks(&wv).await).await;
             } else {
                 // If not master, wait before checking again
                 sleep(config::SLAVE_TIMEOUT).await;
@@ -62,7 +62,7 @@ pub async fn start_manager(
 /// Returns:
 /// - A `HashMap` where each key is an elevator ID (`u8`), and each value is a list of `[bool; 2]` 
 ///   arrays indicating hall call assignments (up/down).
-async fn get_elev_tasks(wv: Vec<u8>) -> HashMap<u8, Vec<[bool; 2]>> {
+async fn get_elev_tasks(wv: &WorldView) -> HashMap<u8, Vec<[bool; 2]>> {
     let json_str = json_serial::create_hall_request_json(wv).await;
 
     if let Some(str) = json_str {

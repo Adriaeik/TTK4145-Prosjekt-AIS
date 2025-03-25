@@ -5,7 +5,7 @@ use std::fs::File;
 use std::io::Write;
 // Library for executing terminal commands
 use tokio::process::Command;
-use crate::{config, world_view::{self, ElevatorBehaviour}};
+use crate::{config, world_view::{self, ElevatorBehaviour, WorldView}};
 
 #[allow(non_snake_case)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -44,12 +44,9 @@ pub async fn run_cost_algorithm(json_str: String) -> String {
 }
 
 /// This function creates the input to the cost function algorithm based on the worldview
-pub async fn create_hall_request_json(wv: Vec<u8>) -> Option<String> {
-    let wv_deser = world_view::serial::deserialize_worldview(&wv);
-
-
+pub async fn create_hall_request_json(wv: &WorldView) -> Option<String> {
     let mut states = HashMap::new();
-    for elev in wv_deser.elevator_containers.iter() {
+    for elev in wv.elevator_containers.iter() {
         let key = elev.elevator_id.to_string();
         if elev.behaviour != ElevatorBehaviour::Error {
             states.insert(
@@ -79,7 +76,7 @@ pub async fn create_hall_request_json(wv: Vec<u8>) -> Option<String> {
         return None
     }
     let request = HallRequests {
-        hallRequests: wv_deser.hall_request,
+        hallRequests: wv.hall_request.clone(),
         states,
     };
 

@@ -29,7 +29,7 @@ pub enum ElevatorBehaviour {
 
 
 /// Represents the state of an elevator, including tasks, status indicators, and movement.
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct ElevatorContainer {
     /// Unique identifier for the elevator.  
     /// Default: [config::ERROR_ID]
@@ -95,7 +95,7 @@ impl Default for ElevatorContainer {
 ///
 /// `WorldView` contains an overview of all elevators in the system, 
 /// the master elevator's ID, and the call buttons pressed outside the elevators.
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct WorldView {
     /// Number of elevators in the system.
     n: u8, 
@@ -194,10 +194,9 @@ impl WorldView {
 /// ## Returns
 /// - `Some(usize)`: The index of the `ElevatorContainer` in the `WorldView` if found.
 /// - `None`: If no elevator with the given `id` exists.
-pub fn get_index_to_container(id: u8, wv: Vec<u8>) -> Option<usize> {
-    let wv_deser = serial::deserialize_worldview(&wv);
-    for i in 0..wv_deser.get_num_elev() {
-        if wv_deser.elevator_containers[i as usize].elevator_id == id {
+pub fn get_index_to_container(id: u8, wv: &WorldView) -> Option<usize> {
+    for i in 0..wv.get_num_elev() {
+        if wv.elevator_containers[i as usize].elevator_id == id {
             return Some(i as usize);
         }
     }
@@ -229,7 +228,7 @@ pub fn get_index_to_container(id: u8, wv: Vec<u8>) -> Option<usize> {
 /// ```
 ///
 /// **Note:** This function clones the current state of `wv`, so any future changes to `wv` will not affect the returned vector.
-pub fn get_wv(wv_watch_rx: watch::Receiver<Vec<u8>>) -> Vec<u8> {
+pub fn get_wv(wv_watch_rx: watch::Receiver<WorldView>) -> WorldView {
     wv_watch_rx.borrow().clone()
 }
 
@@ -271,7 +270,7 @@ pub fn get_wv(wv_watch_rx: watch::Receiver<Vec<u8>>) -> Vec<u8> {
 /// ## Notes
 /// - This function is asynchronous and requires an async runtime, such as Tokio, to execute.
 /// - The `LocalChannels` channels allow for thread-safe communication across threads.
-pub async fn update_wv(wv_watch_rx: watch::Receiver<Vec<u8>>, wv: &mut Vec<u8>) -> bool {
+pub async fn update_wv(wv_watch_rx: watch::Receiver<WorldView>, wv: &mut WorldView) -> bool {
     let new_wv = wv_watch_rx.borrow().clone();  // Clone the latest data
     if new_wv != *wv {  // Check if the data has changed compared to the current state
         *wv = new_wv;  // Update the worldview if it has changed
@@ -288,8 +287,8 @@ pub async fn update_wv(wv_watch_rx: watch::Receiver<Vec<u8>>, wv: &mut Vec<u8>) 
 /// ## Returns
 /// - `true` if the current system's `SELF_ID` matches the value at `MASTER_IDX` in the worldview.
 /// - `false` otherwise.
-pub fn is_master(wv: Vec<u8>) -> bool {
-    return network::read_self_id() == wv[config::MASTER_IDX];
+pub fn is_master(wv: &WorldView) -> bool {
+    return network::read_self_id() == wv.master_id;
 }
 
 
@@ -308,11 +307,8 @@ pub fn is_master(wv: Vec<u8>) -> bool {
 ///
 /// ## Note
 /// If multiple containers have the same `id`, only the first match is returned.
-pub fn extract_elevator_container(wv: Vec<u8>, id: u8) -> Option<ElevatorContainer> {
-    let mut deser_wv = serial::deserialize_worldview(&wv);
-
-    deser_wv.elevator_containers.retain(|elevator| elevator.elevator_id == id);
-    deser_wv.elevator_containers.get(0).cloned()
+pub fn extract_elevator_container(wv: &WorldView, id: u8) -> Option<&ElevatorContainer> {
+    wv.elevator_containers.iter().find(|elevator| elevator.elevator_id == id)
 }
 
 /// Retrieves a clone of the `ElevatorContainer` with `SELF_ID` from the latest worldview.
@@ -328,7 +324,7 @@ pub fn extract_elevator_container(wv: Vec<u8>, id: u8) -> Option<ElevatorContain
 /// - A clone of the `ElevatorContainer` associated with `SELF_ID`.
 ///
 /// **Note:** This function internally calls `extract_elevator_container` to retrieve the correct elevator container.
-pub fn extract_self_elevator_container(wv: Vec<u8>) -> Option<ElevatorContainer> {
+pub fn extract_self_elevator_container(wv: &WorldView) -> Option<&ElevatorContainer> {
     let id = network::read_self_id();
     extract_elevator_container(wv, id)
 }

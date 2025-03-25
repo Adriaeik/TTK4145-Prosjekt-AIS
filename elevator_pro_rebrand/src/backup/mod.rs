@@ -1,5 +1,5 @@
 use std::env;
-use std::net::SocketAddr;
+use std::net::ToSocketAddrs;
 use std::process::Command;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::io::{self, Write};
@@ -9,6 +9,7 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::sync::watch;
 use tokio::time::{sleep, Duration, timeout};
 
+use crate::world_view::WorldView;
 use crate::{config, init, world_view};
 use crate::print;
 
@@ -17,9 +18,17 @@ static BACKUP_STARTED: AtomicBool = AtomicBool::new(false);
 
 /// Creates a non blocking TCP listener with reusable address
 fn create_reusable_listener(port: u16) -> TcpListener {
-    let addr: SocketAddr = format!("0.0.0.0:{}", port)
-        .parse()
-        .expect("Invalid address");
+    let addr_str = format!("localhost:{}", port);
+    // Resolve alle mulige adresser til "localhost"
+    let addr_iter = addr_str
+        .to_socket_addrs()
+        .expect("Klarte ikkje resolve 'localhost'");
+
+    // Prøv første IPv4-adresse
+    let addr = addr_iter
+        .filter(|a| a.is_ipv4())
+        .next()
+        .expect("Fann ingen IPv4-adresse for localhost");
     let socket = Socket::new(Domain::IPV4, Type::STREAM, Some(Protocol::TCP))
         .expect("Couldnt create socket");
     socket.set_nonblocking(true)
@@ -51,9 +60,13 @@ fn start_backup_terminal() {
 
 /// Handles backup clients: Sends worldview continously
 /// TODO: send litt raskere enn en gang i sekundet
-async fn handle_backup_client(mut stream: TcpStream, rx: watch::Receiver<Vec<u8>>) {
+async fn handle_backup_client(mut stream: TcpStream, rx: watch::Receiver<WorldView>) {
     loop {
         let wv = rx.borrow().clone();
+
+        let wv_serial = world_view::serial::serialize_worldview(&wv)
+
+
         if let Err(e) = stream.write_all(&wv).await {
             print::err(format!("Backup send error: {}", e));
             print::warn(format!("Trying again in {:?}", config::BACKUP_TIMEOUT));
@@ -78,7 +91,7 @@ async fn handle_backup_client(mut stream: TcpStream, rx: watch::Receiver<Vec<u8>
 /// 
 /// ## Note
 /// This function is permanently blocking, and should be ran asynchronously 
-pub async fn start_backup_server(wv_watch_rx: watch::Receiver<Vec<u8>>) {
+pub async fn start_backup_server(wv_watch_rx: watch::Receiver<WorldView>) {
     println!("Backup-server starting...");
     
     let listener = create_reusable_listener(config::BCU_PORT);
@@ -115,7 +128,7 @@ pub async fn run_as_backup() -> Option<world_view::ElevatorContainer> {
     loop {
         match timeout(
             config::MASTER_TIMEOUT,
-            TcpStream::connect(format!("127.0.0.1:{}", config::BCU_PORT))
+            TcpStream::connect(format!("localhost:{}", config::BCU_PORT))
         ).await {
             Ok(Ok(mut stream)) => {
                 retries = 0;

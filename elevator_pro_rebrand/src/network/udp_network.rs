@@ -6,6 +6,7 @@ use crate::network::get_self_ip;
 use crate::print;
 use crate::print::worldview;
 use crate::world_view;
+use crate::world_view::WorldView;
 
 use std::net::SocketAddr;
 use std::sync::atomic::Ordering;
@@ -40,7 +41,7 @@ pub fn get_udp_timeout() -> &'static AtomicBool {
 /// 
 /// ## Note
 /// This function is permanently blocking, and should be called asynchronously
-pub async fn start_udp_broadcaster(wv_watch_rx: watch::Receiver<Vec<u8>>) -> tokio::io::Result<()> {
+pub async fn start_udp_broadcaster(wv_watch_rx: watch::Receiver<WorldView>) -> tokio::io::Result<()> {
     while !network::read_network_status() {
         
     }
@@ -66,7 +67,7 @@ pub async fn start_udp_broadcaster(wv_watch_rx: watch::Receiver<Vec<u8>>) -> tok
         world_view::update_wv(wv_watch_rx_clone, &mut wv).await;
         // Hvis du er master, broadcast worldview
         // If you currently are master on the network
-        if network::read_self_id() == wv[config::MASTER_IDX] {
+        if network::read_self_id() == wv.master_id {
             sleep(config::UDP_PERIOD);
             let mesage = format!("{:?}{:?}", config::KEY_STR, wv).to_string();
 
@@ -108,7 +109,11 @@ pub async fn start_udp_broadcaster(wv_watch_rx: watch::Receiver<Vec<u8>>) -> tok
 /// 
 /// ## Note
 /// This function is permanently blocking, and should be called asynchronously 
-pub async fn start_udp_listener(wv_watch_rx: watch::Receiver<Vec<u8>>, udp_wv_tx: mpsc::Sender<Vec<u8>>) -> tokio::io::Result<()> {
+pub async fn start_udp_listener(
+    wv_watch_rx: watch::Receiver<WorldView>, 
+    udp_wv_tx: mpsc::Sender<WorldView>
+) -> tokio::io::Result<()> 
+{
     while !network::read_network_status() {
         
     }
@@ -124,12 +129,10 @@ pub async fn start_udp_listener(wv_watch_rx: watch::Receiver<Vec<u8>>, udp_wv_tx
     socket_temp.bind(&socket_addr.into())?;
     let socket = UdpSocket::from_std(socket_temp.into())?;
     let mut buf = [0; config::UDP_BUFFER];
-    let mut read_wv: Vec<u8>;
+    let mut read_wv_serial: Vec<u8>;
     
     let mut message: Cow<'_, str>;
     let mut my_wv = world_view::get_wv(wv_watch_rx.clone());
-
-    let mut ignore_counter: i32 = 0;
 
     loop {
         // Read message on UDP-broadcast address
@@ -148,31 +151,21 @@ pub async fn start_udp_listener(wv_watch_rx: watch::Receiver<Vec<u8>>, udp_wv_tx
         }
         else if &message[1..config::KEY_STR.len()+1] == config::KEY_STR{ //Plus one, since serialisation of the string includes the '"'-sign
             let clean_message = &message[config::KEY_STR.len()+3..message.len()-1]; // Removes `"`
-            read_wv = clean_message
+            read_wv_serial = clean_message
             .split(", ") // Split on ", "
             .filter_map(|s| s.parse::<u8>().ok()) // Convert to u8
             .collect(); // Collect to an Vec<u8>
-
-
-            // Sjekk om self_id finst i meldinga
-            match world_view::extract_self_elevator_container(read_wv.clone()) {
-                Some(cont) => {
-                    if ignore_counter > 0 {
-                        ignore_counter = ignore_counter.saturating_sub(1);
-                    }
-                    // println!("container id: {}", cont.elevator_id);
-                },
-                None => {
-                    // ignore_counter += 1;
-                }
-            }
+        
+            let read_wv = match world_view::serial::deserialize_worldview(&read_wv_serial) {
+                Some(wv) => wv,
+                None => continue,
+            };
             
-            // print::warn(format!("ignore count:: {}", ignore_counter));
 
             // Oppdater lokal worldview
             world_view::update_wv(wv_watch_rx.clone(), &mut my_wv).await;
 
-            if read_wv[config::MASTER_IDX] != my_wv[config::MASTER_IDX] {
+            if read_wv.master_id != my_wv.master_id {
                 // Ignorer
             } else {
                 // Meldinga kjem frå master → restart watchdog
@@ -180,9 +173,8 @@ pub async fn start_udp_listener(wv_watch_rx: watch::Receiver<Vec<u8>>, udp_wv_tx
             }
 
             // Send vidare om meldinga kjem frå master eller lågare ID, og me er ikkje master
-            if my_wv[config::MASTER_IDX] >= read_wv[config::MASTER_IDX]
-                && self_id != read_wv[config::MASTER_IDX]
-                && ignore_counter < 100
+            if my_wv.master_id >= read_wv.master_id
+                && self_id != read_wv.master_id
             {
                 my_wv = read_wv;
                 let _ = udp_wv_tx.send(my_wv.clone()).await;

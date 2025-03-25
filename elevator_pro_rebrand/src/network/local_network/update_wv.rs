@@ -1,15 +1,11 @@
-use crate::world_view::{self, serial, ElevatorContainer, Dirn, ElevatorBehaviour};
+use crate::world_view::{self, serial, Dirn, ElevatorBehaviour, ElevatorContainer, WorldView};
 use crate::print;
 use crate::network;
 
 use std::collections::HashMap;
 
 
-/// Calls join_wv. See [join_wv]
-pub fn join_wv_from_udp(wv: &mut Vec<u8>, master_wv: Vec<u8>) -> bool {
-    *wv = join_wv(wv.clone(), master_wv);
-    true
-}
+
 
 /// Merges the local worldview with the master worldview received over UDP.
 ///
@@ -30,18 +26,14 @@ pub fn join_wv_from_udp(wv: &mut Vec<u8>, master_wv: Vec<u8>) -> bool {
 /// - Updates `calls` and `tasks_status` with local data.
 /// - Ensures that `tasks_status` retains only tasks present in `tasks`.
 /// - If the local elevator is missing in `master_wv`, it is added to `master_wv`.
-pub fn join_wv(mut my_wv: Vec<u8>, master_wv: Vec<u8>) -> Vec<u8> {
-    let my_wv_deserialised = serial::deserialize_worldview(&my_wv);
-    let mut master_wv_deserialised = serial::deserialize_worldview(&master_wv);
-    
-    
+pub fn join_wv_from_udp(my_wv: &mut WorldView, master_wv: &mut WorldView) -> bool {
     let my_self_index = world_view::get_index_to_container(network::read_self_id() , my_wv);
     let master_self_index = world_view::get_index_to_container(network::read_self_id() , master_wv);
     
     
     if let (Some(i_org), Some(i_new)) = (my_self_index, master_self_index) {
-        let my_view = &my_wv_deserialised.elevator_containers[i_org];
-        let master_view = &mut master_wv_deserialised.elevator_containers[i_new];
+        let my_view = &my_wv.elevator_containers[i_org];
+        let master_view = &mut master_wv.elevator_containers[i_new];
         
         
         
@@ -56,11 +48,11 @@ pub fn join_wv(mut my_wv: Vec<u8>, master_wv: Vec<u8>) -> Vec<u8> {
 
     } else if let Some(i_org) = my_self_index {
         // If the local elevator is missing in master_wv, add it
-        master_wv_deserialised.add_elev(my_wv_deserialised.elevator_containers[i_org].clone());
+        master_wv.add_elev(my_wv.elevator_containers[i_org].clone());
     }
 
-    my_wv = serial::serialize_worldview(&master_wv_deserialised);
-    my_wv 
+    *my_wv = master_wv.clone();
+    true
 }
 
 /// ### 'Leaves' the network, removes all elevators that are not the current one
@@ -83,14 +75,12 @@ pub fn join_wv(mut my_wv: Vec<u8>, master_wv: Vec<u8>) -> Vec<u8> {
 /// let mut worldview = vec![/* some serialized data */];
 /// abort_network(&mut worldview);
 /// ```
-pub fn abort_network(wv: &mut Vec<u8>) -> bool {
-    let mut deserialized_wv = serial::deserialize_worldview(wv);
-    deserialized_wv.elevator_containers.retain(|elevator| elevator.elevator_id == network::read_self_id());
-    deserialized_wv.set_num_elev(deserialized_wv.elevator_containers.len() as u8);
-    deserialized_wv.master_id = network::read_self_id();
+pub fn abort_network(wv: &mut WorldView) -> bool {
+    wv.elevator_containers.retain(|elevator| elevator.elevator_id == network::read_self_id());
+    wv.set_num_elev(wv.elevator_containers.len() as u8);
+    wv.master_id = network::read_self_id();
     //TODO hent ut self index istedenfor 0 indeks
-    deserialized_wv.hall_request = merge_hall_requests(&deserialized_wv.hall_request, &deserialized_wv.elevator_containers[0].tasks);
-    *wv = serial::serialize_worldview(&deserialized_wv);
+    wv.hall_request = merge_hall_requests(&wv.hall_request, &wv.elevator_containers[0].tasks);
     true
 }
 
@@ -119,20 +109,18 @@ pub fn abort_network(wv: &mut Vec<u8>) -> bool {
 /// let container = vec![/* some serialized elevator data */];
 /// join_wv_from_tcp_container(&mut worldview, container).await;
 /// ```
-pub async fn join_wv_from_tcp_container(wv: &mut Vec<u8>, container: Vec<u8>) -> bool {
-    let deser_container = serial::deserialize_elev_container(&container);
-    let mut deserialized_wv = serial::deserialize_worldview(&wv);
+pub async fn join_wv_from_tcp_container(wv: &mut WorldView, container: &ElevatorContainer) -> bool {
 
     // If the slave does not exist, add it as-is
-    if None == deserialized_wv.elevator_containers.iter().position(|x| x.elevator_id == deser_container.elevator_id) {
-        deserialized_wv.add_elev(deser_container.clone());
+    if None == wv.elevator_containers.iter().position(|x| x.elevator_id == container.elevator_id) {
+        wv.add_elev(container.clone());
     }
 
-    let self_idx = world_view::get_index_to_container(deser_container.elevator_id, serial::serialize_worldview(&deserialized_wv));
+    let self_idx = world_view::get_index_to_container(container.elevator_id, &wv);
     
     if let Some(i) = self_idx {
         // Add the slave's sent hall_requests to worldview's hall_requests
-        for (row1, row2) in deserialized_wv.hall_request.iter_mut().zip(deser_container.unsent_hall_request.iter()) {
+        for (row1, row2) in wv.hall_request.iter_mut().zip(container.unsent_hall_request.iter()) {
             for (val1, val2) in row1.iter_mut().zip(row2.iter()) {
                 if !*val1 && *val2 {
                     *val1 = true;
@@ -140,34 +128,33 @@ pub async fn join_wv_from_tcp_container(wv: &mut Vec<u8>, container: Vec<u8>) ->
             }
         }
         
-        if world_view::is_master(wv.clone()) {
-            deserialized_wv.elevator_containers[i].unsent_hall_request = vec![[false; 2]; deserialized_wv.elevator_containers[i].num_floors as usize];
+        if world_view::is_master(wv) {
+            wv.elevator_containers[i].unsent_hall_request = vec![[false; 2]; wv.elevator_containers[i].num_floors as usize];
         }
 
         //Update statuses
-        deserialized_wv.elevator_containers[i].cab_requests = deser_container.cab_requests;
-        deserialized_wv.elevator_containers[i].elevator_id = deser_container.elevator_id;
-        deserialized_wv.elevator_containers[i].last_floor_sensor = deser_container.last_floor_sensor;
-        deserialized_wv.elevator_containers[i].num_floors = deser_container.num_floors;
-        deserialized_wv.elevator_containers[i].obstruction = deser_container.obstruction;
-        deserialized_wv.elevator_containers[i].dirn = deser_container.dirn;
-        deserialized_wv.elevator_containers[i].behaviour = deser_container.behaviour;
+        wv.elevator_containers[i].cab_requests = container.cab_requests.clone();
+        wv.elevator_containers[i].elevator_id = container.elevator_id;
+        wv.elevator_containers[i].last_floor_sensor = container.last_floor_sensor;
+        wv.elevator_containers[i].num_floors = container.num_floors;
+        wv.elevator_containers[i].obstruction = container.obstruction;
+        wv.elevator_containers[i].dirn = container.dirn;
+        wv.elevator_containers[i].behaviour = container.behaviour;
 
         //Remove taken hall_requests
-        for (idx, [up, down]) in deserialized_wv.hall_request.iter_mut().enumerate() {
-            if (deserialized_wv.elevator_containers[i].behaviour == ElevatorBehaviour::DoorOpen) && (deserialized_wv.elevator_containers[i].last_floor_sensor == (idx as u8)) {
-                if deserialized_wv.elevator_containers[i].dirn == Dirn::Up {
+        for (idx, [up, down]) in wv.hall_request.iter_mut().enumerate() {
+            if (wv.elevator_containers[i].behaviour == ElevatorBehaviour::DoorOpen) && (wv.elevator_containers[i].last_floor_sensor == (idx as u8)) {
+                if wv.elevator_containers[i].dirn == Dirn::Up {
                     *up = false;
-                } else if deserialized_wv.elevator_containers[i].dirn == Dirn::Down {
+                } else if wv.elevator_containers[i].dirn == Dirn::Down {
                     *down = false;
                 }
             }
         }
 
         // Back up the cab requests
-        update_cab_request_backup(&mut deserialized_wv.cab_requests_backup, deserialized_wv.elevator_containers[i].clone());
+        update_cab_request_backup(&mut wv.cab_requests_backup, wv.elevator_containers[i].clone());
 
-        *wv = serial::serialize_worldview(&deserialized_wv);
         return true;
     } else {
         // If this is printed, the slave does not exist in the worldview. This is theoretically impossible, as the slave is added to the worldview just before this if it does not already exist.
@@ -198,10 +185,8 @@ pub async fn join_wv_from_tcp_container(wv: &mut Vec<u8>, container: Vec<u8>) ->
 /// let elevator_id = 2;
 /// remove_container(&mut worldview, elevator_id);
 /// ```
-pub fn remove_container(wv: &mut Vec<u8>, id: u8) -> bool {
-    let mut deserialized_wv = serial::deserialize_worldview(&wv);
-    deserialized_wv.remove_elev(id);
-    *wv = serial::serialize_worldview(&deserialized_wv);
+pub fn remove_container(wv: &mut WorldView, id: u8) -> bool {
+    wv.remove_elev(id);
     true
 }
 
@@ -228,25 +213,20 @@ pub fn remove_container(wv: &mut Vec<u8>, id: u8) -> bool {
 /// let tcp_container = vec![/* some serialized container data */];
 /// clear_from_sent_tcp(&mut worldview, tcp_container);
 /// ```
-pub fn clear_from_sent_tcp(wv: &mut Vec<u8>, tcp_container: Vec<u8>) -> bool {
-    let mut deserialized_wv = serial::deserialize_worldview(&wv);
-    let self_idx = world_view::get_index_to_container(network::read_self_id() , wv.clone());
-    let tcp_container_des = serial::deserialize_elev_container(&tcp_container);
+pub fn clear_from_sent_tcp(wv: &mut WorldView, tcp_container: ElevatorContainer) -> bool {
+    let self_idx = world_view::get_index_to_container(network::read_self_id() , &wv);
     
     if let Some(i) = self_idx {
         /*_____ Remove sent Hall request _____ */
    
-        for (row1, row2) in deserialized_wv.elevator_containers[i].unsent_hall_request
-                                                        .iter_mut().zip(tcp_container_des.unsent_hall_request.iter()) {
+        for (row1, row2) in wv.elevator_containers[i].unsent_hall_request
+                                                        .iter_mut().zip(tcp_container.unsent_hall_request.iter()) {
             for (val1, val2) in row1.iter_mut().zip(row2.iter()) {
                 if *val1 && *val2 {
                     *val1 = false;
                 }
             }
         }
-
-
-        *wv = serial::serialize_worldview(&deserialized_wv);
         return true;
     } else {
         // If this is printed, you do not exist in your worldview
@@ -267,38 +247,29 @@ pub fn clear_from_sent_tcp(wv: &mut Vec<u8>, tcp_container: Vec<u8>) -> bool {
 /// # Return
 /// true
 /// 
-pub fn distribute_tasks(wv: &mut Vec<u8>, map: HashMap<u8, Vec<[bool; 2]>>) -> bool {
-    let mut wv_deser = world_view::serial::deserialize_worldview(&wv.clone());
-
-    for elev in wv_deser.elevator_containers.iter_mut() {
+pub fn distribute_tasks(wv: &mut WorldView, map: HashMap<u8, Vec<[bool; 2]>>) -> bool {
+    for elev in wv.elevator_containers.iter_mut() {
         if let Some(tasks) = map.get(&elev.elevator_id) {
             elev.tasks = tasks.clone();
         }
     }
-
-    *wv = world_view::serial::serialize_worldview(&wv_deser);
 
     true
 }
 
 
 /// Updates states to the elevator in wv with same ID as container 
-pub fn update_elev_states(wv: &mut Vec<u8>, container: Vec<u8>) -> bool {
-    let mut wv_deser = world_view::serial::deserialize_worldview(&wv.clone());
-    let container_deser = world_view::serial::deserialize_elev_container(&container);
-
-    let idx = world_view::get_index_to_container(container_deser.elevator_id, wv.clone());
+pub fn update_elev_states(wv: &mut WorldView, container: ElevatorContainer) -> bool {
+    let idx = world_view::get_index_to_container(container.elevator_id, wv);
 
     if let Some(i) = idx {
-        wv_deser.elevator_containers[i].cab_requests = container_deser.cab_requests;
-        wv_deser.elevator_containers[i].dirn = container_deser.dirn;
-        wv_deser.elevator_containers[i].obstruction = container_deser.obstruction;
-        wv_deser.elevator_containers[i].behaviour = container_deser.behaviour;
-        wv_deser.elevator_containers[i].last_floor_sensor = container_deser.last_floor_sensor;
-        wv_deser.elevator_containers[i].unsent_hall_request = container_deser.unsent_hall_request;
+        wv.elevator_containers[i].cab_requests = container.cab_requests;
+        wv.elevator_containers[i].dirn = container.dirn;
+        wv.elevator_containers[i].obstruction = container.obstruction;
+        wv.elevator_containers[i].behaviour = container.behaviour;
+        wv.elevator_containers[i].last_floor_sensor = container.last_floor_sensor;
+        wv.elevator_containers[i].unsent_hall_request = container.unsent_hall_request;
     }
-
-    *wv = world_view::serial::serialize_worldview(&wv_deser);
     true
 }
 
@@ -323,18 +294,15 @@ fn update_cab_request_backup(backup: &mut HashMap<u8, Vec<bool>>, container: Ele
 /// # Parameters
 /// `my_wv`: Mutable reference to the local worldview
 /// `read_wv`: Reference to the networks worldview
-pub fn merge_wv_after_offline(my_wv: &mut Vec<u8>, read_wv: &Vec<u8>) {
-    let my_wv_deser = world_view::serial::deserialize_worldview(&my_wv);
-    let mut read_wv_deser = world_view::serial::deserialize_worldview(&read_wv);
-
+pub fn merge_wv_after_offline(my_wv: &mut WorldView, read_wv: &mut WorldView) {
     /* If you become the new master on the system */
-    if my_wv_deser.master_id < read_wv_deser.master_id {
-        read_wv_deser.hall_request = merge_hall_requests(&read_wv_deser.hall_request, &my_wv_deser.hall_request);
-        read_wv_deser.master_id = my_wv_deser.master_id;
-        let my_wv_elevs: Vec<ElevatorContainer> = my_wv_deser.elevator_containers;
+    if my_wv.master_id < read_wv.master_id {
+        read_wv.hall_request = merge_hall_requests(&read_wv.hall_request, &my_wv.hall_request);
+        read_wv.master_id = my_wv.master_id;
+        let my_wv_elevs: Vec<ElevatorContainer> = my_wv.elevator_containers.clone();
 
         /* Map the IDs in the networks worldview */
-        let existing_ids: std::collections::HashSet<u8> = read_wv_deser
+        let existing_ids: std::collections::HashSet<u8> = read_wv
             .elevator_containers
             .iter()
             .map(|e| e.elevator_id)
@@ -343,15 +311,15 @@ pub fn merge_wv_after_offline(my_wv: &mut Vec<u8>, read_wv: &Vec<u8>) {
         /* Add elevators you had which the network didnt know about (yourself) */
         for elev in my_wv_elevs {
             if !existing_ids.contains(&elev.elevator_id) {
-                read_wv_deser.elevator_containers.push(elev);
+                read_wv.elevator_containers.push(elev);
             }
         }
 
     } else {
-        read_wv_deser.hall_request = merge_hall_requests(&read_wv_deser.hall_request, &my_wv_deser.hall_request);
+        read_wv.hall_request = merge_hall_requests(&read_wv.hall_request, &my_wv.hall_request);
     }
 
-    *my_wv = world_view::serial::serialize_worldview(&read_wv_deser);
+    *my_wv = read_wv.clone();
 }
 
 /// Function to merge hall requests
