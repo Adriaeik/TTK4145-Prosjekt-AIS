@@ -163,6 +163,7 @@ async fn on_door_timeout(elevator: &mut ElevatorContainer, e: Elevator) {
             match elevator.behaviour {
                 ElevatorBehaviour::DoorOpen => {
                     request::clear_at_current_floor(elevator);
+                    lights::set_door_open_light(e);
                 }
                 _ => {
                     lights::clear_door_open_light(e.clone());

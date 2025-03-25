@@ -52,3 +52,13 @@ Ein god gitter pusher alltid ✅
 - den fjerener for fort når det er i samme etasje
 
 DET VIRKER SOM Å PRINTE BACKUP SAKTARE FIKSA VELDIG MYKJE!!??
+
+
+
+setter door_open light når den ankommer en etasje -> om den får en call i en etasje den er i så blir ikke lyset satt. virker som døra er oppe riktig, så bare sett / clear door light hele tida (samtidig som hall lights osv)
+
+Se på timeout (fjerne cab_call_timer?)
+
+Rydde i config
+
+Fortsatt lit doc
