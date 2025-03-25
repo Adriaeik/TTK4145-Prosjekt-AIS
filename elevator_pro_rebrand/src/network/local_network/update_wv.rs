@@ -1,3 +1,6 @@
+//! This module contains helper functoins for updating the worldview.
+//! The module is private, and can only be accesed from the local_network module
+
 use crate::world_view::{self, Dirn, ElevatorBehaviour, ElevatorContainer, WorldView};
 use crate::print;
 use crate::network;

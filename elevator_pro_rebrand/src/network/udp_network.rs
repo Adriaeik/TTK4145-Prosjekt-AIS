@@ -1,4 +1,27 @@
-//! ## Håndterer UDP-logikk i systemet
+//! ## UDP Module
+//! 
+//! This module handles UDP communication in the network. It is responsible for broadcasting the worldview when acting as the master
+//! and listening for worldview broadcasts when acting as a slave. The module ensures that received broadcasts originate from the expected network.
+//! 
+//! ## Overview
+//! - **Master Node**: Broadcasts the current worldview on a UDP channel.
+//! - **Slave Node**: Listens for worldview broadcasts from the network master and updates its state accordingly.
+//! - **UDP Watchdog**: Detects timeouts when no valid broadcasts are received.
+//! 
+//! ## Key Features
+//! - Uses a reusable UDP socket for broadcasting and listening.
+//! - Ensures messages are from the correct network by checking a predefined key string.
+//! - Implements a watchdog mechanism to detect loss of connection to the master.
+//! 
+//! ## Functions
+//! 
+//! - [`start_udp_broadcaster`]: Sends worldview data over UDP if this node is the master.
+//! - [`start_udp_listener`]: Listens for worldview broadcasts from the master and updates state.
+//! - [`udp_watchdog`]: Detects connection loss to the master by monitoring broadcast activity.
+//! - Private helper functions: [`get_udp_timeout`], [`build_message`], [`parse_message`].
+//! 
+//! ## Usage
+//! These functions should be called asynchronously in a Tokio runtime.
 
 use crate::config;
 use crate::network;
@@ -19,47 +42,8 @@ use tokio::sync::watch;
 
 static UDP_TIMEOUT: OnceLock<AtomicBool> = OnceLock::new();
 
-/// Returns AtomicBool indicating if UDP has timeout'd. 
-/// 
-/// Initialized as false.
-pub fn get_udp_timeout() -> &'static AtomicBool {
-    UDP_TIMEOUT.get_or_init(|| AtomicBool::new(false))
-}
 
-
-fn build_message(wv: &WorldView) -> Vec<u8> {
-    let mut buf = Vec::new();
-
-    // 1. Legg til serialisert nøkkel først
-    let key_bytes = world_view::serialize(&config::KEY_STR);
-    buf.extend_from_slice(&key_bytes);
-
-    // 2. Så legg til serialisert WorldView
-    let wv_bytes = world_view::serialize(&wv);
-    buf.extend_from_slice(&wv_bytes);
-
-    buf
-}
-
-fn parse_message(buf: &[u8]) -> Option<WorldView> {
-    // 1. Prøv å deserialisere nøkkelen
-    let key_len = bincode::serialized_size(config::KEY_STR).unwrap() as usize;
-
-    if buf.len() <= key_len {
-        return None;
-    }
-
-    let (key_part, wv_part) = buf.split_at(key_len);
-
-    let key: String = bincode::deserialize(key_part).ok()?;
-    if key != config::KEY_STR {
-        return None; // feil nøkkel
-    }
-
-    // 2. Deserialize resten til WorldView
-    world_view::deserialize(wv_part)
-
-}
+/* __________ START PUBLIC FUNCTIONS __________ */
 
 // ### Starter og kjører udp-broadcaster
 /// This function starts and runs the UDP-broadcaster
@@ -73,7 +57,9 @@ fn parse_message(buf: &[u8]) -> Option<WorldView> {
 /// 
 /// ## Note
 /// This function is permanently blocking, and should be called asynchronously
-pub async fn start_udp_broadcaster(wv_watch_rx: watch::Receiver<WorldView>) -> tokio::io::Result<()> {
+pub async fn start_udp_broadcaster(
+    wv_watch_rx: watch::Receiver<WorldView>
+) -> tokio::io::Result<()> {
     while !network::read_network_status() {
         
     }
@@ -97,11 +83,9 @@ pub async fn start_udp_broadcaster(wv_watch_rx: watch::Receiver<WorldView>) -> t
     loop{
         let wv_watch_rx_clone = wv_watch_rx.clone();
         world_view::update_wv(wv_watch_rx_clone, &mut wv).await;
-        // Hvis du er master, broadcast worldview
         // If you currently are master on the network
         if network::read_self_id() == wv.master_id {
             sleep(config::UDP_PERIOD);
-            // let mesage = format!("{:?}{:?}", config::KEY_STR, wv).to_string();
             let message_bytes = build_message(&wv);
 
             // If you are connected to internet
@@ -112,12 +96,11 @@ pub async fn start_udp_broadcaster(wv_watch_rx: watch::Receiver<WorldView>) -> t
                     prev_network_status = true;
                 }
                 // Send your worldview on UDP broadcast
-
                 match udp_socket.send_to(&message_bytes, &broadcast_addr).await {
                     Ok(_) => {
                         // print::ok(format!("Sent udp broadcast!"));
                     },
-                    Err(e) => {
+                    Err(_) => {
                         // print::err(format!("Error while sending UDP: {}", e));
                     }
                 }
@@ -183,13 +166,14 @@ pub async fn start_udp_listener(
                 world_view::update_wv(wv_watch_rx.clone(), &mut my_wv).await;
 
                 if read_wv.master_id != my_wv.master_id {
-                    // Ignorer
+                    // Ignore
                 } else {
-                    // Meldinga kjem frå master → restart watchdog
+                    // The message came from the current master -> reset the watchdog
                     get_udp_timeout().store(false, Ordering::SeqCst);
                 }
 
-                // Send vidare om meldinga kjem frå master eller lågare ID, og me er ikkje master
+                // Pass the recieved WorldView if the message came from the master or a node with a lower ID than current master, 
+                // and this node is not the master
                 if my_wv.master_id >= read_wv.master_id
                     && self_id != read_wv.master_id
                 {
@@ -228,4 +212,81 @@ pub async fn udp_watchdog(connection_to_master_failed_tx: mpsc::Sender<bool>) {
         }
     }
 }
+
+/* __________ END PUBLIC FUNCTIONS __________ */
+
+
+
+
+/* __________ START PRIVATE FUNCTIONS __________ */
+
+/// Returns AtomicBool indicating if UDP has timeout'd. 
+/// 
+/// Initialized as false.
+fn get_udp_timeout() -> &'static AtomicBool {
+    UDP_TIMEOUT.get_or_init(|| AtomicBool::new(false))
+}
+
+/// Builds the UDP-broadcast message from the worldview
+/// 
+/// # Parameters
+/// `wv`: Reference to the current [WorldView]
+/// 
+/// # Returns
+/// -`Vec<u8>`: Containing serialized data of the message, ready to be sent
+/// 
+/// # Behavior
+/// The function serializes a key, used for other nodes on the network to recognize this broadcast from others, 
+/// and appends the serialized data of the worldview.
+fn build_message(
+    wv: &WorldView
+) -> Vec<u8> {
+    let mut buf = Vec::new();
+
+    // Add the serialized key
+    let key_bytes = world_view::serialize(&config::KEY_STR);
+    buf.extend_from_slice(&key_bytes);
+
+    // Add the serialized worldview
+    let wv_bytes = world_view::serialize(&wv);
+    buf.extend_from_slice(&wv_bytes);
+
+    buf
+}
+
+/// Reconstructs a [WorldView] from recieved UDP-message
+/// 
+/// # Parameters
+/// `buf`: Referance to a buffer containing the raw data read from UDP
+/// 
+/// # Returns
+/// -`Option<WorldView>`: A WorldView reconstructed from the data, if no errors occures
+/// -`None`: If an error occures while deserializing, or if the broadcast does not contain our key
+/// 
+/// # Behavior
+/// The function first looks for the [config::KEY_STR] in the beginning og the message, returning `None` if it is not found.  
+/// If it is found, the function tries to deserialize a [WorldView] from the rest of the message, returning it wrapped in an `Option` if it succeeded, returning `None` if it failed. 
+fn parse_message(
+    buf: &[u8]
+) -> Option<WorldView> {
+    // 1. Prøv å deserialisere nøkkelen
+    let key_len = bincode::serialized_size(config::KEY_STR).unwrap() as usize;
+
+    if buf.len() <= key_len {
+        return None;
+    }
+
+    let (key_part, wv_part) = buf.split_at(key_len);
+
+    let key: String = bincode::deserialize(key_part).ok()?;
+    if key != config::KEY_STR {
+        return None; // feil nøkkel
+    }
+
+    // 2. Deserialize resten til WorldView
+    world_view::deserialize(wv_part)
+}
+
+
+/* __________ END PRIVATE FUNCTIONS __________ */
 

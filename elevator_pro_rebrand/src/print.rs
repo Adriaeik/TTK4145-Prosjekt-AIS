@@ -1,4 +1,14 @@
+<<<<<<< HEAD
 use crate::{config, network, world_view::{Dirn, ElevatorBehaviour, WorldView}};
+=======
+//! ## Printing Module
+//! 
+//! This module is onle here to make logging in the terminal easier to read. 
+//! It allows to print in appropriate colors depening on the situation.
+//! It also provides a nice print-format for the WorldView. 
+
+use crate::{config, world_view::{Dirn, ElevatorBehaviour, WorldView}};
+>>>>>>> 3eba9377f3e74d258cb2ce3d6caa45092b3b8d40
 use ansi_term::Colour::{self, Green, Red, Yellow, Purple};
 
 use unicode_width::UnicodeWidthStr;

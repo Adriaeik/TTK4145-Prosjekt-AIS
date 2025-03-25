@@ -1,3 +1,24 @@
+//! ## Elevator I/O module for the local elevator
+//! 
+//! This module is mostly consisting of handed out resources, but some functionality were added.
+//! The handed out functionality is placed in the submodules [`elev`] and [`poll`].
+//! 
+//! Additional functionality includes message handling for elevator events, 
+//! call button state management, and conversion utilities for call types.
+//! 
+//! ## Overview
+//! This module provides data structures and utilities for handling elevator 
+//! input/output operations. It includes:
+//! 
+//! - `ElevMsgType`: Enum representing different elevator events.
+//! - `ElevMessage`: Struct for wrapping elevator messages.
+//! - `CallType`: Enum for representing call button types.
+//! - `CallButton`: Struct for representing call button presses, including 
+//!    floor, call type, and elevator ID.
+//! 
+//! These components allow structured handling of elevator input events, ensuring 
+//! that different types of messages (such as button presses and sensor activations) 
+//! are processed in a uniform manner.
 
 #[doc(hidden)]
 pub mod elev;

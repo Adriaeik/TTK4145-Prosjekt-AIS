@@ -1,3 +1,7 @@
+//! Keeps some program-parameters, making it easy to change any before building
+
+
+// TODO: en del av disse blir ikke brukt. Finn ut hvilke, og fjern dem
 
 use std::net::Ipv4Addr;
 use std::time::Duration;

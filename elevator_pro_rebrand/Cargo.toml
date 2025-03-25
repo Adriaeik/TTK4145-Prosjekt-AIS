@@ -12,39 +12,28 @@ keywords = ["elevator", "real-time", "tokio", "ttk4145"]
 categories = ["asynchronous", "network-programming"]
 
 [dependencies]
-# Kanal for kommunikasjon mellom trådar (brukes i I/O og elevator logic)
+# Used for communication between threads (used in the local_elevator)
 crossbeam-channel = "0.5"
 
-# Async runtime. Used  brukt til task-spawning, sleep, process m.m.
+# Async runtime. Used for e.g. task-spawning, sleep, process...
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "rt", "net", "process", "sync", "time", "io-util"] }
 
-# Serialisering og deserialisering av worldview og meldingar
+# Serialization and deserialization. Used when sending messages over the network, and passing inputs to the hall assigner script
 serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0" # Brukast kanskje berre for debugging, men ok å ha med
-bincode = "1.3"    # Brukast til effektiv serialisering av worldview
+serde_json = "1.0"      
+bincode = "1.3"                  # Used for more effective (de)serialization of messages sent on the network
 
-# Nettverksrelaterte ting
-socket2 = "0.5.8" # For avansert UDP-socket config (brukes i init og backup)
-local-ip-address = "0.6.3" # For å hente lokal IP for identifikasjon
-# get_if_addrs = "0.5" # Ser ikkje ut til å vere brukt direkte – vurdér å fjerne
+# Network-related stuff
+socket2 = "0.5.8"               # For more complex socket-tuning when setting up UPD and TCP sockets
+local-ip-address = "0.6.3"      # For finding the local IP address
 
-# Feilhåndtering
-anyhow = "1.0"
+# Terminal printing
+ansi_term = "0.12"              # Used to paint term prints
+prettytable-rs = "0.10"         # Used for making tables in the worldview print
+unicode-width = "0.1"           # Used to get correct width-handling in the terminal
 
-# Futures brukt i async systemet (tokio)
-futures = "0.3"
-
-# Farge og terminalutskrift
-ansi_term = "0.12" # Brukast til fargede overskrifter og status-tekst i worldview
-
-# Tabellformat for worldview-utskrift
-prettytable-rs = "0.10"
-
-# Globalt init (for mutex på konfig-booleanar)
-once_cell = "1.19"
-
-# For korrekt bredde-handtering i terminal (brukes i `pad_text`)
-unicode-width = "0.1"
+# Lazy
+once_cell = "1.19"              # Used to configure Lazy Mutex for print conditions
 
 [lib]
 path = "src/lib.rs"

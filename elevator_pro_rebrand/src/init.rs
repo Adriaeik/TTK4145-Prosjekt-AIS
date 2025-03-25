@@ -1,3 +1,24 @@
+//! ## Initialization Module
+//!
+//! This module is responsible for initializing the elevator system's worldview
+//! and handling system arguments. It provides functions to execute necessary startup tasks.
+//!
+//! ### Key Responsibilities:
+//! - **Worldview Initialization**: Constructs an initial worldview for the elevator system 
+//!   and attempts to join an existing network if possible.
+//! - **Command-line Argument Parsing**: Reads arguments from `cargo run` to control logging 
+//!   verbosity and enable debug or backup modes.
+//! - **Terminal Command Execution**: Provides platform-specific commands for opening new 
+//!   terminal windows.
+//! - **Cost Function Build Execution**: Runs a build script for the hall request assigner 
+//!   cost function.
+//!
+//! ### Overview of Functions:
+//! - `initialize_worldview` – Creates an initial worldview and merges with the network if possible.
+//! - `parse_args` – Parses command-line arguments to configure logging settings and modes.
+//! - `get_terminal_command` – Returns the appropriate terminal command for different operating systems.
+//! - `build_cost_fn` – Executes a build script for the hall request assigner cost function.
+
 use std::{borrow::Cow, env, net::SocketAddr, time::Duration};
 use tokio::{net::UdpSocket, time::{sleep, timeout, Instant}};
 use socket2::{Domain, Socket, Type};
@@ -113,7 +134,7 @@ pub async fn initialize_worldview(self_container : Option<&world_view::ElevatorC
 ///     println!("No UDP message received within 1 second.");
 /// }
 /// ```
-pub async fn check_for_udp() -> Option<WorldView> {
+async fn check_for_udp() -> Option<WorldView> {
     // Construct the UDP broadcast listening address
     let broadcast_listen_addr = format!("{}:{}", config::BC_LISTEN_ADDR, config::DUMMY_PORT);
     let socket_addr: SocketAddr = broadcast_listen_addr.parse().expect("Invalid address");

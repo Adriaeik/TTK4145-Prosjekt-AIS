@@ -1,4 +1,22 @@
-//! ## Håndterer TCP-logikk i systemet
+//! # TCP Module
+//! 
+//! This module handles TCP communication between master and slave systems in a network.
+//! It includes functions for setting up listeners, managing connections, and transferring data.
+//!
+//! ## Functions
+//! - `listener_task`: Listens for incoming TCP connections.
+//! - `tcp_handler`: Manages TCP communication by switching between master and slave behavior.
+//! 
+//! ## Key Features
+//! - Manages the communication between nodes, dynamically changing behaviour when a node switches from master &harr; slave.
+//! - All nodes has an active listener, accepting incoming connections.
+//! - Slave nodes sends [ElevatorContainer]'s to the master.
+//! - Master nodes recieves [ElevatorContainer]'s from slaves.
+//! - All connections are set up on configured sockets, to handle extreme (>50%) packetloss.
+//!
+//! ## Usage
+//! The module integrates with the system's network and worldview components to facilitate
+//! reliable master-slave communication over TCP.
 
 use std::{io::Error, sync::atomic::{AtomicBool, Ordering}};
 use tokio::{io::{AsyncReadExt, AsyncWriteExt}, net::{TcpListener, TcpStream}, sync::{mpsc, watch}, task::JoinHandle, time::{sleep, Duration}};
@@ -18,7 +36,7 @@ pub static IS_MASTER: AtomicBool = AtomicBool::new(false);
 /// Handles the TCP listener
 /// 
 /// # Parameters
-/// `socket_tx`: mpsc Sender on channel for sending newly connected slaves
+/// `socket_tx`: mpsc Sender on channel for sending stream and address for newly connected slaves
 /// 
 /// # Return
 /// The functions returns if any fatal errors occures
@@ -26,8 +44,9 @@ pub static IS_MASTER: AtomicBool = AtomicBool::new(false);
 /// # Behavior
 /// The function sets up a listener as soon as the system is online.
 /// While the program is online, it accepts new connections on the listener, and sends the socket over `socket_tx`. 
-/// 
-pub async fn listener_task(socket_tx: mpsc::Sender<(TcpStream, SocketAddr)>) {
+pub async fn listener_task(
+    socket_tx: mpsc::Sender<(TcpStream, SocketAddr)>
+) {
     /* On first init. make sure the system is online so no errors occures while setting up the listener */
     while !network::read_network_status() {
         tokio::time::sleep(config::TCP_PERIOD).await;
@@ -47,18 +66,6 @@ pub async fn listener_task(socket_tx: mpsc::Sender<(TcpStream, SocketAddr)>) {
             panic!();
         }
     };
-
-    /* Bind the listener on port [config::PN_PORT] */
-    // let listener = match TcpListener::bind(format!("{}:{}", self_ip, config::PN_PORT)).await {
-    //     Ok(l) => {
-    //         print::ok(format!("System listening on {}:{}", self_ip, config::PN_PORT));
-    //         l
-    //     }
-    //     Err(e) => {
-    //         print::err(format!("Error while setting up TCP listener: {}", e));
-    //         return;
-    //     }
-    // };
 
     loop {
         /* Check if you are online */
@@ -89,8 +96,8 @@ pub async fn listener_task(socket_tx: mpsc::Sender<(TcpStream, SocketAddr)>) {
 /// `wv_watch_rx`: Reciever on watch the worldview is being sent on in the system   
 /// `remove_container_tx`: mpsc Sender used to notify worldview updater if a slave should be removed  
 /// `connection_to_master_failed`: Sender on mpsc channel signaling if connection to master has failed   
-/// `sent_tcp_container_tx`: mpsc Sender for notifying worldview updater what data has been sent to master    
-/// `container_tx`: mpsc Sender used pass recieved slave-messages to the worldview_updater  
+/// `sent_tcp_container_tx`: mpsc Sender for notifying worldview updater what data has been sent to and ACKed by master    
+/// `container_tx`: mpsc Sender used pass recieved [ElevatorContainer]'s to the worldview_updater  
 /// `socket_rx`: Reciever on mpsc channel recieving new TcpStreams and SocketAddress from the TCP listener   
 /// 
 /// # Behavior
@@ -140,10 +147,21 @@ pub async fn tcp_handler(
 
 /* __________ START PRIVATE FUNCTIONS __________ */
 
-async fn start_reading_from_slave(mut stream: TcpStream, remove_container_tx: mpsc::Sender<u8>, container_tx: mpsc::Sender<ElevatorContainer>) {
-
+/// Function to read TcpStream to a slave
+/// 
+/// # Parameters
+/// `stream`: The stream connected to the slave  
+/// `remove_container_tx`: mpsc Sender used to notify worldview updater if a slave should be removed    
+/// `container_tx`: mpsc Sender used pass recieved [ElevatorContainer] to the worldview_updater   
+/// 
+/// # Behavior
+/// The function continously reads from the stream, and sends recieved [ElevatorContainer]'s on `container_tx`.
+async fn start_reading_from_slave(
+    mut stream: TcpStream, 
+    remove_container_tx: mpsc::Sender<u8>, 
+    container_tx: mpsc::Sender<ElevatorContainer>
+) {
     loop {
-
         /* Tries to read from stream */
         let result = read_from_stream(remove_container_tx.clone(), &mut stream).await;
         match result {
@@ -162,16 +180,16 @@ async fn start_reading_from_slave(mut stream: TcpStream, remove_container_tx: mp
 /// Function that handles TCP while you are master on the system
 /// 
 /// # Parameters
-/// `wv`: A mutable refrence to the current serialized worldview   
+/// `wv`: A mutable refrence to the current worldview   
 /// `wv_watch_rx`: Reciever on watch the worldview is being sent on in the system   
 /// `socket_rx`: Reciever on mpsc channel recieving new TcpStreams and SocketAddress from the TCP listener   
 /// `remove_container_tx`: mpsc Sender used to notify worldview updater if a slave should be removed   
-/// `container_tx`: mpsc Sender used pass recieved slave-messages to the worldview_updater  
+/// `container_tx`: mpsc Sender used pass recieved [ElevatorContainer] to the worldview_updater  
 /// 
 /// # Behavior
 /// While the system is master on the network:
 /// - Recieve new TcpStreams on `socket_rx`.  
-/// - If a new TcpStream is recieved, it starts [TcpWatchdog::start_reading_from_slave] on the stream 
+/// - If a new TcpStream is recieved, it runs [start_reading_from_slave] on the stream 
 async fn tcp_while_master(
     wv: &mut WorldView, 
     wv_watch_rx: watch::Receiver<WorldView>, 
@@ -207,7 +225,7 @@ async fn tcp_while_master(
 /// This function handles tcp connection while you are a slave on the system
 /// 
 /// # Parameters
-/// `wv`: A mutable refrence to the current serialized worldview  
+/// `wv`: A mutable refrence to the current worldview  
 /// `wv_watch_rx`: Reciever on watch the worldview is being sent on in the system  
 /// `connection_to_master_failed`: Sender on mpsc channel signaling if connection to master has failed   
 /// `sent_tcp_container_tx`: mpsc Sender for notifying worldview updater what data has been sent to master  
@@ -229,9 +247,6 @@ async fn tcp_while_slave(
     let mut stream:Option<TcpStream> = None;
     if let Some(s) = connect_to_master(wv_watch_rx.clone()).await {
         println!("Master accepted the TCP-connection");
-        // s.set_nodelay(true);
-        // s.set_linger(Some(Duration::from_millis(1000)));
-        // s.set_ttl(10);
         master_accepted_tcp = true;
         stream = Some(s);
     } else {
@@ -273,7 +288,6 @@ async fn tcp_while_slave(
 /// 
 /// # Parameters
 /// `wv_watch_rx`: Reciever on watch the worldview is being sent on in the system   
-/// `connection_to_master_failed`: Sender on mpsc channel signaling if connection to master has failed
 /// 
 /// # Return
 /// `Some(TcpStream)`: Connection to master successfull, TcpStream is the stream to the master
@@ -282,8 +296,9 @@ async fn tcp_while_slave(
 /// # Behavior
 /// The functions tries to connect to the current master, based on the master_id in the worldview. 
 /// If the connection is successfull, it returns the stream, otherwise it returns None.
-/// If the connection failed, it sends a signal to the worldview updater over `connection_to_master_failed_tx` indicating that the connection failed.
-async fn connect_to_master(wv_watch_rx: watch::Receiver<WorldView>) -> Option<TcpStream> {
+async fn connect_to_master(
+    wv_watch_rx: watch::Receiver<WorldView>
+) -> Option<TcpStream> {
     let wv = world_view::get_wv(wv_watch_rx.clone());
 
     /* Check if we are online */
@@ -303,40 +318,12 @@ async fn connect_to_master(wv_watch_rx: watch::Receiver<WorldView>) -> Option<Tc
         };
 
         return connect_socket(socket, &master_ip);
-
-
-        
-
-        // Originalt:
-        // /* Try to connect to master */
-        // match TcpStream::connect(&master_ip).await {
-        //     Ok(stream) => {
-        //         print::ok(format!("Connected to Master: {} i TCP_listener()", master_ip));
-        //         // Klarte å koble til master, returner streamen
-        //         Some(stream)
-        //     }
-        //     Err(e) => {
-        //         print::err(format!("Failed to connect to master over tcp: {}", e));
-
-        //         match connection_to_master_failed_tx.send(true).await {
-        //             Ok(_) => print::info("Notified that connection to master failed".to_string()),
-        //             Err(err) => print::err(format!("Error while sending message on connection_to_master_failed: {}", err)),
-        //         }
-        //         None
-        //     }
-        // }
     } else {
         None
     }
 }
 
 
-
-
-
-/// ## Leser fra `stream`
-/// 
-/// Select mellom å lese melding fra slave og sende meldingen til `world_view_handler` og å avslutte streamen om du ikke er master
 
 /// Function to read message from slave
 /// 
@@ -345,15 +332,17 @@ async fn connect_to_master(wv_watch_rx: watch::Receiver<WorldView>) -> Option<Tc
 /// `stream`: the stream to read from
 /// 
 /// # Return
-/// `Some(Vec<u8>)`: The serialized message if it was read succesfully
+/// `Some(Vec<u8>)`: The [ElevatorContainer] if it was read succesfully
 /// `None`: If reading from stream fails, or you become slave
 /// 
 /// # Behavior
 /// The function reads from stream. It first reads a header (2 bytes) indicating the message length.
-/// Based on the header it reads the message. If everything works without error, it returns the message.
+/// Based on the header it reads the message. If everything works without error, it sends an ACK on the stream, and returns the message.
 /// The function also asynchronously checks for loss of master status, and returns None if that is the case.
-///  
-async fn read_from_stream(remove_container_tx: mpsc::Sender<u8>, stream: &mut TcpStream) -> Option<ElevatorContainer> {
+async fn read_from_stream(
+    remove_container_tx: mpsc::Sender<u8>, 
+    stream: &mut TcpStream
+) -> Option<ElevatorContainer> {
     let mut len_buf = [0u8; 2];
     tokio::select! {
         result = stream.read_exact(&mut len_buf) => {
@@ -412,24 +401,29 @@ async fn read_from_stream(remove_container_tx: mpsc::Sender<u8>, stream: &mut Tc
     }
 } 
 
-/// ### Sender egen elevator_container til master gjennom stream
-/// Sender på format : `(lengde av container) as u16`, `container`
-/// 
+ 
 /// Function that sends tcp message to master
 /// 
 /// # Parameters
 /// `connection_to_master_failed_tx`: mpsc Sender for signaling to worldview updater that connection to master failed  
 /// `sent_tcp_container_tx`: mpsc Sender for notifying worldview updater what data has been sent to master  
 /// `stream`: The TcpStream to the master  
-/// `wv`: The current worldview in serial state  
+/// `wv`: The current worldview  
 /// 
 /// # Behavior
 /// The functions extracts the systems own elevatorcontainer from the worldview.  
 /// The function writes the following on the stream's transmission-buffer:
 /// - Length of the message
 /// - The message  
-/// After this, it flushes the stream, and sends the sent data over `ent_tcp_container_tx`. If writing to the stream fails, it signals on `connection_to_master_failed_tx`
-async fn send_tcp_message(connection_to_master_failed_tx: mpsc::Sender<bool>, sent_tcp_container_tx: mpsc::Sender<ElevatorContainer>, stream: &mut TcpStream, wv: &WorldView) {
+/// After this, it flushes the stream, and reads one byte from stream (used as ACKing from master)
+/// Once the ACK is recieved, it sends the sent data over `sent_tcp_container_tx`. 
+/// If writing to or reading from the stream fails, it signals on `connection_to_master_failed_tx`
+async fn send_tcp_message(
+    connection_to_master_failed_tx: mpsc::Sender<bool>, 
+    sent_tcp_container_tx: mpsc::Sender<ElevatorContainer>, 
+    stream: &mut TcpStream, 
+    wv: &WorldView
+) {
     let self_elev_container = match world_view::extract_self_elevator_container(wv) {
         Some(container) => container,
         None => {
@@ -464,45 +458,29 @@ async fn send_tcp_message(connection_to_master_failed_tx: mpsc::Sender<bool>, se
     }
 }
 
-/// Closes the provided TCP stream asynchronously, logging the result.
-///
-/// This function attempts to close the provided TCP stream by invoking the `shutdown` method on the stream asynchronously.
-/// It also retrieves the local and peer addresses of the stream, printing them in the log messages. If the stream is
-/// closed successfully, a info message is printed. If an error occurs during the process, an error message is logged.
-///
-/// ## Parameters
-/// - `stream`: The TCP stream to close (mutable reference to `TcpStream`).
-///
-/// ## Logs
-/// - On success: Logs an info message such as "TCP connection closed successfully: <local_addr> -> <peer_addr>".
-/// - On error: Logs an error message such as "Failed to close TCP connection (<local_addr> -> <peer_addr>): <error>".
-async fn close_tcp_stream(stream: &mut TcpStream) {
-    /* Get local and peer address */
-    let local_addr = stream.local_addr().map_or_else(
-        |e| format!("Unknown (Error: {})", e),
-        |addr| addr.to_string(),
-    );
-    let peer_addr = stream.peer_addr().map_or_else(
-        |e| format!("Unknown (Error: {})", e),
-        |addr| addr.to_string(),
-    );
 
-    /* Try to shutdown the stream */
-    match stream.shutdown().await {
-        Ok(_) => print::info(format!(
-            "TCP-connection closed successfully: {} -> {}",
-            local_addr, peer_addr
-        )),
-        Err(e) => print::err(format!(
-            "Failed to close TCP-connection ({} -> {}): {}",
-            local_addr, peer_addr, e
-        )),
-    }
-}
-
-/* __________ END PRIVATE FUNCTIONS __________ */
-
-fn listener_from_socket(socket: Socket) -> Option<TcpListener> {
+/// Creates a `TcpListener` from a given socket and binds it to the system's network address.
+/// 
+/// This function constructs a `SocketAddr` using the system's network prefix, the device's self ID,
+/// and the configured port. It then binds the socket to this address and starts listening for incoming
+/// TCP connections.
+/// 
+/// # Arguments
+/// * `socket` - The `Socket` instance to use for listening.
+/// 
+/// # Returns
+/// * `Some(TcpListener)` - If binding and listening are successful.
+/// * `None` - If an error occurs.
+/// 
+/// # Errors
+/// * If the system's network address cannot be created, an error is printed and `None` is returned.
+/// * If binding the socket to the address fails, an error is printed and `None` is returned.
+/// * If listening on the socket fails, an error is printed and `None` is returned.
+/// * If converting the socket into a `TcpListener` fails, an error is printed and `None` is returned.
+fn listener_from_socket(
+    socket: Socket
+) -> Option<TcpListener> {
+    // Attempts to parse the socket address to self_ip
     let self_ip: SocketAddr = match format!("{}.{}:{}", config::NETWORK_PREFIX, network::read_self_id(), config::PN_PORT).parse() {
         Ok(addr) => addr,
         Err(e) => {
@@ -511,6 +489,7 @@ fn listener_from_socket(socket: Socket) -> Option<TcpListener> {
         }
     };
 
+    // Attemps to bind the socket to self_ip
     match socket.bind(&self_ip.into()) {
         Ok(_) => {},
         Err(e) => {
@@ -518,6 +497,8 @@ fn listener_from_socket(socket: Socket) -> Option<TcpListener> {
             return None
         }
     }
+
+    // Attemps to start listening on the socket
     match socket.listen(128) {
         Ok(_) => {},
         Err(e) => {
@@ -526,9 +507,10 @@ fn listener_from_socket(socket: Socket) -> Option<TcpListener> {
         }
     }
 
-    // Set non blocking, so it can be used bu tokio
+    // Set non blocking, so it can be used by Tokio
     socket.set_nonblocking(true).expect("Coulndt set socket non-blocking");
 
+    // Convert the socket to an asynchrounus TcpListener
     match TcpListener::from_std(socket.into()) {
         Ok(listener) => {
             print::ok(format!("System listening on {}:{}", self_ip, config::PN_PORT));
@@ -541,7 +523,30 @@ fn listener_from_socket(socket: Socket) -> Option<TcpListener> {
     };
 }
 
-fn connect_socket(socket: Socket, target: &String) -> Option<TcpStream> {
+
+/// Attempts to connect a given socket to a specified target address.
+/// 
+/// This function takes a `Socket` and a `target` string, parses the string into a `SockAddr`,
+/// and tries to establish a TCP connection. If successful, it converts the socket into a `TcpStream`
+/// and returns it wrapped in an `Option`.
+/// 
+/// # Arguments
+/// * `socket` - The `Socket` instance to connect.
+/// * `target` - A `String` containing the target IP address and port in the format "IP:PORT".
+/// 
+/// # Returns
+/// * `Some(TcpStream)` - If the connection is successful.
+/// * `None` - If an error occures.
+/// 
+/// # Errors
+/// * If `target` cannot be parsed into a valid `SocketAddr`, an error is printed and `None` is returned.
+/// * If the connection attempt fails, an error is printed and `None` is returned.
+/// * If converting the socket into a `TcpStream` fails, an error message is printed and `None` is returned.
+fn connect_socket(
+    socket: Socket, 
+    target: &String
+) -> Option<TcpStream> {
+    // Attempts to parse the address
     let master_sock_addr: SockAddr = match target.parse::<SocketAddr>() {
         Ok(addr) => SockAddr::from(addr),
         Err(e) => {
@@ -550,7 +555,7 @@ fn connect_socket(socket: Socket, target: &String) -> Option<TcpStream> {
         }
     };
 
-
+    // Attempts to connect the socket to the destination address
     match socket.connect(&master_sock_addr) {
         Ok(()) => {
             print::ok(format!("Connected to Master: {} i TCP_listener()", target));
@@ -561,11 +566,13 @@ fn connect_socket(socket: Socket, target: &String) -> Option<TcpStream> {
         },
     };     
 
-    // Set non blocking, so it can be used bu tokio
+    // Set non blocking, so it can be used by Tokio
     socket.set_nonblocking(true).expect("Coulndt set socket non-blocking");
 
+    // Convert the socket into a standard TcpStream
     let std_stream: std::net::TcpStream = socket.into();
 
+    // Convert the standard TcpStream to an asynchrounus tokio TcpStream
     match TcpStream::from_std(std_stream) {
         Ok(stream) => {
             return Some(stream);
@@ -577,38 +584,66 @@ fn connect_socket(socket: Socket, target: &String) -> Option<TcpStream> {
     };
 }
 
+/// Creates and configures a TCP socket with optimized settings for performance and reliability.
+/// 
+/// The function sets buffer sizes, keepalive settings, timeouts, and platform-specific options.
+/// 
+/// # Returns
+/// * `Ok(Socket)` - A configured TCP socket.
+/// * `Err(Error)` - If socket creation or configuration fails.
+/// 
+/// # Platform-Specific Behavior
+/// * Some options, such as `set_thin_linear_timeouts`, `set_tcp_user_timeout`, `set_quickack`, and `set_cork`,
+///   are only available on Linux and will not be set on Windows.
 fn create_tcp_socket() -> Result<Socket, Error> {
+    // Create a new TCP socket
     let socketres = Socket::new(Domain::IPV4, Type::STREAM, Some(Protocol::TCP));
     let socket: Socket = match socketres {
         Ok(sock) => sock,
         Err(e) => {return Err(e);},
     };
 
-    // Set read and write buffers
+    // Set send and receive buffer sizes to 16MB for high-throughput connections. 
     socket.set_send_buffer_size(16_777_216)?;
     socket.set_recv_buffer_size(16_777_216)?;
 
-    // Set keepalive settings
-    let keepalive = TcpKeepalive::new()
-        .with_time(Duration::from_secs(10))
-        .with_interval(Duration::from_secs(1))
-        .with_retries(10);
+    // Configure TCP keepalive to detect broken connections.
+    let keepalive = TcpKeepalive::new() 
+        .with_time(Duration::from_secs(10))         // Start sending keepalive probes after 10 seconds of inactivity.
+        .with_interval(Duration::from_secs(1));                 // Send keepalive probes every 1 second.
+
+    #[cfg(target_os = "linux")]
+    {
+        // On Linux, specify the number of keepalive probes before the connection is considered dead.
+        // This setting is not available on Windows.
+        keepalive.with_retries(10);
+    }
 
     socket.set_tcp_keepalive(&keepalive)?;
 
+    // Set read and write timeouts to 10 seconds.
     socket.set_read_timeout(Some(Duration::from_secs(10)))?;
     socket.set_write_timeout(Some(Duration::from_secs(10)))?;
-    socket.set_thin_linear_timeouts(true)?;
-    socket.set_tcp_user_timeout(Some(Duration::from_secs(10)))?;
-    socket.set_quickack(true)?;
 
-    // Make sure header and message is sent in one payload
-    socket.set_cork(true)?;
+    #[cfg(target_os = "linux")]
+    {
+        // Enable thin linear timeouts (Linux only), drastically improving retransmission timing under congestion.
+        socket.set_thin_linear_timeouts(true)?;
 
+        // Set TCP user timeout (Linux only) to close the connection if no acknowledgments are received within 10s.
+        socket.set_tcp_user_timeout(Some(Duration::from_secs(10)))?;
 
+        // Enable TCP Quick ACK (Linux only), reducing latency by immediately acknowledging received packets.
+        socket.set_quickack(true)?;
+    }
+
+    // Disable Nagle’s algorithm to minimize latency for interactive or real-time applications.
+    // This ensures small packets are sent immediately instead of being buffered.
     socket.set_nodelay(true)?;
 
     Ok(socket)
 }
 
+
+/* __________ END PRIVATE FUNCTIONS __________ */
 
