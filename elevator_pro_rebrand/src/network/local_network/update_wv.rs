@@ -1,4 +1,4 @@
-use crate::world_view::{self, serial, Dirn, ElevatorBehaviour, ElevatorContainer, WorldView};
+use crate::world_view::{self, Dirn, ElevatorBehaviour, ElevatorContainer, WorldView};
 use crate::print;
 use crate::network;
 

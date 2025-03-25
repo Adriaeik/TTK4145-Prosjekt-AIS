@@ -9,7 +9,7 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::sync::watch;
 use tokio::time::{sleep, Duration, timeout};
 
-use crate::world_view::WorldView;
+use crate::world_view::{ElevatorContainer, WorldView};
 use crate::{config, init, world_view};
 use crate::print;
 
@@ -69,10 +69,7 @@ async fn handle_backup_client(
     loop {
         let wv = rx.borrow().clone();
 
-        let wv_serial = match world_view::serial::serialize_worldview(&wv) {
-            Some(wv_s) => wv_s,
-            None => continue,
-        };
+        let wv_serial = world_view::serialize(&wv);
 
 
         if let Err(e) = stream.write_all(&wv_serial).await {
@@ -152,9 +149,11 @@ pub async fn run_as_backup() -> Option<world_view::ElevatorContainer> {
                         },
                         Ok(n) => {
                             let wv_serial= buf[..n].to_vec();
-                            current_wv = match world_view::serial::deserialize_worldview(&wv_serial) {
+                            current_wv = match world_view::deserialize(&wv_serial) {
                                 Some(wv) => wv,
-                                None => continue,
+                                None => {println!("none");
+                                        continue
+                            },
                             };
                             // Rydd skjermen og sett markøren øvst
                             print!("\x1B[2J\x1B[H");
@@ -177,8 +176,8 @@ pub async fn run_as_backup() -> Option<world_view::ElevatorContainer> {
                 if retries > config::BACKUP_FAILOVER_THRESHOLD {
                     eprintln!("Master failed, promoting backup to master!");
                     // Her kan failover-logikken setjast i gang, t.d. køyre master-logikken.
-                    match world_view::extract_self_elevator_container(current_wv) {
-                        Some(container) => return Some(container),
+                    match world_view::extract_self_elevator_container(&current_wv).to_owned() {
+                        Some(container) => return Some(container.to_owned()),
                         None => {
                             print::warn(format!("Failed to extract self elevator container"));
                             return None;

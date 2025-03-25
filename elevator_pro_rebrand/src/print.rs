@@ -1,4 +1,4 @@
-use crate::{config, world_view::{serial, Dirn, ElevatorBehaviour, WorldView}};
+use crate::{config, world_view::{Dirn, ElevatorBehaviour, WorldView}};
 use ansi_term::Colour::{self, Green, Red, Yellow, Purple};
 
 use unicode_width::UnicodeWidthStr;
@@ -256,7 +256,7 @@ fn pad_text(text: &str, width: usize) -> String {
 }
 
 /// Logger `wv` i eit fint tabellformat
-pub fn worldview(worldview: &WorldView) {
+pub fn worldview(worldview: &WorldView, ) {
     let print_stat = config::PRINT_WV_ON.lock().unwrap().clone();
     if !print_stat {
         return;

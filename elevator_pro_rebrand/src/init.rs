@@ -2,7 +2,7 @@ use std::{borrow::Cow, env, net::SocketAddr, time::Duration};
 use tokio::{net::UdpSocket, time::{sleep, timeout, Instant}};
 use socket2::{Domain, Socket, Type};
 use local_ip_address::local_ip;
-use crate::{config, ip_help_functions::ip2id, network, print, world_view::{self, serial, ElevatorContainer, WorldView}};
+use crate::{config, ip_help_functions::ip2id, network, print, world_view::{self, ElevatorContainer, WorldView}};
 use tokio::process::Command;
 
 /// ### Initializes the worldview on startup
@@ -29,7 +29,7 @@ use tokio::process::Command;
 /// ## Example Usage:
 /// ```rust
 /// let worldview_data: Vec<u8> = initialize_worldview().await;
-/// let worldview: worldview::WorldView = worldview::serial::deserialize_worldview(&worldview_data);
+/// let worldview: worldview::WorldView = worldview::deserialize(&worldview_data);
 /// ```
 pub async fn initialize_worldview(self_container : Option<&world_view::ElevatorContainer>) -> WorldView {
     let mut worldview = WorldView::default();
@@ -185,7 +185,7 @@ pub async fn check_for_udp() -> Option<WorldView> {
     drop(socket);
 
     // Return the parsed UDP message data
-    world_view::serial::deserialize_worldview(&read_wv)
+    world_view::deserialize(&read_wv)
 }
 
 

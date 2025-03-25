@@ -1,10 +1,10 @@
 //! ## Håndterer TCP-logikk i systemet
 
-use std::{fmt::{format, Debug}, io::Error, net::IpAddr, sync::atomic::{AtomicBool, Ordering}};
-use tokio::{io::{AsyncReadExt, AsyncWriteExt}, net::{TcpListener, TcpSocket, TcpStream}, sync::{mpsc, watch}, task::JoinHandle, time::{sleep, Duration, Instant}};
+use std::{io::Error, sync::atomic::{AtomicBool, Ordering}};
+use tokio::{io::{AsyncReadExt, AsyncWriteExt}, net::{TcpListener, TcpStream}, sync::{mpsc, watch}, task::JoinHandle, time::{sleep, Duration}};
 use std::net::SocketAddr;
 use socket2::{Domain, Protocol, SockAddr, Socket, TcpKeepalive, Type};
-use crate::{config, ip_help_functions::{self}, network, print, world_view::{self, serial, ElevatorContainer, WorldView}};
+use crate::{config, ip_help_functions::{self}, network, print, world_view::{self, ElevatorContainer, WorldView}};
 
 
 /* __________ START PUBLIC FUNCTIONS __________ */
@@ -380,7 +380,7 @@ async fn read_from_stream(remove_container_tx: mpsc::Sender<u8>, stream: &mut Tc
                             let _ =  stream.write_all(&[69]).await;
                             let _ = stream.flush().await;
                             
-                            return world_view::serial::deserialize_elev_container(&buffer) 
+                            return world_view::deserialize(&buffer) 
 
                         },
                         Err(e) => {
@@ -438,10 +438,7 @@ async fn send_tcp_message(connection_to_master_failed_tx: mpsc::Sender<bool>, se
         }
     };
     
-    let self_elev_serialized = match serial::serialize_elev_container(&self_elev_container) {
-        Some(elev) => elev,
-        None => return,
-    };
+    let self_elev_serialized = world_view::serialize(&self_elev_container);
     
     /* Find number of bytes in the data to be sent */
     let len = (self_elev_serialized.len() as u16).to_be_bytes();    

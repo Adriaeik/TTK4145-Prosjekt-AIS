@@ -14,7 +14,7 @@ use update_wv::{
     update_elev_states,
     merge_wv_after_offline,
 };
-use crate::world_view::{self, serial};
+use crate::world_view::{self};
 
 use tokio::sync::{mpsc, watch};
 use std::collections::HashMap;

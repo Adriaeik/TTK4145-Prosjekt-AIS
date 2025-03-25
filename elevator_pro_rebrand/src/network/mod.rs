@@ -214,7 +214,7 @@ async fn start_packet_loss_monitor(
             let fail_count = window.iter().filter(|&&ok| !ok).count();
             let loss_rate = fail_count as f32 / window.len() as f32;
 
-            println!("Pakketap: {}%\n\n", loss_rate);
+            // println!("Pakketap: {}%\n\n", loss_rate);
             
             let new_status = loss_rate <= max_loss_rate;
             // Send ny status viss han har endra seg

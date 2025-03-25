@@ -2,9 +2,7 @@
 
 use crate::config;
 use crate::network;
-use crate::network::get_self_ip;
 use crate::print;
-use crate::print::worldview;
 use crate::world_view;
 use crate::world_view::WorldView;
 
@@ -17,7 +15,6 @@ use std::time::Duration;
 use tokio::net::UdpSocket;
 use socket2::{Domain, Socket, Type};
 use tokio::sync::mpsc;
-use std::borrow::Cow;
 use tokio::sync::watch;
 
 static UDP_TIMEOUT: OnceLock<AtomicBool> = OnceLock::new();
@@ -27,6 +24,41 @@ static UDP_TIMEOUT: OnceLock<AtomicBool> = OnceLock::new();
 /// Initialized as false.
 pub fn get_udp_timeout() -> &'static AtomicBool {
     UDP_TIMEOUT.get_or_init(|| AtomicBool::new(false))
+}
+
+
+fn build_message(wv: &WorldView) -> Vec<u8> {
+    let mut buf = Vec::new();
+
+    // 1. Legg til serialisert nøkkel først
+    let key_bytes = world_view::serialize(&config::KEY_STR);
+    buf.extend_from_slice(&key_bytes);
+
+    // 2. Så legg til serialisert WorldView
+    let wv_bytes = world_view::serialize(&wv);
+    buf.extend_from_slice(&wv_bytes);
+
+    buf
+}
+
+fn parse_message(buf: &[u8]) -> Option<WorldView> {
+    // 1. Prøv å deserialisere nøkkelen
+    let key_len = bincode::serialized_size(config::KEY_STR).unwrap() as usize;
+
+    if buf.len() <= key_len {
+        return None;
+    }
+
+    let (key_part, wv_part) = buf.split_at(key_len);
+
+    let key: String = bincode::deserialize(key_part).ok()?;
+    if key != config::KEY_STR {
+        return None; // feil nøkkel
+    }
+
+    // 2. Deserialize resten til WorldView
+    world_view::deserialize(wv_part)
+
 }
 
 // ### Starter og kjører udp-broadcaster
@@ -69,7 +101,8 @@ pub async fn start_udp_broadcaster(wv_watch_rx: watch::Receiver<WorldView>) -> t
         // If you currently are master on the network
         if network::read_self_id() == wv.master_id {
             sleep(config::UDP_PERIOD);
-            let mesage = format!("{:?}{:?}", config::KEY_STR, wv).to_string();
+            // let mesage = format!("{:?}{:?}", config::KEY_STR, wv).to_string();
+            let message_bytes = build_message(&wv);
 
             // If you are connected to internet
             if network::read_network_status() {
@@ -79,7 +112,8 @@ pub async fn start_udp_broadcaster(wv_watch_rx: watch::Receiver<WorldView>) -> t
                     prev_network_status = true;
                 }
                 // Send your worldview on UDP broadcast
-                match udp_socket.send_to(mesage.as_bytes(), &broadcast_addr).await {
+
+                match udp_socket.send_to(&message_bytes, &broadcast_addr).await {
                     Ok(_) => {
                         // print::ok(format!("Sent udp broadcast!"));
                     },
@@ -129,56 +163,41 @@ pub async fn start_udp_listener(
     socket_temp.bind(&socket_addr.into())?;
     let socket = UdpSocket::from_std(socket_temp.into())?;
     let mut buf = [0; config::UDP_BUFFER];
-    let mut read_wv_serial: Vec<u8>;
     
-    let mut message: Cow<'_, str>;
+    let mut read_wv: Option<WorldView>;
     let mut my_wv = world_view::get_wv(wv_watch_rx.clone());
 
     loop {
         // Read message on UDP-broadcast address
         match socket.recv_from(&mut buf).await {
             Ok((len, _)) => {
-                message = String::from_utf8_lossy(&buf[..len]);
+                read_wv = parse_message(&buf[..len]);
             }
             Err(e) => {
                 return Err(e);
             }
         }
         
-        // Make sure the message was from 'our' program
-        if message.len() < 10 {
+        match read_wv {
+            Some(read_wv) => {
+                world_view::update_wv(wv_watch_rx.clone(), &mut my_wv).await;
 
-        }
-        else if &message[1..config::KEY_STR.len()+1] == config::KEY_STR{ //Plus one, since serialisation of the string includes the '"'-sign
-            let clean_message = &message[config::KEY_STR.len()+3..message.len()-1]; // Removes `"`
-            read_wv_serial = clean_message
-            .split(", ") // Split on ", "
-            .filter_map(|s| s.parse::<u8>().ok()) // Convert to u8
-            .collect(); // Collect to an Vec<u8>
-        
-            let read_wv = match world_view::serial::deserialize_worldview(&read_wv_serial) {
-                Some(wv) => wv,
-                None => continue,
-            };
-            
+                if read_wv.master_id != my_wv.master_id {
+                    // Ignorer
+                } else {
+                    // Meldinga kjem frå master → restart watchdog
+                    get_udp_timeout().store(false, Ordering::SeqCst);
+                }
 
-            // Oppdater lokal worldview
-            world_view::update_wv(wv_watch_rx.clone(), &mut my_wv).await;
-
-            if read_wv.master_id != my_wv.master_id {
-                // Ignorer
-            } else {
-                // Meldinga kjem frå master → restart watchdog
-                get_udp_timeout().store(false, Ordering::SeqCst);
-            }
-
-            // Send vidare om meldinga kjem frå master eller lågare ID, og me er ikkje master
-            if my_wv.master_id >= read_wv.master_id
-                && self_id != read_wv.master_id
-            {
-                my_wv = read_wv;
-                let _ = udp_wv_tx.send(my_wv.clone()).await;
-            }
+                // Send vidare om meldinga kjem frå master eller lågare ID, og me er ikkje master
+                if my_wv.master_id >= read_wv.master_id
+                    && self_id != read_wv.master_id
+                {
+                    my_wv = read_wv;
+                    let _ = udp_wv_tx.send(my_wv.clone()).await;
+                }
+            },
+            None => continue,
         }
     }
 }

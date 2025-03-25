@@ -1,6 +1,5 @@
-pub mod serial;
-
-use serde::{Serialize, Deserialize};
+use serde::{Serialize, Deserialize, de::DeserializeOwned};
+use bincode;
 use tokio::sync::watch;
 use std::collections::HashMap;
 use crate::config;
@@ -71,7 +70,6 @@ pub struct ElevatorContainer {
     /// Default: 255
     pub last_floor_sensor: u8,
 }
-
 
 impl Default for ElevatorContainer {
     fn default() -> Self {
@@ -179,7 +177,18 @@ impl WorldView {
 }
 
 
+// Omskrivigng:
 
+
+/// Serialiserer kva som helst `T` til `Vec<u8>` via bincode
+pub fn serialize<T: Serialize>(value: &T) -> Vec<u8> {
+    bincode::serialize(value).expect("Klarte ikkje serialisere verdi")
+}
+
+/// Deserialiserer `&[u8]` til `T` viss mogleg
+pub fn deserialize<T: DeserializeOwned>(buf: &[u8]) -> Option<T> {
+    bincode::deserialize(buf).ok()
+}
 
 
 /// Retrieves the index of an `ElevatorContainer` with the specified `id` in the deserialized `WorldView`.

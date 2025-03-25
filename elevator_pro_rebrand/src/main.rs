@@ -3,7 +3,7 @@ use tokio::net::TcpStream;
 use std::net::SocketAddr;
 use tokio::sync::watch;
 
-use elevatorpro::{backup, elevator_logic, manager, network::{self, local_network, tcp_network, udp_network}, world_view::{self, WorldView}};
+use elevatorpro::{backup, elevator_logic, manager, network::{self, local_network, tcp_network, udp_network}, world_view};
 use elevatorpro::init;
 use elevatorpro::print;
 
@@ -17,7 +17,7 @@ async fn main() {
     // Check if the program started as backup ("cargo r -- backup")
     let is_backup = init::parse_args();
     
-    let mut self_container: Option< world_view::ElevatorContainer> = None;
+    let mut self_container: Option<world_view::ElevatorContainer> = None;
     if is_backup {
         println!("Starting backup-process...");
         self_container = backup::run_as_backup().await;
@@ -28,15 +28,16 @@ async fn main() {
 
     
     /* Initialize a worldview */
-    let worldview = init::initialize_worldview(self_container).await;
+    let mut worldview = init::initialize_worldview(self_container.as_ref()).await;
+    print::worldview(&worldview);
     
     
     /* START ----------- Initializing of channels used for the worldview updater ---------------------- */
     let main_mpscs = local_network::Mpscs::new();
-    let (wv_watch_tx, wv_watch_rx) = watch::channel::new::<WorldView>();
+    let (wv_watch_tx, wv_watch_rx) = watch::channel(worldview.clone());
     /* END ----------- Initializing of channels used for the worldview updater ---------------------- */
     
-    // Send the initialized worldview on the worldview watch, so its not empty when rx tries to borrow it
+    // // Send the initialized worldview on the worldview watch, so its not empty when rx tries to borrow it
     let _ = wv_watch_tx.send(worldview.clone());
 
 
