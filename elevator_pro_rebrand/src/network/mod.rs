@@ -1,3 +1,23 @@
+//! ## Network module
+//! 
+//! This module is responsible for the network in the system, and is in some sense the most sentral part in the whole project.
+//! The module has a lot of responsibilities, and is therefore splittet into a few sub-modules.
+//! 
+//! ## Sub-modules
+//! - [tcp_network]
+//! - [udp_network]
+//! - [local_network]
+//! 
+//! ## Key Features
+//! - Using UDP broadcast to publish WorldView on the network, and detecting a network when starting up.
+//! - Using TCP to share elevator-spesific data from slave-nodes to master-nodes.
+//! - Using a set of thread-safe channels to let different parts of the program to share information.
+//! - Monitoring the network, automatically detecting connection loss and unoperatable levels of packetloss
+//! 
+//! ## Functions
+//! - `watch_ethernet`: Updates the network status, making sure the program detects connection loss and high packet loss
+//! - `read_network_status`: Gives a boolean indicating if your network connection is operatable.
+
 pub mod tcp_network;
 pub mod udp_network;
 pub mod local_network;
@@ -30,7 +50,7 @@ use std::net::IpAddr;
 ///     Err(e) => println!("Failed to get IP: {:?}", e), // No local IP available
 /// }
 /// ```
-pub fn get_self_ip() -> Result<IpAddr, local_ip_address::Error> {
+fn get_self_ip() -> Result<IpAddr, local_ip_address::Error> {
     let ip = match local_ip() {
         Ok(ip) => {
             ip

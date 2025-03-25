@@ -1,3 +1,39 @@
+//! ## WorldView Module
+//!
+//! This module defines central data structures and helper functions for managing the 
+//! global state of the elevator network. It contains the `WorldView` struct, which serves as 
+//! an information packet about the entire system, including all elevators, their tasks, and 
+//! hall requests. Additionally, it provides serialization, deserialization, and retrieval 
+//! utilities for handling worldview data efficiently.
+//!
+//! ### Key Responsibilities:
+//! - **Defining Core Structs**: `WorldView` and `ElevatorContainer` store network-wide 
+//!   and per-elevator state, respectively.
+//! - **Handling Directions and States**: The `Dirn` and `ElevatorBehaviour` enums define 
+//!   movement direction and current operational state of elevators.
+//! - **Data Serialization and Deserialization**: Utility functions facilitate efficient 
+//!   transmission and storage of worldview data.
+//! - **Retrieving Elevator Information**: Functions allow querying and modifying elevator 
+//!   state within the network.
+//! - **Master Detection**: Determines whether the current system is the master node.
+//!
+//! ### Overview of Structs & Enums:
+//! - [`Dirn`] – Represents the movement direction of an elevator.
+//! - [`ElevatorBehaviour`] – Describes the current state of an elevator.
+//! - [`ElevatorContainer`] – Holds information about an individual elevator's state, tasks, and requests.
+//! - [`WorldView`] – Contains global network state, including all elevators and hall requests.
+//!
+//! ### Overview of Functions:
+//! - [`serialize`] / [`deserialize`] – Convert worldview data to and from binary format.
+//! - [`get_wv`] – Retrieves the latest local worldview.
+//! - [`update_wv`] – Updates worldview asynchronously if changes are detected.
+//! - [`is_master`] – Checks if the current elevator is the master.
+//! - [`extract_elevator_container`] / [`extract_self_elevator_container`] – Retrieve elevator state from worldview.
+//! - [`get_index_to_container`] – Finds the index of an elevator container by ID.
+//!
+//! This module is critical for ensuring a synchronized state across networked elevators.
+
+
 use serde::{Serialize, Deserialize, de::DeserializeOwned};
 use bincode;
 use tokio::sync::watch;
