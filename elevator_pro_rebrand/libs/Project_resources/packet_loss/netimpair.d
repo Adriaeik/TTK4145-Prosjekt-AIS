@@ -257,18 +257,21 @@ struct Impairment {
 void setup(string iface){
     execEcho([
         "sudo modprobe ifb",
-        //"sudo ip link add name ifb0 type ifb",
-        //"sudo ip link set dev ifb0 up",
         "sudo ip link add name ifb1 type ifb",
         "sudo ip link set dev ifb1 up",
-       i"tc qdisc del       dev $(iface) ingress".text,
-       i"tc qdisc replace   dev $(iface) ingress".text,
-       i"tc filter replace dev $(iface) parent ffff: protocol ip prio 1 u32 match u32 0 0 flowid 1:1 action mirred egress redirect dev ifb1".text,
+
+        i"tc qdisc del       dev $(iface) ingress".text,
+        i"tc qdisc replace   dev $(iface) ingress".text,
+        i"tc filter replace dev $(iface) parent ffff: protocol ip prio 1 u32 match u32 0 0 flowid 1:1 action mirred egress redirect dev ifb1".text,
+
+        "tc qdisc add dev lo ingress",
         "tc filter replace dev lo parent ffff: protocol ip prio 1 u32 match u32 0 0 flowid 1:1 action mirred egress redirect dev ifb1",
-        "tc qdisc del dev ifb1 root",
+
+        "tc qdisc del dev ifb1 root || true",
         "tc qdisc add dev ifb1 root handle 1: prio",
     ]);
 }
+
 void exclude(ushort[] ports, ref int prio){
     foreach(port; ports){
         execEcho([
@@ -296,8 +299,7 @@ void include(ushort[] ports, ref int prio){
 }
 void impair(Impairment i){
     execEcho([
-        "tc qdisc add    dev ifb1 parent 1:3 handle 30: netem",
-        "tc qdisc change dev ifb1 parent 1:3 handle 30: netem "~i.rule,
+        "tc qdisc replace dev ifb1 parent 1:3 handle 30: netem " ~ i.rule,
     ]);
 }
 void teardown(string iface){

@@ -631,8 +631,8 @@ fn create_tcp_socket() -> Result<Socket, Error> {
     }
 
     // Set read and write timeouts to 10 seconds.
-    socket.set_read_timeout(Some(Duration::from_secs(10)))?;
-    socket.set_write_timeout(Some(Duration::from_secs(10)))?;
+    socket.set_read_timeout(Some(Duration::from_secs(20)))?;
+    socket.set_write_timeout(Some(Duration::from_secs(20)))?;
 
     #[cfg(target_os = "linux")]
     {
@@ -640,7 +640,7 @@ fn create_tcp_socket() -> Result<Socket, Error> {
         socket.set_thin_linear_timeouts(true)?;
 
         // Set TCP user timeout (Linux only) to close the connection if no acknowledgments are received within 10s.
-        socket.set_tcp_user_timeout(Some(Duration::from_secs(10)))?;
+        socket.set_tcp_user_timeout(Some(Duration::from_secs(20)))?;
 
         // Enable TCP Quick ACK (Linux only), reducing latency by immediately acknowledging received packets.
         socket.set_quickack(true)?;
