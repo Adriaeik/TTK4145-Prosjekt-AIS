@@ -366,7 +366,7 @@ async fn read_from_stream(
                         }
                         Ok(_) => {
                             //TODO: ikke let _ = 
-                            let _ =  stream.write_all(&[69]).await;
+                            let _ =  stream.write_all("ACK".as_bytes()).await;
                             let _ = stream.flush().await;
                             
                             return world_view::deserialize(&buffer) 
@@ -443,9 +443,10 @@ async fn send_tcp_message(
     } else if let Err(_) = stream.flush().await {
         let _ = connection_to_master_failed_tx.send(true).await; 
     } else {
-        let mut buf: [u8; 1] = [0];
+        let mut buf: [u8; 3] = [0, 0, 0];
         match stream.read_exact(&mut buf).await {
             Ok(_) => {
+                println!("Master acka: {:?}", buf.to_ascii_uppercase());
                 let _ = sent_tcp_container_tx.send(self_elev_container.clone()).await;
             },
             Err(e) => {

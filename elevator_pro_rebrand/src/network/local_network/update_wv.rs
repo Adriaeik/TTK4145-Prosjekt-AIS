@@ -130,6 +130,9 @@ pub async fn join_wv_from_tcp_container(wv: &mut WorldView, container: &Elevator
                 }
             }
         }
+
+        // Add slaves unfinished tasks to hall_requests
+        wv.hall_request = merge_hall_requests(&wv.hall_request, &wv.elevator_containers[i].tasks);
         
         if world_view::is_master(wv) {
             wv.elevator_containers[i].unsent_hall_request = vec![[false; 2]; wv.elevator_containers[i].num_floors as usize];

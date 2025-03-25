@@ -47,7 +47,7 @@ use crate::world_view::{Dirn, ElevatorBehaviour, ElevatorContainer};
 use crate::elevator_logic::self_elevator;
 use crate::elevator_logic::request;
 use crate::config;
-use super::{lights, timer::{Timer, ElevatorTimers}};
+use super::{lights, request::should_stop, timer::{ElevatorTimers, Timer}};
 
 
 /// Initializes the elevator by moving downward until a valid floor is reached.
@@ -284,8 +284,13 @@ pub fn handle_error_timeout(
         error_timer.timer_start();
     }
 
+
     if error_timer.timer_timeouted() && !prev_cab_priority_timer_stat {
-        print::cosmic_err("Feil på travel!!!!".to_string());
+        if !self_container.obstruction && (self_container.behaviour == ElevatorBehaviour::DoorOpen) {
+            error_timer.timer_start();
+        } else {
+            print::err("Elevator entered error".to_string());
+        }
     }
 }
 
