@@ -628,6 +628,18 @@ fn create_tcp_socket() -> Result<Socket, Error> {
 
     socket.set_tcp_keepalive(&keepalive)?;
 
+    socket.set_read_timeout(Some(Duration::from_secs(10)))?;
+    socket.set_write_timeout(Some(Duration::from_secs(10)))?;
+    socket.set_thin_linear_timeouts(true)?;
+    socket.set_tcp_user_timeout(Some(Duration::from_secs(10)))?;
+    socket.set_quickack(true)?;
+
+    // Make sure header and message is sent in one payload
+    socket.set_cork(true)?;
+
+    
+    socket.set_nodelay(true)?;
+
     Ok(socket)
 }
 
