@@ -1,4 +1,4 @@
-use crate::{config, world_view::{Dirn, ElevatorBehaviour, serial}};
+use crate::{config, world_view::{serial, Dirn, ElevatorBehaviour, WorldView}};
 use ansi_term::Colour::{self, Green, Red, Yellow, Purple};
 
 use unicode_width::UnicodeWidthStr;
@@ -256,16 +256,11 @@ fn pad_text(text: &str, width: usize) -> String {
 }
 
 /// Logger `wv` i eit fint tabellformat
-pub fn worldview(worldview: Vec<u8>) {
+pub fn worldview(worldview: WorldView) {
     let print_stat = config::PRINT_WV_ON.lock().unwrap().clone();
     if !print_stat {
         return;
     }
-
-    let wv_deser = match serial::deserialize_worldview(&worldview) {
-        Some(wv) => wv,
-        None => return,
-    };
 
     // Overskrift
     println!("{}", Purple.bold().paint("┌────────────────────────────────┐"));
@@ -279,12 +274,12 @@ pub fn worldview(worldview: Vec<u8>) {
 
     println!(
         "│ {:<11} │ {:<8} │                    │",
-        wv_deser.get_num_elev(),
-        wv_deser.master_id
+        worldview.get_num_elev(),
+        worldview.master_id
     );
 
-    for (floor, calls) in wv_deser.hall_request.iter().enumerate().rev() {
-        let up = if floor != wv_deser.hall_request.len() - 1 {
+    for (floor, calls) in worldview.hall_request.iter().enumerate().rev() {
+        let up = if floor != worldview.hall_request.len() - 1 {
             if calls[0] { "🟢" } else { "🔴" }
         } else {
             "  " // Ingen opp-knapp i øvste etasje
@@ -311,7 +306,7 @@ pub fn worldview(worldview: Vec<u8>) {
     println!("{}", ansi_term::Colour::White.bold().paint("│ ID   │ Dør      │ Obstruksjon  │ Tasks        │ Siste etasje│ Calls (Etg:Call)     │ Elev status   │"));
     println!("├──────┼──────────┼──────────────┼──────────────┼─────────────┼──────────────────────┼───────────────┤");
 
-    for elev in &wv_deser.elevator_containers {
+    for elev in &worldview.elevator_containers {
         let id_text = pad_text(&format!("{}", elev.elevator_id), 4);
         let door_text = if elev.behaviour == ElevatorBehaviour::DoorOpen {
             pad_text(&Yellow.paint("Open").to_string(), 17)
