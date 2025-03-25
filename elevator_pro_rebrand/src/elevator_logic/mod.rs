@@ -1,3 +1,12 @@
+//! # Elevator Logic Module
+//!
+//! This module implements the core logic for the local elevator in the system. 
+//! It handles:
+//! - **Finite State Machine (FSM)** for controlling the motor, doors, and behavior.
+//! - **Communication with elevator hardware** to read sensors and activate actuators.
+//! - **Integration with the world view**, including request updates and coordination with other elevators.
+//! - **Error handling and timing management** to ensure robust operation.
+
 pub mod fsm;
 pub mod request;
 pub mod timer;
