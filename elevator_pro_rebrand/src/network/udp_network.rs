@@ -160,7 +160,7 @@ pub async fn start_udp_listener(wv_watch_rx: watch::Receiver<Vec<u8>>, udp_wv_tx
                     // println!("container id: {}", cont.elevator_id);
                 },
                 None => {
-                    ignore_counter += 1;
+                    // ignore_counter += 1;
                 }
             }
             
