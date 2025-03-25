@@ -4,8 +4,9 @@
 //! It allows to print in appropriate colors depening on the situation.
 //! It also provides a nice print-format for the WorldView. 
 use crate::{config, network, world_view::{Dirn, ElevatorBehaviour, WorldView}};
-use ansi_term::Colour::{self, Green, Red, Yellow, Purple};
+use ansi_term::Colour::{self, Green, Red, Yellow, Purple, White};
 
+use prettytable::color::BLUE;
 use unicode_width::UnicodeWidthStr;
 
 /// Prints a message in a specified color to the terminal.
@@ -260,6 +261,17 @@ fn pad_text(text: &str, width: usize) -> String {
     format!("{}{}", text, " ".repeat(padding))
 }
 
+fn colored_bool_label(value: bool, width: usize) -> String {
+    let raw_text = if value { "true" } else { "false" };
+    let padded = pad_text(raw_text, width); // brukar din hjelpefunksjon
+    if value {
+        Green.paint(padded).to_string()
+    } else {
+        Red.paint(padded).to_string()
+    }
+}
+
+
 fn rgb_color_for_loss(loss: u8) -> String {
     // loss frå 0 → 100 skal gå frå grøn (0,255,0) → gul (255,255,0) → raud (255,0,0)
     let (r, g) = if loss <= 50 {
@@ -275,22 +287,23 @@ fn rgb_color_for_loss(loss: u8) -> String {
 }
 
 fn colored_loss_bar(loss: u8, width: usize) -> String {
-    let filled = (loss as usize * width) / 100;
+    let mut filled = (loss as usize * width) / 100;
+    if loss == 0 {
+        filled = 1;
+    }
+
     let mut bar = String::new();
+
+    let k = 20.0; // juster for "kor bratt" det blir i starten
+
     for i in 0..width {
         let symbol = if i < filled { "█" } else { " " };
 
-        // Berekn farge basert på "lokal loss" i baren
-        let segment_loss = (i as f32 / width as f32) * 100.0;
-        let (r, g) = if segment_loss <= 50.0 {
-            let ratio = segment_loss / 50.0;
-            let r = (ratio * 255.0) as u8;
-            (r, 255)
-        } else {
-            let ratio = (segment_loss - 50.0) / 50.0;
-            let g = ((1.0 - ratio) * 255.0) as u8;
-            (255, g)
-        };
+        let x = i as f32 / width as f32; // 0.0 → 1.0
+        let intensity = ((1.0 + k * x).ln()) / ((1.0 + k).ln()); // logaritmisk interpolering, 0–1
+
+        let r = (intensity * 255.0) as u8;
+        let g = ((1.0 - intensity) * 255.0) as u8;
 
         let color = format!("\x1b[38;2;{};{};0m", r, g);
         bar.push_str(&format!("{}{}{}", color, symbol, "\x1b[0m"));
@@ -305,28 +318,22 @@ pub fn worldview(worldview: &WorldView, connection: Option<network::ConnectionSt
     if !print_stat {
         return;
     }
-
+    // Legg til utskrift av nettverksstatus viss det er med
+    println!("{}", ansi_term::Colour::Cyan.bold().paint("┌────────────────────────────────┐"));
+    println!("{}", ansi_term::Colour::Cyan.bold().paint("│  ELEVATOR NETWORK CONNECTION   │")); 
+    println!("{}", ansi_term::Colour::Cyan.bold().paint("└────────────────────────────────┘"));
     match connection {
         Some(status) => {
-            let on_net_color = if status.on_internett {
-                Green.paint("true")
-            } else {
-                Red.paint("false")
-            };
-    
-            let elev_net_color = if status.connected_on_elevator_network {
-                Green.paint("true")
-            } else {
-                Red.paint("false")
-            };
+            let on_net_color = colored_bool_label(status.on_internett, 5);
+            let elev_net_color = colored_bool_label(status.connected_on_elevator_network, 5);
     
             let color_prefix = rgb_color_for_loss(status.packet_loss);
             let reset = "\x1b[0m";
             let bar = colored_loss_bar(status.packet_loss, 27);
     
             println!("┌───────────────────────────────┐");
-            println!("│ On internett:           {:<8} │", on_net_color);
-            println!("│ Elevator network:       {:<8} │", elev_net_color);
+            println!("│ On internett:           {} │", on_net_color);
+            println!("│ Elevator network:       {} │", elev_net_color);
             println!("│ Packet loss:        {}{:>8}%{:>2} │", color_prefix, status.packet_loss, reset);
             println!("│ [{}] │", bar);
             println!("└───────────────────────────────┘");
@@ -338,8 +345,6 @@ pub fn worldview(worldview: &WorldView, connection: Option<network::ConnectionSt
         }
     }
     
-
-    use ansi_term::Colour::{Purple, White};
 
     // Overskrift
     println!("{}", Purple.bold().paint("┌────────────────────────────────┐"));
@@ -379,11 +384,6 @@ pub fn worldview(worldview: &WorldView, connection: Option<network::ConnectionSt
     }
 
     println!("└─────────────┴──────────┴────────────────────┘");
-
-    // Legg til utskrift av nettverksstatus viss det er med
-    println!("{}", Purple.bold().paint("┌────────────────────────────────┐"));
-    println!("{}", Purple.bold().paint("│       NETWORK CONNECTION       │"));
-    println!("{}", Purple.bold().paint("└────────────────────────────────┘"));
 
     // Heisstatus-tabell
     println!("┌──────┬──────────┬──────────────┬──────────────┬─────────────┬──────────────────────┬───────────────┐");

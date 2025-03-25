@@ -132,7 +132,6 @@ pub async fn watch_ethernet(
     
     loop {
         let ip = get_self_ip();
-        println!("fikk _");
         let mut connection_status = ConnectionStatus::new();
         let mut net_status = false;
 
@@ -144,8 +143,6 @@ pub async fn watch_ethernet(
                 connection_status.on_internett = true;
                 connection_status.connected_on_elevator_network = is_ok;
                 connection_status.set_packet_loss(loss);
-
-                println!("{:?}", connection_status);
 
                 let _ = network_watch_tx.send(connection_status.clone());
             }

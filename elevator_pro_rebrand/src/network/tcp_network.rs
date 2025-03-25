@@ -608,18 +608,26 @@ fn create_tcp_socket() -> Result<Socket, Error> {
     socket.set_recv_buffer_size(16_777_216)?;
 
     // Configure TCP keepalive to detect broken connections.
-    let keepalive = TcpKeepalive::new() 
-        .with_time(Duration::from_secs(10))         // Start sending keepalive probes after 10 seconds of inactivity.
-        .with_interval(Duration::from_secs(1));                 // Send keepalive probes every 1 second.
+    
 
     #[cfg(target_os = "linux")]
     {
-        // On Linux, specify the number of keepalive probes before the connection is considered dead.
-        // This setting is not available on Windows.
-        keepalive.with_retries(10);
+        let keepalive = TcpKeepalive::new() 
+            .with_time(Duration::from_secs(10))         // Start sending keepalive probes after 10 seconds of inactivity.
+            .with_interval(Duration::from_secs(1))                  // Send keepalive probes every 1 second.
+            // On Linux, specify the number of keepalive probes before the connection is considered dead.
+            // This setting is not available on Windows.
+            .with_retries(10);
+        socket.set_tcp_keepalive(&keepalive.to_owned().clone())?;
     }
 
-    socket.set_tcp_keepalive(&keepalive)?;
+    #[cfg(target_os = "windows")]
+    {
+        let keepalive = TcpKeepalive::new() 
+            .with_time(Duration::from_secs(10))         // Start sending keepalive probes after 10 seconds of inactivity.
+            .with_interval(Duration::from_secs(1));                  // Send keepalive probes every 1 second.
+        socket.set_tcp_keepalive(&keepalive.to_owned().clone())?;
+    }
 
     // Set read and write timeouts to 10 seconds.
     socket.set_read_timeout(Some(Duration::from_secs(10)))?;
