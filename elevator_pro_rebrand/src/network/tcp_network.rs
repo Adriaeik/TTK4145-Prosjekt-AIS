@@ -629,7 +629,7 @@ fn create_tcp_socket() -> Result<Socket, Error> {
     }
 
     // Set read and write timeouts to 10 seconds.
-    socket.set_read_timeout(Some(Duration::from_secs(20)))?;
+    socket.set_read_timeout(Some(Duration::from_secs(30)))?;
     socket.set_write_timeout(Some(Duration::from_secs(20)))?;
 
     #[cfg(target_os = "linux")]
