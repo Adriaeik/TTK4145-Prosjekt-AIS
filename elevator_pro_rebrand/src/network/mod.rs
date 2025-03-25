@@ -121,7 +121,7 @@ pub async fn watch_ethernet(
     new_wv_after_offline_tx: mpsc::Sender<WorldView>
 ) {
     let mut last_net_status = false;
-    
+    // TODO:: legge på hystesrese
     let network_quality_rx = start_packet_loss_monitor(
         1, 
         5, 
@@ -273,7 +273,9 @@ pub async fn start_packet_loss_monitor(
             
             // Berekn tap i vinduet
             let fail_count = window.iter().filter(|&&ok| !ok).count();
-            let loss_rate = fail_count as f32 / window.len() as f32;
+            let raw_loss = fail_count as f32 / window.len() as f32;
+            let loss_rate = 1.0 - (1.0 - raw_loss).powi(2);
+
             
             let new_status = loss_rate <= max_loss_rate;
             // Send ny status viss han har endra seg
