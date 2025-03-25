@@ -343,3 +343,6 @@ pub async fn build_cost_fn() {
     }
     sleep(Duration::from_millis(2000)).await;
 }
+
+pub async fn build_netimpair_fn() {}
+

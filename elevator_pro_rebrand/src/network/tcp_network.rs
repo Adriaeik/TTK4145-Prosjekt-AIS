@@ -250,7 +250,8 @@ async fn tcp_while_slave(
         master_accepted_tcp = true;
         stream = Some(s);
     } else {
-        println!("Master adid not accept the TCP-connection");
+        println!("Master did not accept the TCP-connection");
+        sleep(Duration::from_secs(100)).await;
         let _ = connection_to_master_failed_tx.send(true).await;
     }
 
