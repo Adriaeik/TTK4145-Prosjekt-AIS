@@ -5,12 +5,14 @@ pub mod local_network;
 
 use crate::{init, config, print, ip_help_functions, world_view, };
 
+use tokio::net::UdpSocket;
+use tokio::time::{timeout, Duration, Instant};
 use tokio::sync::{mpsc, watch};
 use std::sync::atomic::{Ordering, AtomicU8, AtomicBool};
 use std::sync::OnceLock;
 use std::thread::sleep;
 use local_ip_address::local_ip;
-use std::net::{IpAddr};
+use std::net::IpAddr;
 
 
 
@@ -39,41 +41,42 @@ pub fn get_self_ip() -> Result<IpAddr, local_ip_address::Error> {
     Ok(ip)
 }
 
-/// Monitors the Ethernet connection status asynchronously.
-///
-/// This function continuously checks whether the device has a valid network connection.
-/// It determines connectivity by verifying that the device's IP matches the expected network prefix.
-/// The network status is stored in a shared atomic boolean [get_network_status()].
-///
-/// ## Behavior
-/// - Retrieves the device's IP address using `utils::get_self_ip()`.
-/// - Extracts the root IP using `utils::get_root_ip()` and compares it to `config::NETWORK_PREFIX`.
-/// - Updates the network status (`true` if connected, `false` if disconnected).
-/// - Prints status changes:  
-///   - `"Vi er online"` when connected.  
-///   - `"Vi er offline"` when disconnected.
-///
-/// ## Note
-/// This function runs in an infinite loop and should be spawned as an asynchronous task.
-///
-/// ## Example
-/// ```
-/// use tokio;
-/// # #[tokio::test]
-/// # async fn test_watch_ethernet() {
-/// tokio::spawn(async {
-///     watch_ethernet().await;
-/// });
-/// # }
-/// ```
+// Må oppdateres
+// / Monitors the Ethernet connection status asynchronously.
+// /
+// / This function continuously checks whether the device has a valid network connection.
+// / It determines connectivity by verifying that the device's IP matches the expected network prefix.
+// / The network status is stored in a shared atomic boolean [get_network_status()].
+// /
+// / ## Behavior
+// / - Retrieves the device's IP address using `utils::get_self_ip()`.
+// / - Extracts the root IP using `utils::get_root_ip()` and compares it to `config::NETWORK_PREFIX`.
+// / - Updates the network status (`true` if connected, `false` if disconnected).
+// / - Prints status changes:  
+// /   - `"Vi er online"` when connected.  
+// /   - `"Vi er offline"` when disconnected.
+// /
+// / ## Note
+// / This function runs in an infinite loop and should be spawned as an asynchronous task.
+// /
+// / ## Example
+// / ```
+// / use tokio;
+// / # #[tokio::test]
+// / # async fn test_watch_ethernet() {
+// / tokio::spawn(async {
+// /     watch_ethernet().await;
+// / });
+// / # }
+// / ```
 pub async fn watch_ethernet(wv_watch_rx: watch::Receiver<Vec<u8>>, new_wv_after_offline_tx: mpsc::Sender<Vec<u8>>) {
     let mut net_status = false;
     let mut last_net_status = false;
     
     let network_quality_rx = start_packet_loss_monitor(
-        10, 
-        100, 
-        50 as usize, 
+        1, 
+        5, 
+        1000 as usize, 
         0.6
     ).await;
     
@@ -113,8 +116,6 @@ pub async fn watch_ethernet(wv_watch_rx: watch::Receiver<Vec<u8>>, new_wv_after_
     }
 }
 
-use tokio::net::{UdpSocket};
-use tokio::time::{timeout, Duration};
 
 
 async fn wait_for_ip() -> IpAddr {
@@ -150,7 +151,9 @@ async fn start_packet_loss_monitor(
     let (tx, rx) = watch::channel(true); // start som OK
     let addr = format!("{}:{}", wait_for_ip().await, config::DUMMY_PORT);
 
+    
     tokio::spawn(async move {
+        let mut last_instant = Instant::now();
         let mut window = VecDeque::new();
 
         loop {
@@ -209,13 +212,15 @@ async fn start_packet_loss_monitor(
             // Berekn tap i vinduet
             let fail_count = window.iter().filter(|&&ok| !ok).count();
             let loss_rate = fail_count as f32 / window.len() as f32;
+
+            println!("Pakketap: {}%\n\n", loss_rate);
             
             let new_status = loss_rate <= max_loss_rate;
             // Send ny status viss han har endra seg
             if *tx.borrow() != new_status {
-                let _ = tx.send(new_status);
-                if !new_status {
-                    sleep(Duration::from_secs(5));
+                if Instant::now() - last_instant > Duration::from_secs(5) {
+                    last_instant = Instant::now();
+                    let _ = tx.send(new_status);
                 }
             }
             // println!("Array: {:?},\n\n status: {}, \n\n", window, new_status);

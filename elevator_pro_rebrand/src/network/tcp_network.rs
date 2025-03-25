@@ -140,62 +140,21 @@ pub async fn tcp_handler(
 
 /* __________ START PRIVATE FUNCTIONS __________ */
 
-/// Handles timeout on TCP connection at master, and reading from slave
-struct TcpWatchdog {
-    timeout: Duration,
-}
+async fn start_reading_from_slave(mut stream: TcpStream, remove_container_tx: mpsc::Sender<u8>, container_tx: mpsc::Sender<Vec<u8>>) {
 
-impl TcpWatchdog {
-    /// Starts a loop where reading from stream and checking for timeout runs asynchronously
-    /// 
-    /// # Parameters
-    /// `stream`: The TCP-stream to be read from
-    /// `remove_container_tx`: mpsc Sender used to notify the worldview updater if a slave should be remover  
-    /// `container_tx`: mpsc Sender used to pass recieved slave-messages to the worldview_updater  
-    /// 
-    /// # Behavior
-    /// The function loops:
-    /// - Calculate time before a timeout occures
-    /// - Asynchronously select between:
-    ///     - Sending the data successfully recieved on the TCP stream over `container_tx`
-    ///     - Sending the ID of the slave on `remove_container_tx` on timeout event
-    async fn start_reading_from_slave(&self, mut stream: TcpStream, remove_container_tx: mpsc::Sender<u8>, container_tx: mpsc::Sender<Vec<u8>>) {
-        let mut last_success = Instant::now();
+    loop {
 
-        loop {
-            /* Calculate how long until timout occures */
-            let remaining = self.timeout
-                .checked_sub(last_success.elapsed())
-                .unwrap_or(Duration::from_secs(0));
-
-            /* Creates a sleep-future based on remaining time before timeout */
-            let sleep_fut = sleep(remaining);
-            tokio::pin!(sleep_fut);
-
-            tokio::select! {
-                /* Tries to read from stream */
-                result = read_from_stream(remove_container_tx.clone(), &mut stream) => {
-                    match result {
-                        Some(msg) => {
-                            let _ = container_tx.send(msg).await;
-                            last_success = Instant::now()
-                        }
-                        None => {
-                            break;
-                        }
-                    }
-                }
-                /* Triggers if no message is recieved within the timeout-duration */
-                _ = &mut sleep_fut => {
-                    print::err(format!("Timeout: No message recieved within: {:?}", self.timeout));
-                    let id = ip_help_functions::ip2id(stream.peer_addr().expect("Peer has no IP?").ip());
-                    print::info(format!("Closing stream to slave {}", id));
-                    let _ = remove_container_tx.send(id).await;
-                    close_tcp_stream(&mut stream).await;
-                    break;
-                }
+        /* Tries to read from stream */
+        let result = read_from_stream(remove_container_tx.clone(), &mut stream).await;
+        match result {
+            Some(msg) => {
+                let _ = container_tx.send(msg).await;
+            }
+            None => {
+                break;
             }
         }
+        
     }
 }
 
@@ -225,11 +184,8 @@ async fn tcp_while_master(wv: &mut Vec<u8>, wv_watch_rx: watch::Receiver<Vec<u8>
                 let remove_container_tx_clone = remove_container_tx.clone();
                 let container_tx_clone = container_tx.clone();
                 let _slave_task: JoinHandle<()> = tokio::spawn(async move {
-                    let tcp_watchdog = TcpWatchdog {
-                        timeout: Duration::from_millis(config::TCP_TIMEOUT),
-                    };
                     /* Start handling the slave. Also has watchdog function to detect timeouts on messages */
-                    tcp_watchdog.start_reading_from_slave(stream, remove_container_tx_clone, container_tx_clone).await;
+                    start_reading_from_slave(stream, remove_container_tx_clone, container_tx_clone).await;
                 });
                 /* Make sure other tasks are able to run */
                 tokio::task::yield_now().await; 
