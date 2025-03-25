@@ -143,7 +143,10 @@ pub async fn start_udp_listener(wv_watch_rx: watch::Receiver<Vec<u8>>, udp_wv_tx
         }
         
         // Make sure the message was from 'our' program
-        if &message[1..config::KEY_STR.len()+1] == config::KEY_STR { //Plus one, since serialisation of the string includes the '"'-sign
+        if message.len() < 10 {
+
+        }
+        else if &message[1..config::KEY_STR.len()+1] == config::KEY_STR{ //Plus one, since serialisation of the string includes the '"'-sign
             let clean_message = &message[config::KEY_STR.len()+3..message.len()-1]; // Removes `"`
             read_wv = clean_message
             .split(", ") // Split on ", "
@@ -184,14 +187,6 @@ pub async fn start_udp_listener(wv_watch_rx: watch::Receiver<Vec<u8>>, udp_wv_tx
                 my_wv = read_wv;
                 let _ = udp_wv_tx.send(my_wv.clone()).await;
             }
-            // Eventuelt reset lokal worldview viss vi endeleg blei med i meldinga
-            // Nødløsning? visst nettverke blir dårlig.. bare gå i enkeltheis modus?
-            else {
-                // // remove all other elevators, ur on your own
-                // use crate::init;
-                // //må lage ein tilsvarande funksjon som bare 
-                // my_wv = init::initialize_worldview(world_view::extract_self_elevator_container(my_wv.clone())).await;
-            }
         }
     }
 }
@@ -211,7 +206,7 @@ pub async fn udp_watchdog(connection_to_master_failed_tx: mpsc::Sender<bool>) {
         
     }
     loop {
-        if get_udp_timeout().load(Ordering::SeqCst) == false {
+        if get_udp_timeout().load(Ordering::SeqCst) == false || !network::read_network_status(){
             get_udp_timeout().store(true, Ordering::SeqCst);
             tokio::time::sleep(Duration::from_millis(1000)).await;
         }

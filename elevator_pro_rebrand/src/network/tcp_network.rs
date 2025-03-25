@@ -485,13 +485,14 @@ async fn send_tcp_message(connection_to_master_failed_tx: mpsc::Sender<bool>, se
     } else {
         let mut buf: [u8; 1] = [0];
         match stream.read_exact(&mut buf).await {
-            Ok(_) => {},
+            Ok(_) => {
+                let _ = sent_tcp_container_tx.send(self_elev_serialized).await;
+            },
             Err(e) => {
                 print::err(format!("Master did not ACK the message: {}", e));
                 let _ = connection_to_master_failed_tx.send(true).await;
             }
         }
-        let _ = sent_tcp_container_tx.send(self_elev_serialized).await;
     }
 }
 
@@ -622,7 +623,8 @@ fn create_tcp_socket() -> Result<Socket, Error> {
     // Set keepalive settings
     let keepalive = TcpKeepalive::new()
         .with_time(Duration::from_secs(10))
-        .with_interval(Duration::from_secs(10));
+        .with_interval(Duration::from_secs(1))
+        .with_retries(10);
 
     socket.set_tcp_keepalive(&keepalive)?;
 

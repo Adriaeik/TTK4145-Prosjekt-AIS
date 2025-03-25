@@ -165,7 +165,10 @@ pub async fn check_for_udp() -> Vec<u8> {
         }
 
         // Verify that the UDP message is from our expected network
-        if &message[1..config::KEY_STR.len() + 1] == config::KEY_STR {
+        if message.len() < 10 {
+
+        }
+        else if &message[1..config::KEY_STR.len() + 1] == config::KEY_STR {
             // Extract and clean the message by removing the key and surrounding characters
             let clean_message = &message[config::KEY_STR.len() + 3..message.len() - 1];
 

@@ -53,7 +53,6 @@ pub fn join_wv(mut my_wv: Vec<u8>, master_wv: Vec<u8>) -> Vec<u8> {
         master_view.unsent_hall_request = my_view.unsent_hall_request.clone();
         master_view.cab_requests = my_view.cab_requests.clone();
 
-        // Hall request buttons synchronization is handled through TCP reliability
 
     } else if let Some(i_org) = my_self_index {
         // If the local elevator is missing in master_wv, add it
@@ -89,6 +88,8 @@ pub fn abort_network(wv: &mut Vec<u8>) -> bool {
     deserialized_wv.elevator_containers.retain(|elevator| elevator.elevator_id == network::read_self_id());
     deserialized_wv.set_num_elev(deserialized_wv.elevator_containers.len() as u8);
     deserialized_wv.master_id = network::read_self_id();
+    //TODO hent ut self index istedenfor 0 indeks
+    deserialized_wv.hall_request = merge_hall_requests(&deserialized_wv.hall_request, &deserialized_wv.elevator_containers[0].tasks);
     *wv = serial::serialize_worldview(&deserialized_wv);
     true
 }
