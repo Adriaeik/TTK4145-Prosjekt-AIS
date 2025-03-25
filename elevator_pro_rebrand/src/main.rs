@@ -3,7 +3,7 @@ use tokio::net::TcpStream;
 use std::net::SocketAddr;
 use tokio::sync::watch;
 
-use elevatorpro::{backup, elevator_logic, manager, network::{self, local_network, tcp_network, udp_network}, world_view};
+use elevatorpro::{backup, elevator_logic, manager, network::{self, local_network, tcp_network, udp_network}, world_view::{self, WorldView}};
 use elevatorpro::init;
 use elevatorpro::print;
 
@@ -28,16 +28,16 @@ async fn main() {
 
     
     /* Initialize a worldview */
-    let worldview_serialised = init::initialize_worldview(self_container).await;
+    let worldview = init::initialize_worldview(self_container).await;
     
     
     /* START ----------- Initializing of channels used for the worldview updater ---------------------- */
     let main_mpscs = local_network::Mpscs::new();
-    let (wv_watch_tx, wv_watch_rx) = watch::channel(Vec::<u8>::new());
+    let (wv_watch_tx, wv_watch_rx) = watch::channel::new::<WorldView>();
     /* END ----------- Initializing of channels used for the worldview updater ---------------------- */
     
     // Send the initialized worldview on the worldview watch, so its not empty when rx tries to borrow it
-    let _ = wv_watch_tx.send(worldview_serialised.clone());
+    let _ = wv_watch_tx.send(worldview.clone());
 
 
 
@@ -92,7 +92,7 @@ async fn main() {
         //Continously updates the local worldview
         let _update_wv_task = tokio::spawn(async move {
             print::info("Starting to update worldview".to_string());
-            let _ = local_network::update_wv_watch(mpsc_rxs, wv_watch_tx, worldview_serialised).await;
+            let _ = local_network::update_wv_watch(mpsc_rxs, wv_watch_tx, &mut worldview).await;
         });
     }
     {

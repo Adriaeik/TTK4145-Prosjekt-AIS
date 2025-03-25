@@ -17,7 +17,9 @@ use crate::print;
 static BACKUP_STARTED: AtomicBool = AtomicBool::new(false);
 
 /// Creates a non blocking TCP listener with reusable address
-fn create_reusable_listener(port: u16) -> TcpListener {
+fn create_reusable_listener(
+    port: u16
+) -> TcpListener {
     let addr_str = format!("localhost:{}", port);
     // Resolve alle mulige adresser til "localhost"
     let addr_iter = addr_str
@@ -60,14 +62,20 @@ fn start_backup_terminal() {
 
 /// Handles backup clients: Sends worldview continously
 /// TODO: send litt raskere enn en gang i sekundet
-async fn handle_backup_client(mut stream: TcpStream, rx: watch::Receiver<WorldView>) {
+async fn handle_backup_client(
+    mut stream: TcpStream, 
+    rx: watch::Receiver<WorldView>
+) {
     loop {
         let wv = rx.borrow().clone();
 
-        let wv_serial = world_view::serial::serialize_worldview(&wv)
+        let wv_serial = match world_view::serial::serialize_worldview(&wv) {
+            Some(wv_s) => wv_s,
+            None => continue,
+        };
 
 
-        if let Err(e) = stream.write_all(&wv).await {
+        if let Err(e) = stream.write_all(&wv_serial).await {
             print::err(format!("Backup send error: {}", e));
             print::warn(format!("Trying again in {:?}", config::BACKUP_TIMEOUT));
             sleep(config::BACKUP_TIMEOUT).await;
@@ -91,7 +99,9 @@ async fn handle_backup_client(mut stream: TcpStream, rx: watch::Receiver<WorldVi
 /// 
 /// ## Note
 /// This function is permanently blocking, and should be ran asynchronously 
-pub async fn start_backup_server(wv_watch_rx: watch::Receiver<WorldView>) {
+pub async fn start_backup_server(
+    wv_watch_rx: watch::Receiver<WorldView>
+) {
     println!("Backup-server starting...");
     
     let listener = create_reusable_listener(config::BCU_PORT);
@@ -141,14 +151,18 @@ pub async fn run_as_backup() -> Option<world_view::ElevatorContainer> {
                             break;
                         },
                         Ok(n) => {
-                            current_wv = buf[..n].to_vec();
+                            let wv_serial= buf[..n].to_vec();
+                            current_wv = match world_view::serial::deserialize_worldview(&wv_serial) {
+                                Some(wv) => wv,
+                                None => continue,
+                            };
                             // Rydd skjermen og sett markøren øvst
                             print!("\x1B[2J\x1B[H");
 
                             // Sørg for at utskrifta skjer umiddelbart
                             io::stdout().flush().unwrap();
 
-                            print::worldview(current_wv.clone());
+                            print::worldview(&current_wv);
                         },
                         Err(e) => {
                             eprintln!("Error while reading from master: {}", e);
