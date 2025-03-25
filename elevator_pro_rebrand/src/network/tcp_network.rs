@@ -1,6 +1,6 @@
 //! ## Håndterer TCP-logikk i systemet
 
-use std::{fmt::Debug, io::Error, net::IpAddr, sync::atomic::{AtomicBool, Ordering}};
+use std::{fmt::{format, Debug}, io::Error, net::IpAddr, sync::atomic::{AtomicBool, Ordering}};
 use tokio::{io::{AsyncReadExt, AsyncWriteExt}, net::{TcpListener, TcpSocket, TcpStream}, sync::{mpsc, watch}, task::JoinHandle, time::{sleep, Duration, Instant}};
 use std::net::SocketAddr;
 use socket2::{Domain, Protocol, SockAddr, Socket, TcpKeepalive, Type};
@@ -322,6 +322,7 @@ async fn connect_to_master(wv_watch_rx: watch::Receiver<Vec<u8>>) -> Option<TcpS
     /* Check if we are online */
     if network::read_network_status() {
         let master_ip = format!("{}.{}:{}", config::NETWORK_PREFIX, wv[config::MASTER_IDX], config::PN_PORT);
+        println!("Master id: {}", wv[config::MASTER_IDX]);
         print::info(format!("Trying to connect to : {} in connect_to_master()", master_ip));
 
         let socket = match create_tcp_socket() {
@@ -407,7 +408,12 @@ async fn read_from_stream(remove_container_tx: mpsc::Sender<u8>, stream: &mut Tc
                             let _ =  remove_container_tx.send(id).await;
                             return None;
                         }
-                        Ok(_) => return Some(buffer),
+                        Ok(_) => {
+                            //TODO: ikke let _ = 
+                            let _ =  stream.write_all(&[69]).await;
+                        
+                            return Some(buffer)
+                        },
                         Err(e) => {
                             print::err(format!("Error while reading from stream: {}", e));
                             let id = ip_help_functions::ip2id(stream.peer_addr().expect("Slave has no IP?").ip());
@@ -476,6 +482,14 @@ async fn send_tcp_message(connection_to_master_failed_tx: mpsc::Sender<bool>, se
     } else if let Err(_) = stream.flush().await {
         let _ = connection_to_master_failed_tx.send(true).await; 
     } else {
+        let mut buf: [u8; 1] = [0];
+        match stream.read_exact(&mut buf).await {
+            Ok(_) => {},
+            Err(e) => {
+                print::err(format!("Master did not ACK the message: {}", e));
+                let _ = connection_to_master_failed_tx.send(true).await;
+            }
+        }
         let _ = sent_tcp_container_tx.send(self_elev_serialized).await;
     }
 }
@@ -542,6 +556,9 @@ fn listener_from_socket(socket: Socket) -> Option<TcpListener> {
         }
     }
 
+    // Set non blocking, so it can be used bu tokio
+    socket.set_nonblocking(true).expect("Coulndt set socket non-blocking");
+
     match TcpListener::from_std(socket.into()) {
         Ok(listener) => {
             print::ok(format!("System listening on {}:{}", self_ip, config::PN_PORT));
@@ -563,15 +580,21 @@ fn connect_socket(socket: Socket, target: &String) -> Option<TcpStream> {
         }
     };
 
+
     match socket.connect(&master_sock_addr) {
         Ok(()) => {
             print::ok(format!("Connected to Master: {} i TCP_listener()", target));
         },
         Err(e) => {
             print::err(format!("Failed to connect to master: {}", e));
+            std::thread::sleep(Duration::from_secs(100));
+            
             return None;
         },
     };     
+
+    // Set non blocking, so it can be used bu tokio
+    socket.set_nonblocking(true).expect("Coulndt set socket non-blocking");
 
     let std_stream: std::net::TcpStream = socket.into();
 
@@ -603,9 +626,6 @@ fn create_tcp_socket() -> Result<Socket, Error> {
         .with_interval(Duration::from_secs(5));
 
     socket.set_tcp_keepalive(&keepalive)?;
-
-    // Set non blocking, so it can be used bu tokio
-    socket.set_nonblocking(true)?;
 
     Ok(socket)
 }
