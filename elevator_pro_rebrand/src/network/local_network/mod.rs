@@ -3,7 +3,7 @@
 //! such as the UDP-network, TCP-network, local elevator and network manager.
 //! 
 //! The module also includes a MPSC-struct, making it easier to initialize all the channels used for passing this information.
-mod update_wv;
+pub mod update_wv;
 
 use crate::print;
 use crate::world_view::{ElevatorContainer, WorldView};

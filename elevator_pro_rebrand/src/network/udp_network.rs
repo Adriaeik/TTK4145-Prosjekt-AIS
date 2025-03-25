@@ -40,6 +40,8 @@ use socket2::{Domain, Socket, Type};
 use tokio::sync::mpsc;
 use tokio::sync::watch;
 
+use super::local_network;
+
 static UDP_TIMEOUT: OnceLock<AtomicBool> = OnceLock::new();
 
 
@@ -134,6 +136,7 @@ pub async fn start_udp_listener(
     while !network::read_network_status() {
         
     }
+    let mut prev_network_status = false;
     //Set up sockets
     let self_id = network::read_self_id();
     let broadcast_listen_addr = format!("{}:{}", config::BC_LISTEN_ADDR, config::DUMMY_PORT);
@@ -162,7 +165,7 @@ pub async fn start_udp_listener(
         }
         
         match read_wv {
-            Some(read_wv) => {
+            Some(mut read_wv) => {
                 world_view::update_wv(wv_watch_rx.clone(), &mut my_wv).await;
 
                 if read_wv.master_id != my_wv.master_id {
@@ -171,6 +174,11 @@ pub async fn start_udp_listener(
                     // The message came from the current master -> reset the watchdog
                     get_udp_timeout().store(false, Ordering::SeqCst);
                 }
+
+                if network::read_network_status() && !prev_network_status {
+                    local_network::update_wv::merge_wv_after_offline(&mut my_wv, &mut read_wv);
+                }
+                prev_network_status = network::read_network_status();
 
                 // Pass the recieved WorldView if the message came from the master or a node with a lower ID than current master, 
                 // and this node is not the master
