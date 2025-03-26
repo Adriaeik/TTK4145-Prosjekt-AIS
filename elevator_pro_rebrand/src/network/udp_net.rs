@@ -255,23 +255,28 @@ async fn send_udp(
     
     let mut fails = 0;
     let mut backoff_timeout_ms = timeout_ms;
+
+    let mut should_send: bool = true;
+    let sent_cont = match world_view::extract_self_elevator_container(wv) {
+        Some(cont) => cont.clone(),
+        None => {
+            return Err(std::io::Error::new(std::io::ErrorKind::InvalidData, "Self container not found in worldview"))
+        }
+    };
     loop {
-        let packetloss = packetloss_rx.borrow().clone();
-        let redundancy = get_redundancy(packetloss.packet_loss);
-        println!("Sending packet nr. {} with {} copies (estimated loss: {}%)", seq_num, redundancy, packetloss.packet_loss);
-        send_packet(
-            &socket, 
-            seq_num, 
-            &server_addr, 
-            redundancy, 
-            &wv
-        ).await?;
-        let sent_cont = match world_view::extract_self_elevator_container(wv) {
-            Some(cont) => cont.clone(),
-            None => {
-                return Err(std::io::Error::new(std::io::ErrorKind::InvalidData, "Self container not found in worldview"))
-            }
-        };
+        if should_send {
+            let packetloss = packetloss_rx.borrow().clone();
+            let redundancy = get_redundancy(packetloss.packet_loss);
+            println!("Sending packet nr. {} with {} copies (estimated loss: {}%)", seq_num, redundancy, packetloss.packet_loss);
+            send_packet(
+                &socket, 
+                seq_num, 
+                &server_addr, 
+                redundancy, 
+                &wv
+            ).await?;
+            should_send = false;
+        }
 
     
         let timeout = sleep(Duration::from_millis(backoff_timeout_ms));
@@ -290,15 +295,13 @@ async fn send_udp(
                 if fails > retries {
                     return Err(std::io::Error::new(std::io::ErrorKind::TimedOut, format!("No Ack from master in {} retries!", retries)));
                 }
-                continue;
+                should_send = true;
             },
             result = socket.recv_from(&mut buf) => {
                 if let Ok((len, addr)) = result {
                     let seq_opt: Option<[u8; 2]> = buf[..len].try_into().ok();
                     if let Some(seq) = seq_opt {
                         if seq_num == u16::from_le_bytes(seq) {
-                            //TODO: send data som ble sendt
-                            
                             let _ = sent_tcp_container_tx.send(sent_cont).await;
                             println!("Master acked the cont");
                             return Ok(());
