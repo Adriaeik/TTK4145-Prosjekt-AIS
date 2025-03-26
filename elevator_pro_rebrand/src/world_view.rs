@@ -213,8 +213,6 @@ impl WorldView {
 }
 
 
-// Omskrivigng:
-
 
 /// Serialiserer kva som helst `T` til `Vec<u8>` via bincode
 pub fn serialize<T: Serialize>(value: &T) -> Vec<u8> {
