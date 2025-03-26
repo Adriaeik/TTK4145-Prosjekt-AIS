@@ -99,9 +99,11 @@ async fn receive_udp_master(
         tokio::spawn(async move {
             while wv.master_id == network::read_self_id() {
                 sleep(CLEANUP_INTERVAL).await;
-                let mut state = state_cleanup.lock().await;
-                let now = Instant::now();
-                state.retain(|_, s| now.duration_since(s.last_seen) < INACTIVITY_TIMEOUT);
+                {
+                    let mut state = state_cleanup.lock().await;
+                    let now = Instant::now();
+                    state.retain(|_, s| now.duration_since(s.last_seen) < INACTIVITY_TIMEOUT);
+                }
                 world_view::update_wv(wv_watch_rx.clone(), &mut wv).await;
             }
         });
@@ -138,18 +140,18 @@ async fn receive_udp_master(
                 new_state.last_seq = last_seq.wrapping_add(1);
                 new_state.last_seen = Instant::now();
 
-                let mut state_locked = state.lock().await;
+                // let mut state_locked = state.lock().await;
                 state_locked.insert(slave_addr, new_state);
 
                 let packetloss = packetloss_rx.borrow().clone();
                 let redundancy = get_redundancy(packetloss.packet_loss);
-
                 send_acks(
                     &socket,
                     last_seq,
                     &slave_addr,
                     redundancy
                 ).await;
+                println!("Sende ack: {}", last_seq);
             },
             None => {
                 // println!("Ignoring out-of-order packet from {}", slave_addr);
@@ -195,6 +197,7 @@ async fn send_udp_slave(
             sleep(config::SLAVE_TIMEOUT).await;
         }
         seq = seq.wrapping_add(1);
+        sleep(config::SLAVE_TIMEOUT).await;
     }
 }
 
