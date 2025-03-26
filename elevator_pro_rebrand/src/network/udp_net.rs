@@ -1,4 +1,5 @@
 use crate::config;
+use crate::ip_help_functions;
 use crate::network;
 use crate::print;
 use crate::world_view;
@@ -30,6 +31,7 @@ pub async fn start_udp_network(
     container_tx: mpsc::Sender<ElevatorContainer>,
     packetloss_rx: watch::Receiver<network::ConnectionStatus>,
     connection_to_master_failed_tx: mpsc::Sender<bool>,
+    remove_container_tx: mpsc::Sender<u8>,
 ) {
     while !network::read_network_status() {}
     let socket = match Socket::new(Domain::IPV4, Type::DGRAM, Some(Protocol::UDP)) {
@@ -61,6 +63,7 @@ pub async fn start_udp_network(
             wv_watch_rx.clone(),
             container_tx.clone(),
             packetloss_rx.clone(),
+            remove_container_tx.clone(),
         ).await;
         
         IS_MASTER.store(false, Ordering::SeqCst);
@@ -90,6 +93,7 @@ async fn receive_udp_master(
     wv_watch_rx: watch::Receiver<WorldView>,
     container_tx: mpsc::Sender<ElevatorContainer>,
     packetloss_rx: watch::Receiver<network::ConnectionStatus>,
+    remove_container_tx: mpsc::Sender<u8>,
 ) {    
     world_view::update_wv(wv_watch_rx.clone(), wv).await;
     println!("Server listening on port {}", 50000);
@@ -108,12 +112,20 @@ async fn receive_udp_master(
                     let mut state = state_cleanup.lock().await;
                     let now = Instant::now();
 
-                    for (addr, time) in state.iter() {
-                        println!("Slave sist sett: {:?}", Instant::now() - time.last_seen);
+                    //Remove inactive slaves, save SocketAddr to the removed ones
+                    let mut removed = Vec::new();
+                    state.retain(|k, s| {
+                        let keep = now.duration_since(s.last_seen) < INACTIVITY_TIMEOUT;
+                        if !keep {
+                            removed.push(*k);
+                        }
+                        keep
+                    });
+
+                    // Send the ID of the removed slaves to worldview updater
+                    for addr in removed {
+                        let _ = remove_container_tx.send(ip_help_functions::ip2id(addr.ip()));
                     }
-                    //TODO: må sende på remove_container de som fjernes
-                    
-                    state.retain(|_, s| now.duration_since(s.last_seen) < INACTIVITY_TIMEOUT);
                 }
                 world_view::update_wv(wv_watch_rx.clone(), &mut wv).await;
             }

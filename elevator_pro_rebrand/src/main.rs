@@ -165,6 +165,7 @@ async fn main() {
                 container_tx,
                 packetloss_rx,
                 connection_to_master_failed_tx,
+                remove_container_tx,
             ).await;
         });
     }
