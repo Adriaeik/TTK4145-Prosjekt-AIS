@@ -166,7 +166,7 @@ async fn receive_udp_master(
         
         match msg {
             (Some(container), new) => {
-                println!("Received valid packet from {}: seq {}", slave_addr, last_seq);
+                // println!("Received valid packet from {}: seq {}", slave_addr, last_seq);
                 //Meldinga er en forventet melding -> oppdater hashmappets state
                 if new {
                     let _ = container_tx.send(container.clone()).await;
@@ -183,7 +183,7 @@ async fn receive_udp_master(
                     &slave_addr,
                     redundancy
                 ).await;
-                println!("Sende ack: {}", last_seq);
+                // println!("Sende ack: {}", last_seq);
             },
             (None, _) => {
                 // println!("Ignoring out-of-order packet from {}", slave_addr);
@@ -223,7 +223,7 @@ async fn send_udp_slave(
     let mut seq = 0;
     while wv.master_id != network::read_self_id() {
         world_view::update_wv(wv_watch_rx.clone(), wv).await;
-        while send_udp(socket, wv, packetloss_rx.clone(), 10, seq, 20, sent_tcp_container_tx.clone()).await.is_err() {
+        while send_udp(socket, wv, packetloss_rx.clone(), 50, seq, 20, sent_tcp_container_tx.clone()).await.is_err() {
             let _ = connection_to_master_failed_tx.send(true).await;
             sleep(config::SLAVE_TIMEOUT).await;
             world_view::update_wv(wv_watch_rx.clone(), wv).await;
@@ -266,7 +266,7 @@ async fn send_udp(
         if should_send {
             let packetloss = packetloss_rx.borrow().clone();
             let redundancy = get_redundancy(packetloss.packet_loss);
-            println!("Sending packet nr. {} with {} copies (estimated loss: {}%)", seq_num, redundancy, packetloss.packet_loss);
+            // println!("Sending packet nr. {} with {} copies (estimated loss: {}%)", seq_num, redundancy, packetloss.packet_loss);
             send_packet(
                 &socket, 
                 seq_num, 
