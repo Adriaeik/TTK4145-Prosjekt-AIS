@@ -149,7 +149,7 @@ async fn receive_udp_master(
             Err(e) => {
                 eprintln!("Error receiving UDP packet: {}", e);
                 world_view::update_wv(wv_watch_rx.clone(), wv).await;
-                continue;;
+                continue;
             }
         };
 
@@ -165,16 +165,15 @@ async fn receive_udp_master(
         let msg = parse_message(&buf[..len], last_seq);
         
         match msg {
-            Some(container) => {
+            (Some(container), new) => {
                 println!("Received valid packet from {}: seq {}", slave_addr, last_seq);
                 //Meldinga er en forventet melding -> oppdater hashmappets state
-                let _ = container_tx.send(container.clone()).await;
-
-                new_state.last_seq = last_seq.wrapping_add(1);
-                new_state.last_seen = Instant::now();
-
-                // let mut state_locked = state.lock().await;
-                state_locked.insert(slave_addr, new_state);
+                if new {
+                    let _ = container_tx.send(container.clone()).await;
+                    new_state.last_seq = last_seq.wrapping_add(1);
+                    new_state.last_seen = Instant::now();
+                    state_locked.insert(slave_addr, new_state);
+                }
 
                 let packetloss = packetloss_rx.borrow().clone();
                 let redundancy = get_redundancy(packetloss.packet_loss);
@@ -186,7 +185,7 @@ async fn receive_udp_master(
                 ).await;
                 println!("Sende ack: {}", last_seq);
             },
-            None => {
+            (None, _) => {
                 // println!("Ignoring out-of-order packet from {}", slave_addr);
                 // Seq nummer doesnt match, or data has been corrupted.
                 // Treat it as if nothing was read.
@@ -224,7 +223,7 @@ async fn send_udp_slave(
     let mut seq = 0;
     while wv.master_id != network::read_self_id() {
         world_view::update_wv(wv_watch_rx.clone(), wv).await;
-        while send_udp(socket, wv, packetloss_rx.clone(), 200, seq, 10, sent_tcp_container_tx.clone()).await.is_err() {
+        while send_udp(socket, wv, packetloss_rx.clone(), 50, seq, 50, sent_tcp_container_tx.clone()).await.is_err() {
             let _ = connection_to_master_failed_tx.send(true).await;
             sleep(config::SLAVE_TIMEOUT).await;
             world_view::update_wv(wv_watch_rx.clone(), wv).await;
@@ -318,11 +317,10 @@ async fn send_udp(
 
 fn get_redundancy(packetloss: u8) -> usize {
     match packetloss {
-        p if p < 1 => 1,
-        p if p < 25 => 4,
-        p if p < 50 => 8,
-        p if p < 75 => 16,
-        p if p < 90 => 20,
+        // p if p < 25 => 4,
+        // p if p < 50 => 8,
+        // p if p < 75 => 16,
+        // p if p < 90 => 20,
         _ => 50,
     }
 }
@@ -368,18 +366,18 @@ fn build_message(
 fn parse_message(
     buf: &[u8],
     expected_seq: u16,
-) -> Option<ElevatorContainer> {
+) -> (Option<ElevatorContainer>, bool) {
     if buf.len() < 2 {
-        return None;
+        return (None, false);
     }
 
     let key_part: [u8; 2] = buf[0..2].try_into().ok()?; // Konverter slice til array
     let key = u16::from_le_bytes(key_part);
 
-    if key != expected_seq {
-        return None; // Feil sekvensnummer
+    if key != expected_seq && key != expected_seq.wrapping_rem(1) {
+        return (None, false); // Feil sekvensnummer
     }
 
-    world_view::deserialize(&buf[2..])
+    (world_view::deserialize(&buf[2..]), expected_seq == key)
 }
 
