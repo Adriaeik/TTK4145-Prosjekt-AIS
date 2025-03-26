@@ -223,7 +223,7 @@ async fn send_udp_slave(
     let mut seq = 0;
     while wv.master_id != network::read_self_id() {
         world_view::update_wv(wv_watch_rx.clone(), wv).await;
-        while send_udp(socket, wv, packetloss_rx.clone(), 2, seq, 20, sent_tcp_container_tx.clone()).await.is_err() {
+        while send_udp(socket, wv, packetloss_rx.clone(), 10, seq, 20, sent_tcp_container_tx.clone()).await.is_err() {
             let _ = connection_to_master_failed_tx.send(true).await;
             sleep(config::SLAVE_TIMEOUT).await;
             world_view::update_wv(wv_watch_rx.clone(), wv).await;
@@ -283,7 +283,7 @@ async fn send_udp(
         // In a real network: should probably be exponential.
         // In Sanntidslabben: Packetloss is software, slow ACKs is packetloss, not congestion or long travel links. 
         // The only reason this is added here is because the new script (which doesnt work) has an option for latency.
-        backoff_timeout_ms += 5;
+        // backoff_timeout_ms += 5;
         tokio::select! {
             _ = timeout => {
                 fails += 1;
