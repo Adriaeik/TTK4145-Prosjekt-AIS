@@ -1,8 +1,32 @@
-//! This module handles messages on internal channels related to changes in the worldview. 
-//! It is primarily responsible for updating the worldview based on information received from other parts of the program, 
-//! such as the UDP-network, TCP-network, local elevator and network manager.
-//! 
-//! The module also includes a MPSC-struct, making it easier to initialize all the channels used for passing this information.
+//! # World View Channel Handler
+//!
+//! This module handles messages on internal MPSC channels related to updates of the shared `WorldView`.
+//!
+//! It acts as the local node's **central synchronization point**, receiving structured messages from:
+//! - The UDP listener (initial worldview from network)
+//! - The TCP slave/master communication (container updates and disconnections)
+//! - The local elevator state machine
+//! - The task manager (e.g. delegated tasks)
+//!
+//! ## Responsibilities
+//! - Maintain and update the local node's view of the system state (`WorldView`).
+//! - Apply state changes to the elevator’s own container (e.g., door, obstruction).
+//! - Integrate updates from other elevators via serialized containers.
+//! - Ensure consistency between local memory and the distributed worldview.
+//!
+//! ## Structure
+//! The module consists of:
+//! - `update_wv_watch(...)`: the main loop that listens on MPSC channels and updates the shared `WorldView`.
+//! - `Mpscs`: a struct bundling all the MPSC senders and receivers used to exchange data between modules.
+//!
+//! ## Design Considerations
+//! - This module separates concerns between **event reception** (via channels) and **data transformation** (in `world_view_update`).
+//! - The logic is intentionally asynchronous and non-blocking, reflecting the concurrent nature of real-time elevator systems.
+//!
+//! ## Access Pattern
+//! This module is called once per process as part of system initialization and runs in its own async task.
+//! It ensures that the shared state remains up to date and consistent across elevator roles (master/slave).
+
 mod update_wv;
 
 use crate::print;
@@ -32,6 +56,44 @@ use std::collections::HashMap;
 /// # Note
 /// It is **critical** that this function is run. This is the "heart" of the local system, 
 /// and is responsible in updating the worldview based on information recieved form other parts of the program.
+
+/// Continuously updates the local `WorldView` based on system events and communication channels.
+///
+/// This function is the central synchronization loop for each elevator node. It listens to a range
+/// of MPSC channels and applies changes to the shared `WorldView` structure accordingly. The updated
+/// worldview is then sent through a `watch` channel to propagate state to other modules or tasks.
+///
+/// # Parameters
+/// - `mpsc_rxs`: A struct containing all MPSC receiver channels used to receive events related to worldview changes.
+/// - `worldview_watch_tx`: A watch channel sender used to broadcast updated copies of the worldview to subscribers.
+/// - `worldview`: A mutable reference to the current local worldview instance.
+///
+/// # Behavior
+/// The function operates as an infinite loop, continuously polling the following channels:
+///
+/// ### Slave-related channels:
+/// - `sent_tcp_container`: Removes tasks or hall requests that were successfully transmitted to master.
+/// - `udp_wv`: Merges received worldview via UDP (usually at startup or reconnection).
+/// - `connection_to_master_failed`: Triggers "network abort", clearing out all elevators except the local one.
+///
+/// ### Master-related channels:
+/// - `container`: Updates worldview with elevator data received from a slave.
+/// - `remove_container`: Removes a disconnected elevator from the worldview.
+/// - `delegated_tasks`: Updates each elevator’s task list with assignments from the task allocator.
+///
+/// ### Shared (master/slave):
+/// - `elevator_states`: Updates the local elevator container with new status values (e.g., door open, obstruction).
+/// - `new_wv_after_offline`: Merges two worldviews when reconnecting to the network after being offline.
+///
+/// After applying updates, the function broadcasts the new worldview using `worldview_watch_tx`.
+/// If the current elevator is the master, its updated container is also looped back into the update process
+/// to simulate its own TCP contribution.
+///
+/// # Critical Role
+/// This function is essential for the functioning of the distributed system. Without it,
+/// the local node will not respond to state updates, new tasks, disconnections, or network changes.
+///
+/// It must be run as an asynchronous task during system startup and should never exit during runtime.
 #[allow(non_snake_case)]
 pub async fn update_wv_watch(mut mpsc_rxs: MpscRxs, worldview_watch_tx: watch::Sender<WorldView>, mut worldview: &mut WorldView) {
     let _ = worldview_watch_tx.send(worldview.clone());

@@ -1,5 +1,33 @@
-//! This module contains helper functoins for updating the worldview.
-//! The module is private, and can only be accesed from the local_network module
+//! This private module provides helper functions for modifying and merging `WorldView` instances
+//! within the distributed elevator control system.
+//!
+//! It is only accessible from the `local_network` module and is responsible for:
+//! - Merging local elevator state into the global worldview (via UDP, TCP, or reconnection).
+//! - Cleaning up after disconnections (e.g., removing other elevators from the view).
+//! - Updating hall/cab requests and elevator statuses after communication.
+//! - Resolving conflicts between competing `WorldView` instances during re-entry or master election.
+//!
+//! ## Purpose
+//! In a distributed elevator network, each elevator must maintain an up-to-date view of all other
+//! elevators and tasks. This module supports that goal by:
+//! - Integrating state from slaves into the master's worldview.
+//! - Ensuring task handover and cleanup is handled consistently.
+//! - Managing elevator status transitions between connected and offline states.
+//!
+//! ## Scope and Access
+//! This module is private by design and tightly coupled with `local_network`. It is not intended
+//! for external access or direct use by high-level logic such as elevator motion or button handling.
+//!
+//! ## Common Usage Scenarios
+//! - Receiving a `WorldView` over UDP during initial network discovery.
+//! - Integrating a serialized `ElevatorContainer` received via TCP from a slave.
+//! - Cleaning the worldview when a node disconnects or goes offline.
+//! - Distributing or clearing tasks after successful transmission.
+//!
+//! ## Design Notes
+//! The merging logic assumes known roles (e.g., master or slave) and behaves accordingly.
+//! For instance, a newly elected master may overwrite or discard conflicting data to maintain
+//! system consistency.
 
 use crate::world_view::{self, Dirn, ElevatorBehaviour, ElevatorContainer, WorldView};
 use crate::print;
