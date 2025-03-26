@@ -244,32 +244,38 @@ async fn send_udp(
 
     // Må sikre at man er online
     // TODO: Send inn ferdig binda socket, den kan heller lages i slave_loopen!
-    
     let server_addr: SocketAddr = format!("{}.{}:{}", config::NETWORK_PREFIX, wv.master_id, 50000).parse().unwrap();
     let mut buf = [0; 65535];
     
     
     let mut fails = 0;
     let mut backoff_timeout_ms = timeout_ms;
-    loop {
-        let packetloss = packetloss_rx.borrow().clone();
-        let redundancy = get_redundancy(packetloss.packet_loss);
-        println!("Sending packet nr. {} with {} copies (estimated loss: {}%)", seq_num, redundancy, packetloss.packet_loss);
-        send_packet(
-            &socket, 
-            seq_num, 
-            &server_addr, 
-            redundancy, 
-            &wv
-        ).await?;
+    let mut timeout = sleep(Duration::from_millis(backoff_timeout_ms));
 
+    let mut should_send: bool = true;
+
+    loop {
+        if should_send {
+            let packetloss = packetloss_rx.borrow().clone();
+            let redundancy = get_redundancy(packetloss.packet_loss);
+            println!("Sending packet nr. {} with {} copies (estimated loss: {}%)", seq_num, redundancy, packetloss.packet_loss);
     
-        let timeout = sleep(Duration::from_millis(backoff_timeout_ms));
+            send_packet(
+                &socket, 
+                seq_num, 
+                &server_addr, 
+                redundancy, 
+                &wv
+            ).await?;
+            should_send = false;
+        }
+        timeout = sleep(Duration::from_millis(backoff_timeout_ms));
         // Add 10 ms timeout for each retransmission. 
         // In a real network: should probably be exponential.
         // In Sanntidslabben: Packetloss is software, slow ACKs is packetloss, not congestion or long travel links. 
         // The only reason this is added here is because the new script (which doesnt work) has an option for latency.
         backoff_timeout_ms += 10;
+        
         tokio::select! {
             _ = timeout => {
                 fails += 1;
@@ -280,7 +286,7 @@ async fn send_udp(
                 if fails > retries {
                     return Err(std::io::Error::new(std::io::ErrorKind::TimedOut, format!("No Ack from master in {} retries!", retries)));
                 }
-                continue;
+                should_send = true;
             },
             result = socket.recv_from(&mut buf) => {
                 if let Ok((len, addr)) = result {
