@@ -1,4 +1,5 @@
 use crate::config;
+use crate::ip_help_functions;
 use crate::network;
 use crate::print;
 use crate::world_view;
@@ -19,7 +20,6 @@ use std::{
 use std::sync::atomic::{AtomicBool, Ordering};
 
 
-const ACK_REDUNDANCY: usize = 5; // Antall ACKs per pakke
 const INACTIVITY_TIMEOUT: Duration = Duration::from_secs(15); // Tidsgrense for inaktivitet
 const CLEANUP_INTERVAL: Duration = Duration::from_secs(5); // Hvor ofte inaktive sendere fjernes
 
@@ -30,6 +30,9 @@ pub async fn start_udp_network(
     wv_watch_rx: watch::Receiver<WorldView>,
     container_tx: mpsc::Sender<ElevatorContainer>,
     packetloss_rx: watch::Receiver<network::ConnectionStatus>,
+    connection_to_master_failed_tx: mpsc::Sender<bool>,
+    remove_container_tx: mpsc::Sender<u8>,
+    sent_tcp_container_tx: mpsc::Sender<ElevatorContainer>,
 ) {
     while !network::read_network_status() {}
     let socket = match Socket::new(Domain::IPV4, Type::DGRAM, Some(Protocol::UDP)) {
@@ -41,12 +44,16 @@ pub async fn start_udp_network(
     while socket.set_recv_buffer_size(16_000_000).is_err() {}
     
     let addr: SocketAddr = format!("{}.{}:{}", config::NETWORK_PREFIX, network::read_self_id(), 50000).parse().unwrap();
+
     while socket.bind(&addr.into()).is_err() {}
+
+    while socket.set_nonblocking(true).is_err() {}
     
     let socket = match UdpSocket::from_std(socket.into()) {
         Ok(sock) => sock,
         Err(e) => {panic!("Klarte ikke lage tokio udp socket");}
     }; 
+
 
     let mut wv = world_view::get_wv(wv_watch_rx.clone());
     loop {
@@ -57,6 +64,7 @@ pub async fn start_udp_network(
             wv_watch_rx.clone(),
             container_tx.clone(),
             packetloss_rx.clone(),
+            remove_container_tx.clone(),
         ).await;
         
         IS_MASTER.store(false, Ordering::SeqCst);
@@ -65,6 +73,8 @@ pub async fn start_udp_network(
             &mut wv,
             wv_watch_rx.clone(),
             packetloss_rx.clone(),  
+            connection_to_master_failed_tx.clone(),
+            sent_tcp_container_tx.clone(),
         ).await;
     }
 }
@@ -85,7 +95,9 @@ async fn receive_udp_master(
     wv_watch_rx: watch::Receiver<WorldView>,
     container_tx: mpsc::Sender<ElevatorContainer>,
     packetloss_rx: watch::Receiver<network::ConnectionStatus>,
+    remove_container_tx: mpsc::Sender<u8>,
 ) {    
+    world_view::update_wv(wv_watch_rx.clone(), wv).await;
     println!("Server listening on port {}", 50000);
 
     let state = Arc::new(Mutex::new(HashMap::<SocketAddr, ReceiverState>::new()));
@@ -98,9 +110,25 @@ async fn receive_udp_master(
         tokio::spawn(async move {
             while wv.master_id == network::read_self_id() {
                 sleep(CLEANUP_INTERVAL).await;
-                let mut state = state_cleanup.lock().await;
-                let now = Instant::now();
-                state.retain(|_, s| now.duration_since(s.last_seen) < INACTIVITY_TIMEOUT);
+                {
+                    let mut state = state_cleanup.lock().await;
+                    let now = Instant::now();
+
+                    //Remove inactive slaves, save SocketAddr to the removed ones
+                    let mut removed = Vec::new();
+                    state.retain(|k, s| {
+                        let keep = now.duration_since(s.last_seen) < INACTIVITY_TIMEOUT;
+                        if !keep {
+                            removed.push(*k);
+                        }
+                        keep
+                    });
+
+                    // Send the ID of the removed slaves to worldview updater
+                    for addr in removed {
+                        let _ = remove_container_tx.send(ip_help_functions::ip2id(addr.ip()));
+                    }
+                }
                 world_view::update_wv(wv_watch_rx.clone(), &mut wv).await;
             }
         });
@@ -108,12 +136,20 @@ async fn receive_udp_master(
 
     let mut buf = [0; 65535];
     while wv.master_id == network::read_self_id() {
+        // println!("min id: {}, master ID: {}", network::read_self_id(), wv.master_id);
         // Mottar data
-        let (len, slave_addr) = match socket.recv_from(&mut buf).await {
+        let (len, slave_addr) = match socket.try_recv_from(&mut buf) {
             Ok(res) => res,
+            Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => {
+                // Egen case for når bufferet er tomt
+                sleep(config::POLL_PERIOD).await;
+                world_view::update_wv(wv_watch_rx.clone(), wv).await;
+                continue;
+            }
             Err(e) => {
                 eprintln!("Error receiving UDP packet: {}", e);
-                continue;
+                world_view::update_wv(wv_watch_rx.clone(), wv).await;
+                continue;;
             }
         };
 
@@ -137,18 +173,18 @@ async fn receive_udp_master(
                 new_state.last_seq = last_seq.wrapping_add(1);
                 new_state.last_seen = Instant::now();
 
-                let mut state_locked = state.lock().await;
+                // let mut state_locked = state.lock().await;
                 state_locked.insert(slave_addr, new_state);
 
                 let packetloss = packetloss_rx.borrow().clone();
                 let redundancy = get_redundancy(packetloss.packet_loss);
-
                 send_acks(
                     &socket,
                     last_seq,
                     &slave_addr,
                     redundancy
                 ).await;
+                println!("Sende ack: {}", last_seq);
             },
             None => {
                 // println!("Ignoring out-of-order packet from {}", slave_addr);
@@ -181,19 +217,21 @@ async fn send_udp_slave(
     wv: &mut WorldView,
     wv_watch_rx: watch::Receiver<WorldView>,
     packetloss_rx: watch::Receiver<network::ConnectionStatus>,
+    connection_to_master_failed_tx: mpsc::Sender<bool>,
+    sent_tcp_container_tx: mpsc::Sender<ElevatorContainer>,
 ) {
+    world_view::update_wv(wv_watch_rx.clone(), wv).await;
     let mut seq = 0;
-    let prev_master = wv.master_id;
     while wv.master_id != network::read_self_id() {
         world_view::update_wv(wv_watch_rx.clone(), wv).await;
-        while send_udp(socket, wv, packetloss_rx.clone(), 50, seq, 10).await.is_err() {
-            println!("Seq: {}", seq);
-            if prev_master != wv.master_id {
-                return;
-            }
+        while send_udp(socket, wv, packetloss_rx.clone(), 50, seq, 10, sent_tcp_container_tx.clone()).await.is_err() {
+            let _ = connection_to_master_failed_tx.send(true).await;
             sleep(config::SLAVE_TIMEOUT).await;
+            world_view::update_wv(wv_watch_rx.clone(), wv).await;
+            return;
         }
         seq = seq.wrapping_add(1);
+        sleep(config::SLAVE_TIMEOUT).await;
     }
 }
 
@@ -205,6 +243,7 @@ async fn send_udp(
     timeout_ms: u64,
     seq_num: u16,
     retries: u16,
+    sent_tcp_container_tx: mpsc::Sender<ElevatorContainer>,
 )  -> std::io::Result<()> {
 
     // Må sikre at man er online
@@ -216,7 +255,7 @@ async fn send_udp(
     
     let mut fails = 0;
     let mut backoff_timeout_ms = timeout_ms;
-    while fails <= retries {
+    loop {
         let packetloss = packetloss_rx.borrow().clone();
         let redundancy = get_redundancy(packetloss.packet_loss);
         println!("Sending packet nr. {} with {} copies (estimated loss: {}%)", seq_num, redundancy, packetloss.packet_loss);
@@ -227,6 +266,12 @@ async fn send_udp(
             redundancy, 
             &wv
         ).await?;
+        let sent_cont = match world_view::extract_self_elevator_container(wv) {
+            Some(cont) => cont.clone(),
+            None => {
+                return Err(std::io::Error::new(std::io::ErrorKind::InvalidData, "Self container not found in worldview"))
+            }
+        };
 
     
         let timeout = sleep(Duration::from_millis(backoff_timeout_ms));
@@ -252,6 +297,9 @@ async fn send_udp(
                     let seq_opt: Option<[u8; 2]> = buf[..len].try_into().ok();
                     if let Some(seq) = seq_opt {
                         if seq_num == u16::from_le_bytes(seq) {
+                            //TODO: send data som ble sendt
+                            
+                            let _ = sent_tcp_container_tx.send(sent_cont).await;
                             println!("Master acked the cont");
                             return Ok(());
                         }
@@ -262,12 +310,12 @@ async fn send_udp(
         }
 
     }
-    return Err(std::io::Error::new(std::io::ErrorKind::TimedOut, format!("No Ack from master in {} retries!", retries)));
 }
 
 
 fn get_redundancy(packetloss: u8) -> usize {
     match packetloss {
+        p if p < 1 => 1,
         p if p < 25 => 4,
         p if p < 50 => 8,
         p if p < 75 => 16,

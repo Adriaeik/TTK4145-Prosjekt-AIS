@@ -156,42 +156,45 @@ async fn main() {
     }
 
 
+    {
+        let wv_watch_rx = wv_watch_rx.clone();
+        let _tcp_task = tokio::spawn(async move {
+            print::info("Starting UDP direct network".to_string());
+            let _ = network::udp_net::start_udp_network(
+                wv_watch_rx,
+                container_tx,
+                packetloss_rx,
+                connection_to_master_failed_tx,
+                remove_container_tx,
+                sent_tcp_container_tx,
+            ).await;
+        });
+    }
+
     // {
+    //     //Task handling TCP connections
     //     let wv_watch_rx = wv_watch_rx.clone();
     //     let _tcp_task = tokio::spawn(async move {
-    //         print::info("Starting UDP direct network".to_string());
-    //         let _ = network::udp_net::start_udp_network(
-    //             wv_watch_rx,
-    //             container_tx,
-    //             packetloss_rx,
-    //         ).await;
+    //         print::info("Starting TCP handler".to_string());
+    //         let _ = tcp_network::tcp_handler(wv_watch_rx, remove_container_tx, container_tx, connection_to_master_failed_tx, sent_tcp_container_tx, socket_rx).await;
+    //     });
+    // }
+    
+    // {
+    //     //Task handling the TCP-listener
+    //     let _listener_handle = tokio::spawn(async move {
+    //         print::info("Starting tcp listener".to_string());
+    //         let _ = tcp_network::listener_task(socket_tx).await;
     //     });
     // }
 
-    {
-        //Task handling TCP connections
-        let wv_watch_rx = wv_watch_rx.clone();
-        let _tcp_task = tokio::spawn(async move {
-            print::info("Starting TCP handler".to_string());
-            let _ = tcp_network::tcp_handler(wv_watch_rx, remove_container_tx, container_tx, connection_to_master_failed_tx, sent_tcp_container_tx, socket_rx).await;
-        });
-    }
-    
-    {
-        //Task handling the TCP-listener
-        let _listener_handle = tokio::spawn(async move {
-            print::info("Starting tcp listener".to_string());
-            let _ = tcp_network::listener_task(socket_tx).await;
-        });
-    }
-
-    {
-        //UDP Watchdog
-        let _udp_watchdog = tokio::spawn(async move {
-            print::info("Starting udp watchdog".to_string());
-            let _ = udp_network::udp_watchdog(connection_to_master_failed_tx_clone).await;
-        });
-    }
+    // {
+    //     //UDP Watchdog
+    //     let _udp_watchdog = tokio::spawn(async move {
+    //         print::info("Starting udp watchdog".to_string());
+    //         let _ = udp_network::udp_watchdog(connection_to_master_failed_tx_clone).await;
+    //     });
+    // }
     /* START ----------- Network related tasks ---------------------- */
 
 
