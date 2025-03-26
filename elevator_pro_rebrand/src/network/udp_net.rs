@@ -371,8 +371,12 @@ fn parse_message(
         return (None, false);
     }
 
-    let key_part: [u8; 2] = buf[0..2].try_into().ok()?; // Konverter slice til array
-    let key = u16::from_le_bytes(key_part);
+
+    let seq: [u8; 2] = match buf[0..2].try_into().ok() {
+        Some(number) => number,
+        None => return (None, false),
+    };
+    let key = u16::from_le_bytes(seq);
 
     if key != expected_seq && key != expected_seq.wrapping_rem(1) {
         return (None, false); // Feil sekvensnummer
