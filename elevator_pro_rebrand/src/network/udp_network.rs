@@ -179,7 +179,7 @@ pub async fn start_udp_listener(
                 if my_wv.master_id >= read_wv.master_id
                     && self_id != read_wv.master_id
                 {
-                    my_wv = read_wv;
+                    my_wv = read_wv.clone();
                     let _ = udp_wv_tx.send(my_wv.clone()).await;
                 }
             },

@@ -29,6 +29,7 @@ pub async fn start_udp_network(
     wv_watch_rx: watch::Receiver<WorldView>,
     container_tx: mpsc::Sender<ElevatorContainer>,
     packetloss_rx: watch::Receiver<network::ConnectionStatus>,
+    connection_to_master_failed_tx: mpsc::Sender<bool>,
 ) {
     while !network::read_network_status() {}
     let socket = match Socket::new(Domain::IPV4, Type::DGRAM, Some(Protocol::UDP)) {
@@ -42,6 +43,8 @@ pub async fn start_udp_network(
     let addr: SocketAddr = format!("{}.{}:{}", config::NETWORK_PREFIX, network::read_self_id(), 50000).parse().unwrap();
 
     while socket.bind(&addr.into()).is_err() {}
+
+    while socket.set_nonblocking(true).is_err() {}
     
     let socket = match UdpSocket::from_std(socket.into()) {
         Ok(sock) => sock,
@@ -66,6 +69,7 @@ pub async fn start_udp_network(
             &mut wv,
             wv_watch_rx.clone(),
             packetloss_rx.clone(),  
+            connection_to_master_failed_tx.clone(),
         ).await;
     }
 }
@@ -87,6 +91,7 @@ async fn receive_udp_master(
     container_tx: mpsc::Sender<ElevatorContainer>,
     packetloss_rx: watch::Receiver<network::ConnectionStatus>,
 ) {    
+    world_view::update_wv(wv_watch_rx.clone(), wv).await;
     println!("Server listening on port {}", 50000);
 
     let state = Arc::new(Mutex::new(HashMap::<SocketAddr, ReceiverState>::new()));
@@ -102,7 +107,11 @@ async fn receive_udp_master(
                 {
                     let mut state = state_cleanup.lock().await;
                     let now = Instant::now();
+                    let len = state.len();
                     state.retain(|_, s| now.duration_since(s.last_seen) < INACTIVITY_TIMEOUT);
+                    if len < state.len() {
+                        println!("En slave ble fjerna");
+                    }
                 }
                 world_view::update_wv(wv_watch_rx.clone(), &mut wv).await;
             }
@@ -111,12 +120,20 @@ async fn receive_udp_master(
 
     let mut buf = [0; 65535];
     while wv.master_id == network::read_self_id() {
+        println!("min id: {}, master ID: {}", network::read_self_id(), wv.master_id);
         // Mottar data
-        let (len, slave_addr) = match socket.recv_from(&mut buf).await {
+        let (len, slave_addr) = match socket.try_recv_from(&mut buf) {
             Ok(res) => res,
+            Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => {
+                // Egen case for når bufferet er tomt
+                sleep(config::POLL_PERIOD).await;
+                world_view::update_wv(wv_watch_rx.clone(), wv).await;
+                continue;
+            }
             Err(e) => {
                 eprintln!("Error receiving UDP packet: {}", e);
-                continue;
+                world_view::update_wv(wv_watch_rx.clone(), wv).await;
+                continue;;
             }
         };
 
@@ -184,17 +201,17 @@ async fn send_udp_slave(
     wv: &mut WorldView,
     wv_watch_rx: watch::Receiver<WorldView>,
     packetloss_rx: watch::Receiver<network::ConnectionStatus>,
+    connection_to_master_failed_tx: mpsc::Sender<bool>,
 ) {
+    world_view::update_wv(wv_watch_rx.clone(), wv).await;
     let mut seq = 0;
-    let prev_master = wv.master_id;
     while wv.master_id != network::read_self_id() {
         world_view::update_wv(wv_watch_rx.clone(), wv).await;
         while send_udp(socket, wv, packetloss_rx.clone(), 50, seq, 10).await.is_err() {
-            println!("Seq: {}", seq);
-            if prev_master != wv.master_id {
-                return;
-            }
+            let _ = connection_to_master_failed_tx.send(true).await;
             sleep(config::SLAVE_TIMEOUT).await;
+            world_view::update_wv(wv_watch_rx.clone(), wv).await;
+            return;
         }
         seq = seq.wrapping_add(1);
         sleep(config::SLAVE_TIMEOUT).await;
@@ -220,7 +237,7 @@ async fn send_udp(
     
     let mut fails = 0;
     let mut backoff_timeout_ms = timeout_ms;
-    while fails <= retries {
+    loop {
         let packetloss = packetloss_rx.borrow().clone();
         let redundancy = get_redundancy(packetloss.packet_loss);
         println!("Sending packet nr. {} with {} copies (estimated loss: {}%)", seq_num, redundancy, packetloss.packet_loss);
@@ -266,7 +283,6 @@ async fn send_udp(
         }
 
     }
-    return Err(std::io::Error::new(std::io::ErrorKind::TimedOut, format!("No Ack from master in {} retries!", retries)));
 }
 
 

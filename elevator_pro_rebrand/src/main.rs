@@ -164,6 +164,7 @@ async fn main() {
                 wv_watch_rx,
                 container_tx,
                 packetloss_rx,
+                connection_to_master_failed_tx,
             ).await;
         });
     }
@@ -185,13 +186,13 @@ async fn main() {
     //     });
     // }
 
-    {
-        //UDP Watchdog
-        let _udp_watchdog = tokio::spawn(async move {
-            print::info("Starting udp watchdog".to_string());
-            let _ = udp_network::udp_watchdog(connection_to_master_failed_tx_clone).await;
-        });
-    }
+    // {
+    //     //UDP Watchdog
+    //     let _udp_watchdog = tokio::spawn(async move {
+    //         print::info("Starting udp watchdog".to_string());
+    //         let _ = udp_network::udp_watchdog(connection_to_master_failed_tx_clone).await;
+    //     });
+    // }
     /* START ----------- Network related tasks ---------------------- */
 
 
