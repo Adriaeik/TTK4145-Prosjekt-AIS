@@ -59,6 +59,7 @@ use crate::world_view::{ElevatorContainer, WorldView, serialize};
 use crate::{config, init, network, world_view};
 use crate::print;
 
+
 /// Struct representing the data sent from the main process to the backup client.
 ///
 /// It contains two components:
@@ -67,6 +68,7 @@ use crate::print;
 ///
 /// This payload is serialized and transmitted over TCP to keep the backup client synchronized
 /// with the live system state.
+/// 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 struct BackupPayload {
     pub worldview: world_view::WorldView,
