@@ -107,11 +107,13 @@ async fn receive_udp_master(
                 {
                     let mut state = state_cleanup.lock().await;
                     let now = Instant::now();
-                    let len = state.len();
-                    state.retain(|_, s| now.duration_since(s.last_seen) < INACTIVITY_TIMEOUT);
-                    if len < state.len() {
-                        println!("En slave ble fjerna");
+
+                    for (addr, time) in state.iter() {
+                        println!("Slave sist sett: {:?}", Instant::now() - time.last_seen);
                     }
+                    //TODO: må sende på remove_container de som fjernes
+                    
+                    state.retain(|_, s| now.duration_since(s.last_seen) < INACTIVITY_TIMEOUT);
                 }
                 world_view::update_wv(wv_watch_rx.clone(), &mut wv).await;
             }
@@ -120,7 +122,7 @@ async fn receive_udp_master(
 
     let mut buf = [0; 65535];
     while wv.master_id == network::read_self_id() {
-        println!("min id: {}, master ID: {}", network::read_self_id(), wv.master_id);
+        // println!("min id: {}, master ID: {}", network::read_self_id(), wv.master_id);
         // Mottar data
         let (len, slave_addr) = match socket.try_recv_from(&mut buf) {
             Ok(res) => res,
