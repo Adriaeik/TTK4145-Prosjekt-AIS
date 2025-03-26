@@ -34,6 +34,7 @@ unicode-width = "0.1"           # Used to get correct width-handling in the term
 
 # Lazy
 once_cell = "1.19"              # Used to configure Lazy Mutex for print conditions
+lazy_static = "1.4"
 
 [lib]
 path = "src/lib.rs"

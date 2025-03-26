@@ -61,7 +61,6 @@ pub fn set_hall_lights(wv: &WorldView, e: Elevator, self_container: &ElevatorCon
         set_door_open_light(e.clone());
     } else {
         clear_door_open_light(e.clone());
-        println!("light:: {:?}", self_container.behaviour);
     }
 }
 

@@ -20,8 +20,8 @@ use std::{
 use std::sync::atomic::{AtomicBool, Ordering};
 
 
-const INACTIVITY_TIMEOUT: Duration = Duration::from_secs(15); // Tidsgrense for inaktivitet
-const CLEANUP_INTERVAL: Duration = Duration::from_secs(5); // Hvor ofte inaktive sendere fjernes
+const INACTIVITY_TIMEOUT: Duration = Duration::from_secs(5); // Tidsgrense for inaktivitet
+const CLEANUP_INTERVAL: Duration = Duration::from_secs(1); // Hvor ofte inaktive sendere fjernes
 
 pub static IS_MASTER: AtomicBool = AtomicBool::new(false);
 
@@ -115,6 +115,9 @@ async fn receive_udp_master(
                     let now = Instant::now();
 
                     //Remove inactive slaves, save SocketAddr to the removed ones
+                    for (adr, stat) in state.iter() {
+                        println!("Addr: {:?}, Time: {:?}", adr.ip(), Instant::now() - stat.last_seen);
+                    }
                     let mut removed = Vec::new();
                     state.retain(|k, s| {
                         let keep = now.duration_since(s.last_seen) < INACTIVITY_TIMEOUT;
@@ -124,9 +127,10 @@ async fn receive_udp_master(
                         keep
                     });
 
+
                     // Send the ID of the removed slaves to worldview updater
                     for addr in removed {
-                        let _ = remove_container_tx.send(ip_help_functions::ip2id(addr.ip()));
+                        let _ = remove_container_tx.send(ip_help_functions::ip2id(addr.ip())).await;
                     }
                 }
                 world_view::update_wv(wv_watch_rx.clone(), &mut wv).await;

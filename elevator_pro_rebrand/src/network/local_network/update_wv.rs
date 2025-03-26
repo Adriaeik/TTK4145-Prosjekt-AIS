@@ -30,7 +30,7 @@
 //! system consistency.
 
 use crate::world_view::{self, Dirn, ElevatorBehaviour, ElevatorContainer, WorldView};
-use crate::print;
+use crate::{config, print};
 use crate::network;
 
 use std::collections::HashMap;
@@ -152,13 +152,20 @@ pub async fn join_wv_from_tcp_container(wv: &mut WorldView, container: &Elevator
     if let Some(i) = self_idx {
         // Add the slave's sent hall_requests to worldview's hall_requests
         for (row1, row2) in wv.hall_request.iter_mut().zip(container.unsent_hall_request.iter()) {
-            for (val1, val2) in row1.iter_mut().zip(row2.iter()) {
+            for (i, (val1, (j, val2))) in row1.iter_mut().zip(row2.iter().enumerate()).enumerate() {
                 if !*val1 && *val2 {
                     *val1 = true;
+                    
                 }
             }
         }
 
+        update_PROTECTED_REQUESTS(&wv.hall_request);
+
+        println!("Protections: {:?}", PROTECTED_REQUESTS.lock().unwrap());
+
+
+        
         // Add slaves unfinished tasks to hall_requests
         wv.hall_request = merge_hall_requests(&wv.hall_request, &wv.elevator_containers[i].tasks);
         
@@ -174,14 +181,15 @@ pub async fn join_wv_from_tcp_container(wv: &mut WorldView, container: &Elevator
         wv.elevator_containers[i].obstruction = container.obstruction;
         wv.elevator_containers[i].dirn = container.dirn;
         wv.elevator_containers[i].behaviour = container.behaviour;
+        
 
         //Remove taken hall_requests
         for (idx, [up, down]) in wv.hall_request.iter_mut().enumerate() {
             if (wv.elevator_containers[i].behaviour == ElevatorBehaviour::DoorOpen) && (wv.elevator_containers[i].last_floor_sensor == (idx as u8)) {
                 if wv.elevator_containers[i].dirn == Dirn::Up {
-                    *up = false;
+                    *up = read_PROTECTED_REQUESTS(idx, 0);
                 } else if wv.elevator_containers[i].dirn == Dirn::Down {
-                    *down = false;
+                    *down = read_PROTECTED_REQUESTS(idx, 1);
                 }
             }
         }
@@ -196,6 +204,49 @@ pub async fn join_wv_from_tcp_container(wv: &mut WorldView, container: &Elevator
         return false;
     }
 }
+
+use std::cell::RefCell;
+use std::sync::Mutex;
+use std::time::{Duration, Instant};
+use once_cell::unsync::Lazy;
+use lazy_static::lazy_static;
+
+const REQUEST_TIME: Duration = Duration::from_secs(2);
+
+lazy_static! {
+    static ref PROTECTED_REQUESTS: Mutex<[[Option<Instant>; 2]; config::DEFAULT_NUM_FLOORS as usize]> = Mutex::new([[None; 2]; config::DEFAULT_NUM_FLOORS as usize]);
+}
+
+fn read_PROTECTED_REQUESTS(row: usize, col: usize) -> bool{
+    let mut lock = PROTECTED_REQUESTS.lock().unwrap();
+    if lock[row][col].is_some() {
+        return true;
+    }
+    return false;
+}
+
+
+fn update_PROTECTED_REQUESTS(hall_req: &Vec<[bool; 2]>) {
+    let mut lock = PROTECTED_REQUESTS.lock().unwrap();
+    for (i, opt) in lock.iter_mut().enumerate() {
+        if let Some(inst) = opt[0] {
+            if Instant::now() - inst > REQUEST_TIME {
+                opt[0] = None;
+            }
+        } else if hall_req[i][0] {
+            opt[0] = Some(Instant::now());
+        }
+        if let Some(inst) = opt[1] {
+            if Instant::now() - inst > REQUEST_TIME {
+                opt[1] = None;
+            }
+        }else if hall_req[i][1] {
+            opt[1] = Some(Instant::now());
+        }
+    }
+}
+
+
 
 /// ### Removes a slave based on its ID
 /// 

@@ -146,6 +146,7 @@ pub async fn update_wv_watch(mut mpsc_rxs: MpscRxs, worldview_watch_tx: watch::S
         /*_____Update worldview when a slave should be removed_____ */
         match mpsc_rxs.remove_container.try_recv() {
             Ok(id) => {
+                println!("Skal fjerne ID: {}", id);
                 wv_edited_I = remove_container(&mut worldview, id); 
             },
             Err(_) => {},
