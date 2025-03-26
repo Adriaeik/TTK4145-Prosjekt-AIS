@@ -57,10 +57,11 @@ pub fn set_hall_lights(wv: &WorldView, e: Elevator, self_container: &ElevatorCon
     }
 
     // Door light
-    if self_container.behaviour == ElevatorBehaviour::DoorOpen {
+    if self_container.behaviour == ElevatorBehaviour::DoorOpen || self_container.behaviour == ElevatorBehaviour::ObstructionError {
         set_door_open_light(e.clone());
     } else {
         clear_door_open_light(e.clone());
+        println!("light:: {:?}", self_container.behaviour);
     }
 }
 

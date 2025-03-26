@@ -168,7 +168,7 @@ async fn receive_udp_master(
             (Some(container), code) => {
                 // println!("Received valid packet from {}: seq {}", slave_addr, last_seq);
                 //Meldinga er en forventet melding -> oppdater hashmappets state
-                println!("Ack? {:?}", code);
+                // println!("Ack? {:?}", code);
                 match code {
                     RecieveCode::Accept | RecieveCode::Rejoin=> {
                         let _ = container_tx.send(container.clone()).await;

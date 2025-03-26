@@ -164,7 +164,6 @@ async fn on_door_timeout(elevator: &mut ElevatorContainer, e: Elevator) {
                     request::clear_at_current_floor(elevator);
                 }
                 _ => {
-                    lights::clear_door_open_light(e.clone());
                     e.motor_direction(elevator.dirn as u8);
                 }
             }
@@ -247,8 +246,6 @@ pub async fn handle_door_timeout_and_lights(
     cab_priority_timer: &mut Timer,
 ) {
     if door_timer.timer_timeouted() && !self_container.obstruction {
-        lights::clear_door_open_light(e.clone());
-
         if request::moving_towards_cab_call(&self_container.clone()) {
             cab_priority_timer.release_timer();
         }

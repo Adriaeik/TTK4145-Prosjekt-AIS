@@ -329,9 +329,11 @@ fn update_error_state(
     prev_behavior: &ElevatorBehaviour,
 ) {
     if error_timer.timer_timeouted() {
+        if was_prew_state_error(prev_behavior){ return;}
         *prev_cab_priority_timer_stat = true;
         if *prev_behavior == ElevatorBehaviour::DoorOpen {
             self_container.behaviour = ElevatorBehaviour::ObstructionError;
+            
         } else if *prev_behavior == ElevatorBehaviour::Moving {
             self_container.behaviour = ElevatorBehaviour::TravelError;
         } else {
@@ -340,6 +342,12 @@ fn update_error_state(
     } else {
         *prev_cab_priority_timer_stat = false;
     }
+}
+
+fn was_prew_state_error(prev_behavior:  &ElevatorBehaviour) -> bool{
+    *prev_behavior == ElevatorBehaviour::ObstructionError || 
+    *prev_behavior == ElevatorBehaviour::TravelError || 
+    *prev_behavior == ElevatorBehaviour::CosmicError 
 }
 
 /// Tracks and logs changes to the elevator's behavior state.
