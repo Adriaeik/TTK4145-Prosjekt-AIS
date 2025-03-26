@@ -123,7 +123,7 @@ async fn on_floor_arrival(
     lights::set_cab_light(e.clone(), elevator.last_floor_sensor);
 
     match elevator.behaviour {
-        ElevatorBehaviour::Moving | ElevatorBehaviour::ObstructionError => {
+        ElevatorBehaviour::Moving | ElevatorBehaviour::ObstructionError | ElevatorBehaviour::TravelError => {
             if request::should_stop(&elevator.clone()) {
                 e.motor_direction(Dirn::Stop as u8);
                 request::clear_at_current_floor(elevator);
@@ -224,10 +224,10 @@ pub async fn handle_stop_button(
     }
 }
 
-/// Handles door timeout logic and clears the door light when appropriate.
+/// Handles door timeout logic when appropriate.
 ///
-/// If the door timer has expired and no obstruction is detected, this function clears
-/// the door open light. If the elevator is moving toward a cab call, the cab call timer
+/// If the door timer has expired and no obstruction is detected. 
+/// If the elevator is moving toward a cab call, the cab call timer
 /// is released. If the cab call timer has also expired, the system proceeds to handle
 /// the door timeout state transition.
 ///
@@ -237,9 +237,8 @@ pub async fn handle_stop_button(
 /// - `door_timer`: Timer that tracks how long the door has been open.
 ///
 /// # Behavior
-/// - Clears door light after timeout.
 /// - Handles door-close logic via finite state machine if cab call timer is also expired.
-pub async fn handle_door_timeout_and_lights(
+pub async fn handle_door_timeout(
     self_container: &mut ElevatorContainer,
     e: Elevator,
     door_timer: &Timer,

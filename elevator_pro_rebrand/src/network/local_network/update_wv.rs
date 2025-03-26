@@ -160,10 +160,6 @@ pub async fn join_wv_from_tcp_container(wv: &mut WorldView, container: &Elevator
             }
         }
 
-        update_PROTECTED_REQUESTS(&wv.hall_request);
-
-        println!("Protections: {:?}", PROTECTED_REQUESTS.lock().unwrap());
-
 
         
         // Add slaves unfinished tasks to hall_requests
@@ -181,15 +177,16 @@ pub async fn join_wv_from_tcp_container(wv: &mut WorldView, container: &Elevator
         wv.elevator_containers[i].obstruction = container.obstruction;
         wv.elevator_containers[i].dirn = container.dirn;
         wv.elevator_containers[i].behaviour = container.behaviour;
+        wv.elevator_containers[i].last_behaviour = container.last_behaviour;
         
 
         //Remove taken hall_requests
         for (idx, [up, down]) in wv.hall_request.iter_mut().enumerate() {
-            if (wv.elevator_containers[i].behaviour == ElevatorBehaviour::DoorOpen) && (wv.elevator_containers[i].last_floor_sensor == (idx as u8)) {
-                if wv.elevator_containers[i].dirn == Dirn::Up {
-                    *up = read_PROTECTED_REQUESTS(idx, 0);
-                } else if wv.elevator_containers[i].dirn == Dirn::Down {
-                    *down = read_PROTECTED_REQUESTS(idx, 1);
+            if (wv.elevator_containers[i].behaviour != ElevatorBehaviour::DoorOpen) && (wv.elevator_containers[i].last_behaviour == ElevatorBehaviour::DoorOpen) && (wv.elevator_containers[i].last_floor_sensor == (idx as u8)) {
+                if wv.elevator_containers[i].dirn == Dirn::Up || wv.elevator_containers[i].dirn == Dirn::Stop {
+                    *up = false;
+                } else if wv.elevator_containers[i].dirn == Dirn::Down || wv.elevator_containers[i].dirn == Dirn::Stop {
+                    *down = false;
                 }
             }
         }
@@ -205,46 +202,6 @@ pub async fn join_wv_from_tcp_container(wv: &mut WorldView, container: &Elevator
     }
 }
 
-use std::cell::RefCell;
-use std::sync::Mutex;
-use std::time::{Duration, Instant};
-use once_cell::unsync::Lazy;
-use lazy_static::lazy_static;
-
-const REQUEST_TIME: Duration = Duration::from_secs(2);
-
-lazy_static! {
-    static ref PROTECTED_REQUESTS: Mutex<[[Option<Instant>; 2]; config::DEFAULT_NUM_FLOORS as usize]> = Mutex::new([[None; 2]; config::DEFAULT_NUM_FLOORS as usize]);
-}
-
-fn read_PROTECTED_REQUESTS(row: usize, col: usize) -> bool{
-    let mut lock = PROTECTED_REQUESTS.lock().unwrap();
-    if lock[row][col].is_some() {
-        return true;
-    }
-    return false;
-}
-
-
-fn update_PROTECTED_REQUESTS(hall_req: &Vec<[bool; 2]>) {
-    let mut lock = PROTECTED_REQUESTS.lock().unwrap();
-    for (i, opt) in lock.iter_mut().enumerate() {
-        if let Some(inst) = opt[0] {
-            if Instant::now() - inst > REQUEST_TIME {
-                opt[0] = None;
-            }
-        } else if hall_req[i][0] {
-            opt[0] = Some(Instant::now());
-        }
-        if let Some(inst) = opt[1] {
-            if Instant::now() - inst > REQUEST_TIME {
-                opt[1] = None;
-            }
-        }else if hall_req[i][1] {
-            opt[1] = Some(Instant::now());
-        }
-    }
-}
 
 
 
@@ -352,6 +309,7 @@ pub fn update_elev_states(wv: &mut WorldView, container: ElevatorContainer) -> b
         wv.elevator_containers[i].dirn = container.dirn;
         wv.elevator_containers[i].obstruction = container.obstruction;
         wv.elevator_containers[i].behaviour = container.behaviour;
+        wv.elevator_containers[i].last_behaviour = container.last_behaviour;
         wv.elevator_containers[i].last_floor_sensor = container.last_floor_sensor;
         wv.elevator_containers[i].unsent_hall_request = container.unsent_hall_request;
     }

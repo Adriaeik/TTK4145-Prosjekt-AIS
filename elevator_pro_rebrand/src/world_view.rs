@@ -96,6 +96,9 @@ pub struct ElevatorContainer {
     /// Default: [ElevatorBehaviour::Idle]
     pub behaviour: ElevatorBehaviour, 
 
+    /// The last behaviour of the elevator
+    pub last_behaviour: ElevatorBehaviour,
+
     /// Indicates whether the elevator detects an obstruction.  
     /// Default: false
     pub obstruction: bool, 
@@ -119,6 +122,7 @@ impl Default for ElevatorContainer {
             tasks: vec![[false, false]; config::DEFAULT_NUM_FLOORS as usize],
             dirn: Dirn::Stop,
             behaviour: ElevatorBehaviour::Idle,
+            last_behaviour: ElevatorBehaviour::Idle,
             obstruction: false,
             stop: false,
             last_floor_sensor: 255, 

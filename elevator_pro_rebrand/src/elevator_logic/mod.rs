@@ -161,15 +161,20 @@ async fn handle_elevator(
         /*======================================================================*/
         /*                           START: FSM Events                          */
         /*======================================================================*/
+        fsm::handle_idle_state(
+            &mut self_container, 
+            e.clone(), 
+            &mut timers.door
+        );
+
         fsm::handle_floor_sensor_update(
             &mut self_container,
             e.clone(),
             &mut prev_floor,
             &mut timers,
         ).await;        
-
         
-        fsm::handle_door_timeout_and_lights(
+        fsm::handle_door_timeout(
             &mut self_container,
             e.clone(),
             &timers.door,
@@ -189,11 +194,6 @@ async fn handle_elevator(
             timers.prev_cab_priority_timeout,
         );
         
-        fsm::handle_idle_state(
-            &mut self_container, 
-            e.clone(), 
-            &mut timers.door
-        );
         /*======================================================================*/
         /*                           END: FSM Events                            */
         /*======================================================================*/
@@ -208,7 +208,7 @@ async fn handle_elevator(
         stop_motor_on_dooropen_to_error(&mut self_container, last_behavior, prev_behavior);
 
         
-        
+        self_container.last_behaviour = last_behavior;
         //Send til update_wv -> nye self_container
         let _ = elevator_states_tx.send(self_container.clone()).await;    
         
