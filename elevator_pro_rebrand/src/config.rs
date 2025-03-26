@@ -9,7 +9,7 @@ use once_cell::sync::Lazy;
 use std::sync::Mutex;
 
 /// Network prefix: Initialized as the local network prefix in Sanntidshallen
-pub static NETWORK_PREFIX: &str = "10.100.23";
+pub static NETWORK_PREFIX: &str = "192.168.137";
 
 /// Port for TCP between nodes
 pub static PN_PORT: u16 = u16::MAX;

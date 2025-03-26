@@ -101,21 +101,21 @@ async fn main() {
             let _ = local_network::update_wv_watch(mpsc_rxs, wv_watch_tx, &mut worldview).await;
         });
     }
-    {
-        //Task handling the elevator
-        let wv_watch_rx = wv_watch_rx.clone();
-        let _local_elev_task = tokio::spawn(async move {
-            let _ = elevator_logic::run_local_elevator(wv_watch_rx, elevator_states_tx).await;
-        });
-    }
-    {
-        //Starting the task manager, responsible for delegating tasks
-        let wv_watch_rx = wv_watch_rx.clone();
-        let _manager_task = tokio::spawn(async move {
-            print::info("Staring task manager".to_string());
-            let _ = manager::start_manager(wv_watch_rx, delegated_tasks_tx).await;
-        });
-    }
+    // {
+    //     //Task handling the elevator
+    //     let wv_watch_rx = wv_watch_rx.clone();
+    //     let _local_elev_task = tokio::spawn(async move {
+    //         let _ = elevator_logic::run_local_elevator(wv_watch_rx, elevator_states_tx).await;
+    //     });
+    // }
+    // {
+    //     //Starting the task manager, responsible for delegating tasks
+    //     let wv_watch_rx = wv_watch_rx.clone();
+    //     let _manager_task = tokio::spawn(async move {
+    //         print::info("Staring task manager".to_string());
+    //         let _ = manager::start_manager(wv_watch_rx, delegated_tasks_tx).await;
+    //     });
+    // }
     /* END ----------- Critical tasks tasks ----------- */
 
 
@@ -123,13 +123,13 @@ async fn main() {
 
 
     /* START ----------- Backup server ----------- */
-    {
-        let wv_watch_rx = wv_watch_rx.clone();
-        let _backup_task = tokio::spawn(async move {
-            print::info("Starting backup".to_string());
-            tokio::spawn(backup::start_backup_server(wv_watch_rx, network_watch_rx));
-        });
-    }
+    // {
+    //     let wv_watch_rx = wv_watch_rx.clone();
+    //     let _backup_task = tokio::spawn(async move {
+    //         print::info("Starting backup".to_string());
+    //         tokio::spawn(backup::start_backup_server(wv_watch_rx, network_watch_rx));
+    //     });
+    // }
     /* END ----------- Backup server ----------- */
         
 
@@ -156,34 +156,34 @@ async fn main() {
     }
 
 
-    // {
-    //     let wv_watch_rx = wv_watch_rx.clone();
-    //     let _tcp_task = tokio::spawn(async move {
-    //         print::info("Starting UDP direct network".to_string());
-    //         let _ = network::udp_net::start_udp_network(
-    //             wv_watch_rx,
-    //             container_tx,
-    //             packetloss_rx,
-    //         ).await;
-    //     });
-    // }
-
     {
-        //Task handling TCP connections
         let wv_watch_rx = wv_watch_rx.clone();
         let _tcp_task = tokio::spawn(async move {
-            print::info("Starting TCP handler".to_string());
-            let _ = tcp_network::tcp_handler(wv_watch_rx, remove_container_tx, container_tx, connection_to_master_failed_tx, sent_tcp_container_tx, socket_rx).await;
+            print::info("Starting UDP direct network".to_string());
+            let _ = network::udp_net::start_udp_network(
+                wv_watch_rx,
+                container_tx,
+                packetloss_rx,
+            ).await;
         });
     }
+
+    // {
+    //     //Task handling TCP connections
+    //     let wv_watch_rx = wv_watch_rx.clone();
+    //     let _tcp_task = tokio::spawn(async move {
+    //         print::info("Starting TCP handler".to_string());
+    //         let _ = tcp_network::tcp_handler(wv_watch_rx, remove_container_tx, container_tx, connection_to_master_failed_tx, sent_tcp_container_tx, socket_rx).await;
+    //     });
+    // }
     
-    {
-        //Task handling the TCP-listener
-        let _listener_handle = tokio::spawn(async move {
-            print::info("Starting tcp listener".to_string());
-            let _ = tcp_network::listener_task(socket_tx).await;
-        });
-    }
+    // {
+    //     //Task handling the TCP-listener
+    //     let _listener_handle = tokio::spawn(async move {
+    //         print::info("Starting tcp listener".to_string());
+    //         let _ = tcp_network::listener_task(socket_tx).await;
+    //     });
+    // }
 
     {
         //UDP Watchdog

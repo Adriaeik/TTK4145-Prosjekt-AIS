@@ -79,6 +79,7 @@ impl ConnectionStatus {
 fn get_self_ip() -> Result<IpAddr, local_ip_address::Error> {
     let ip = match local_ip() {
         Ok(ip) => {
+            // println!("IP: {}", ip);
             ip
         }
         Err(e) => {
@@ -149,7 +150,6 @@ pub async fn watch_ethernet(
             }
             _ => {
                 // Mistet IP eller feil subnet → nullstill status
-                println!("FALSE");
                 connection_status.on_internett = false;
                 connection_status.connected_on_elevator_network = false;
                 connection_status.packet_loss = 100;

@@ -19,7 +19,6 @@ use std::{
 use std::sync::atomic::{AtomicBool, Ordering};
 
 
-const ACK_REDUNDANCY: usize = 5; // Antall ACKs per pakke
 const INACTIVITY_TIMEOUT: Duration = Duration::from_secs(15); // Tidsgrense for inaktivitet
 const CLEANUP_INTERVAL: Duration = Duration::from_secs(5); // Hvor ofte inaktive sendere fjernes
 
@@ -41,12 +40,14 @@ pub async fn start_udp_network(
     while socket.set_recv_buffer_size(16_000_000).is_err() {}
     
     let addr: SocketAddr = format!("{}.{}:{}", config::NETWORK_PREFIX, network::read_self_id(), 50000).parse().unwrap();
+
     while socket.bind(&addr.into()).is_err() {}
     
     let socket = match UdpSocket::from_std(socket.into()) {
         Ok(sock) => sock,
         Err(e) => {panic!("Klarte ikke lage tokio udp socket");}
     }; 
+
 
     let mut wv = world_view::get_wv(wv_watch_rx.clone());
     loop {
