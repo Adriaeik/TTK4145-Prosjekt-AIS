@@ -23,7 +23,7 @@ async fn main() {
         self_container = backup::run_as_backup().await;
     }    
     
-    init::build_cost_fn().await;
+    //init::build_cost_fn().await;
     print::info("Starting master process...".to_string());
 
     
@@ -156,34 +156,34 @@ async fn main() {
     }
 
 
-    {
-        let wv_watch_rx = wv_watch_rx.clone();
-        let _tcp_task = tokio::spawn(async move {
-            print::info("Starting UDP direct network".to_string());
-            let _ = network::udp_net::start_udp_network(
-                wv_watch_rx,
-                container_tx,
-                packetloss_rx,
-            ).await;
-        });
-    }
-
     // {
-    //     //Task handling TCP connections
     //     let wv_watch_rx = wv_watch_rx.clone();
     //     let _tcp_task = tokio::spawn(async move {
-    //         print::info("Starting TCP handler".to_string());
-    //         let _ = tcp_network::tcp_handler(wv_watch_rx, remove_container_tx, container_tx, connection_to_master_failed_tx, sent_tcp_container_tx, socket_rx).await;
+    //         print::info("Starting UDP direct network".to_string());
+    //         let _ = network::udp_net::start_udp_network(
+    //             wv_watch_rx,
+    //             container_tx,
+    //             packetloss_rx,
+    //         ).await;
     //     });
     // }
+
+    {
+        //Task handling TCP connections
+        let wv_watch_rx = wv_watch_rx.clone();
+        let _tcp_task = tokio::spawn(async move {
+            print::info("Starting TCP handler".to_string());
+            let _ = tcp_network::tcp_handler(wv_watch_rx, remove_container_tx, container_tx, connection_to_master_failed_tx, sent_tcp_container_tx, socket_rx).await;
+        });
+    }
     
-    // {
-    //     //Task handling the TCP-listener
-    //     let _listener_handle = tokio::spawn(async move {
-    //         print::info("Starting tcp listener".to_string());
-    //         let _ = tcp_network::listener_task(socket_tx).await;
-    //     });
-    // }
+    {
+        //Task handling the TCP-listener
+        let _listener_handle = tokio::spawn(async move {
+            print::info("Starting tcp listener".to_string());
+            let _ = tcp_network::listener_task(socket_tx).await;
+        });
+    }
 
     {
         //UDP Watchdog

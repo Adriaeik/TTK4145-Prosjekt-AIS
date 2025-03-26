@@ -32,19 +32,17 @@ pub async fn start_udp_network(
     packetloss_rx: watch::Receiver<network::ConnectionStatus>,
 ) {
     while !network::read_network_status() {}
-
     let socket = match Socket::new(Domain::IPV4, Type::DGRAM, Some(Protocol::UDP)) {
         Ok(sock) => sock,
         Err(e) => {panic!("Klarte ikke lage udp socket");}
     }; 
     while socket.set_reuse_address(true).is_err() {}
-    while socket.set_nodelay(true).is_err() {}
     while socket.set_send_buffer_size(16_000_000).is_err() {}
     while socket.set_recv_buffer_size(16_000_000).is_err() {}
-
-    let addr: SocketAddr = format!("{}.{}:{}", config::NETWORK_PREFIX, network::read_self_id(), config::DUMMY_PORT).parse().unwrap();
+    
+    let addr: SocketAddr = format!("{}.{}:{}", config::NETWORK_PREFIX, network::read_self_id(), 50000).parse().unwrap();
     while socket.bind(&addr.into()).is_err() {}
-
+    
     let socket = match UdpSocket::from_std(socket.into()) {
         Ok(sock) => sock,
         Err(e) => {panic!("Klarte ikke lage tokio udp socket");}
@@ -88,7 +86,7 @@ async fn receive_udp_master(
     container_tx: mpsc::Sender<ElevatorContainer>,
     packetloss_rx: watch::Receiver<network::ConnectionStatus>,
 ) {    
-    println!("Server listening on port {}", config::DUMMY_PORT);
+    println!("Server listening on port {}", 50000);
 
     let state = Arc::new(Mutex::new(HashMap::<SocketAddr, ReceiverState>::new()));
     
@@ -153,7 +151,7 @@ async fn receive_udp_master(
                 ).await;
             },
             None => {
-                println!("Ignoring out-of-order packet from {}", slave_addr);
+                // println!("Ignoring out-of-order packet from {}", slave_addr);
                 // Seq nummer doesnt match, or data has been corrupted.
                 // Treat it as if nothing was read.
                 //TODO: Should update last instant? maybe not in case seq number gets unsynced?
@@ -189,6 +187,7 @@ async fn send_udp_slave(
     while wv.master_id != network::read_self_id() {
         world_view::update_wv(wv_watch_rx.clone(), wv).await;
         while send_udp(socket, wv, packetloss_rx.clone(), 50, seq, 10).await.is_err() {
+            println!("Seq: {}", seq);
             if prev_master != wv.master_id {
                 return;
             }
@@ -211,7 +210,7 @@ async fn send_udp(
     // Må sikre at man er online
     // TODO: Send inn ferdig binda socket, den kan heller lages i slave_loopen!
     
-    let server_addr: SocketAddr = format!("{}.{}:{}", config::NETWORK_PREFIX, wv.master_id, config::DUMMY_PORT).parse().unwrap();
+    let server_addr: SocketAddr = format!("{}.{}:{}", config::NETWORK_PREFIX, wv.master_id, 50000).parse().unwrap();
     let mut buf = [0; 65535];
     
     
@@ -237,27 +236,27 @@ async fn send_udp(
         // The only reason this is added here is because the new script (which doesnt work) has an option for latency.
         backoff_timeout_ms += 10;
         tokio::select! {
-            _ = timeout =>{
+            _ = timeout => {
                 fails += 1;
                 println!(
                     "Timeout (seq: {}, dest: {}). Retransmitting attempt {}/{}...",
                     seq_num, server_addr, fails, retries
                 );
+                if fails > retries {
+                    return Err(std::io::Error::new(std::io::ErrorKind::TimedOut, format!("No Ack from master in {} retries!", retries)));
+                }
                 continue;
             },
             result = socket.recv_from(&mut buf) => {
                 if let Ok((len, addr)) = result {
-                    if addr == server_addr {
-                        match parse_message(&buf[..len], seq_num) {
-                            Some(cont) => {
-                                println!("Master acked the cont: {:?}", cont);
-                                return Ok(());
-                            },
-                            None => {
-                                println!("The recieved msg was not the correct ACK");
-                            }
+                    let seq_opt: Option<[u8; 2]> = buf[..len].try_into().ok();
+                    if let Some(seq) = seq_opt {
+                        if seq_num == u16::from_le_bytes(seq) {
+                            println!("Master acked the cont");
+                            return Ok(());
                         }
                     }
+                    // Hvis pakken ikke var riktig ACK, fortsett til neste forsøk.
                 }
             },
         }
