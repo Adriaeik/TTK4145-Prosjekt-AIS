@@ -262,6 +262,7 @@ async fn send_udp(
             return Err(std::io::Error::new(std::io::ErrorKind::InvalidData, "Self container not found in worldview"))
         }
     };
+    let mut timeout = sleep(Duration::from_millis(backoff_timeout_ms));
     loop {
         if should_send {
             let packetloss = packetloss_rx.borrow().clone();
@@ -274,11 +275,12 @@ async fn send_udp(
                 redundancy, 
                 &wv
             ).await?;
+            backoff_timeout_ms += 5;
             should_send = false;
         }
 
+        timeout = sleep(Duration::from_millis(backoff_timeout_ms));
     
-        let timeout = sleep(Duration::from_millis(backoff_timeout_ms));
         // Add 10 ms timeout for each retransmission. 
         // In a real network: should probably be exponential.
         // In Sanntidslabben: Packetloss is software, slow ACKs is packetloss, not congestion or long travel links. 
