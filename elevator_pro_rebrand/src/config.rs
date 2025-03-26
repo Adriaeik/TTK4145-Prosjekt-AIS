@@ -14,7 +14,7 @@ pub static NETWORK_PREFIX: &str = "10.100.23";
 /// Port for TCP between nodes
 pub static PN_PORT: u16 = u16::MAX;
 /// Port for TCP between node and local backup
-pub static BCU_PORT: u16 = 50000; 
+pub static BCU_PORT: u16 = 50001; 
 /// Dummy port. Used for sending/recieving of UDP broadcasts
 pub static DUMMY_PORT: u16 = 42069;
 
