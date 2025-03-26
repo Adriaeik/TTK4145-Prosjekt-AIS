@@ -23,7 +23,7 @@ async fn main() {
         self_container = backup::run_as_backup().await;
     }    
     
-    //init::build_cost_fn().await;
+    init::build_cost_fn().await;
     print::info("Starting master process...".to_string());
 
     
