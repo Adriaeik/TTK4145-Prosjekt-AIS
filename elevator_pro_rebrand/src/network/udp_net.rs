@@ -165,25 +165,36 @@ async fn receive_udp_master(
         let msg = parse_message(&buf[..len], last_seq);
         
         match msg {
-            (Some(container), new) => {
+            (Some(container), code) => {
                 // println!("Received valid packet from {}: seq {}", slave_addr, last_seq);
                 //Meldinga er en forventet melding -> oppdater hashmappets state
-                if new {
-                    let _ = container_tx.send(container.clone()).await;
-                    new_state.last_seq = last_seq.wrapping_add(1);
-                    new_state.last_seen = Instant::now();
-                    state_locked.insert(slave_addr, new_state);
+                match code {
+                    RecieveCode::Accept => {
+                        let _ = container_tx.send(container.clone()).await;
+                        new_state.last_seq = last_seq.wrapping_add(1);
+                        new_state.last_seen = Instant::now();
+                        state_locked.insert(slave_addr, new_state);
+                        let packetloss = packetloss_rx.borrow().clone();
+                        let redundancy = get_redundancy(packetloss.packet_loss);
+                        send_acks(
+                            &socket,
+                            last_seq,
+                            &slave_addr,
+                            redundancy
+                        ).await;
+                    },
+                    RecieveCode::AckOnly => {
+                        let packetloss = packetloss_rx.borrow().clone();
+                        let redundancy = get_redundancy(packetloss.packet_loss);
+                        send_acks(
+                            &socket,
+                            last_seq,
+                            &slave_addr,
+                            redundancy
+                        ).await;
+                    },
+                    RecieveCode::Ignore => {},
                 }
-
-                let packetloss = packetloss_rx.borrow().clone();
-                let redundancy = get_redundancy(packetloss.packet_loss);
-                send_acks(
-                    &socket,
-                    last_seq,
-                    &slave_addr,
-                    redundancy
-                ).await;
-                // println!("Sende ack: {}", last_seq);
             },
             (None, _) => {
                 // println!("Ignoring out-of-order packet from {}", slave_addr);
@@ -368,22 +379,34 @@ fn build_message(
 fn parse_message(
     buf: &[u8],
     expected_seq: u16,
-) -> (Option<ElevatorContainer>, bool) {
+) -> (Option<ElevatorContainer>, RecieveCode) {
     if buf.len() < 2 {
-        return (None, false);
+        return (None, RecieveCode::Ignore);
     }
 
 
     let seq: [u8; 2] = match buf[0..2].try_into().ok() {
         Some(number) => number,
-        None => return (None, false),
+        None => return (None, RecieveCode::Ignore),
     };
     let key = u16::from_le_bytes(seq);
 
-    if key != expected_seq && key != expected_seq.wrapping_rem(1) {
-        return (None, false); // Feil sekvensnummer
+    if key == expected_seq {
+        return (world_view::deserialize(&buf[2..]), RecieveCode::Accept);
+    } else if key == expected_seq.wrapping_rem(1) {
+        return (world_view::deserialize(&buf[2..]), RecieveCode::AckOnly);
+    } else if key == 0 && expected_seq != 0 {
+        return (world_view::deserialize(&buf[2..]), RecieveCode::Accept);
+    } else {
+        return (None, RecieveCode::Ignore);
     }
+}
 
-    (world_view::deserialize(&buf[2..]), expected_seq == key)
+
+#[derive(Debug, Clone, PartialEq)]
+enum RecieveCode {
+    Accept,
+    AckOnly,
+    Ignore,
 }
 
