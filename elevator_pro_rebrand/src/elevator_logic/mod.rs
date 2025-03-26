@@ -68,7 +68,7 @@ pub async fn run_local_elevator(
         });
     }  
 
-    {
+    {// lag e til eigen funskjo slik som den over?
         let e = elevator.clone();
         let wv_watch_rx_c = wv_watch_rx.clone();
         // Task som setter på hall_lights
