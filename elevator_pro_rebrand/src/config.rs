@@ -45,7 +45,7 @@ pub const TCP_TIMEOUT: u64 = 5000; // i millisekunder
 /// Probably unneccasary
 pub const TCP_PER_U64: u64 = 10; // i millisekunder
 /// Period between sending of UDP broadcasts 
-pub const UDP_PERIOD: Duration = Duration::from_millis(TCP_PER_U64*2);
+pub const UDP_PERIOD: Duration = Duration::from_millis(5);
 /// Period between sending of TCP messages to master-node
 pub const TCP_PERIOD: Duration = Duration::from_millis(TCP_PER_U64);
 /// General period at 10 ms

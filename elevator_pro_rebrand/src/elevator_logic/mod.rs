@@ -79,6 +79,7 @@ pub async fn run_local_elevator(
                 match world_view::extract_self_elevator_container(&wv) {
                     Some(cont) => {
                         lights::set_hall_lights(&wv, e.clone(), &cont);
+                        
                     }
                     None => {
                         print::warn(format!("Failed to extract self elevator container"));
@@ -201,7 +202,7 @@ async fn handle_elevator(
         
         update_motor_direction_if_needed(&self_container, &e);
 
-        update_error_state(&mut self_container, &timers.error, &mut timers.prev_cab_priority_timeout);
+        update_error_state(&mut self_container, &timers.error, &mut timers.prev_cab_priority_timeout, &prev_behavior);
 
         let last_behavior: ElevatorBehaviour = track_behavior_change(&self_container, &mut prev_behavior);
         stop_motor_on_dooropen_to_error(&mut self_container, last_behavior, prev_behavior);
@@ -325,10 +326,17 @@ fn update_error_state(
     self_container: &mut ElevatorContainer,
     error_timer: &timer::Timer,
     prev_cab_priority_timer_stat: &mut bool,
+    prev_behavior: &ElevatorBehaviour,
 ) {
     if error_timer.timer_timeouted() {
         *prev_cab_priority_timer_stat = true;
-        self_container.behaviour = ElevatorBehaviour::Error;
+        if *prev_behavior == ElevatorBehaviour::DoorOpen {
+            self_container.behaviour = ElevatorBehaviour::ObstructionError;
+        } else if *prev_behavior == ElevatorBehaviour::Moving {
+            self_container.behaviour = ElevatorBehaviour::TravelError;
+        } else {
+            self_container.behaviour = ElevatorBehaviour::CosmicError;
+        }
     } else {
         *prev_cab_priority_timer_stat = false;
     }
@@ -379,7 +387,7 @@ fn stop_motor_on_dooropen_to_error(
     last_behavior: ElevatorBehaviour,
     current_behavior: ElevatorBehaviour,
 ) {
-    if last_behavior == ElevatorBehaviour::DoorOpen && current_behavior == ElevatorBehaviour::Error {
+    if last_behavior == ElevatorBehaviour::DoorOpen && current_behavior == ElevatorBehaviour::ObstructionError {
         self_container.dirn = Dirn::Stop;
     }
 }

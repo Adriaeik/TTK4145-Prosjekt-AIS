@@ -123,11 +123,10 @@ async fn on_floor_arrival(
     lights::set_cab_light(e.clone(), elevator.last_floor_sensor);
 
     match elevator.behaviour {
-        ElevatorBehaviour::Moving | ElevatorBehaviour::Error => {
+        ElevatorBehaviour::Moving | ElevatorBehaviour::ObstructionError => {
             if request::should_stop(&elevator.clone()) {
                 e.motor_direction(Dirn::Stop as u8);
                 request::clear_at_current_floor(elevator);
-                lights::set_door_open_light(e);
                 door_timer.timer_start();
                 cab_priority_timer.timer_start();
                 elevator.behaviour = ElevatorBehaviour::DoorOpen;
@@ -163,7 +162,6 @@ async fn on_door_timeout(elevator: &mut ElevatorContainer, e: Elevator) {
             match elevator.behaviour {
                 ElevatorBehaviour::DoorOpen => {
                     request::clear_at_current_floor(elevator);
-                    lights::set_door_open_light(e);
                 }
                 _ => {
                     lights::clear_door_open_light(e.clone());
@@ -218,7 +216,7 @@ pub async fn handle_stop_button(
 ) {
     if *prev_stop_btn != self_container.stop {
         if self_container.stop {
-            self_container.behaviour = ElevatorBehaviour::Error; 
+            self_container.behaviour = ElevatorBehaviour::CosmicError; 
             e.motor_direction(Dirn::Stop as u8);
         } else {
             self_container.behaviour = ElevatorBehaviour::Idle;

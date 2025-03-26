@@ -168,32 +168,31 @@ async fn receive_udp_master(
             (Some(container), code) => {
                 // println!("Received valid packet from {}: seq {}", slave_addr, last_seq);
                 //Meldinga er en forventet melding -> oppdater hashmappets state
+                println!("Ack? {:?}", code);
                 match code {
-                    RecieveCode::Accept => {
+                    RecieveCode::Accept | RecieveCode::Rejoin=> {
                         let _ = container_tx.send(container.clone()).await;
                         new_state.last_seq = last_seq.wrapping_add(1);
+                        if code == RecieveCode::Rejoin {
+                            new_state.last_seq = 0;
+                        }
                         new_state.last_seen = Instant::now();
                         state_locked.insert(slave_addr, new_state);
-                        let packetloss = packetloss_rx.borrow().clone();
-                        let redundancy = get_redundancy(packetloss.packet_loss);
-                        send_acks(
-                            &socket,
-                            last_seq,
-                            &slave_addr,
-                            redundancy
-                        ).await;
+                        
                     },
-                    RecieveCode::AckOnly => {
-                        let packetloss = packetloss_rx.borrow().clone();
-                        let redundancy = get_redundancy(packetloss.packet_loss);
-                        send_acks(
-                            &socket,
-                            last_seq,
-                            &slave_addr,
-                            redundancy
-                        ).await;
-                    },
+                    RecieveCode::AckOnly => {},
                     RecieveCode::Ignore => {},
+                }
+
+                if code != RecieveCode::Ignore {
+                    let packetloss = packetloss_rx.borrow().clone();
+                        let redundancy = get_redundancy(packetloss.packet_loss);
+                        send_acks(
+                            &socket,
+                            last_seq,
+                            &slave_addr,
+                            redundancy
+                        ).await;
                 }
             },
             (None, _) => {
@@ -393,10 +392,10 @@ fn parse_message(
 
     if key == expected_seq {
         return (world_view::deserialize(&buf[2..]), RecieveCode::Accept);
+    } else if key == 0 && expected_seq != 0 {
+        return (world_view::deserialize(&buf[2..]), RecieveCode::Rejoin);
     } else if key == expected_seq.wrapping_rem(1) {
         return (world_view::deserialize(&buf[2..]), RecieveCode::AckOnly);
-    } else if key == 0 && expected_seq != 0 {
-        return (world_view::deserialize(&buf[2..]), RecieveCode::Accept);
     } else {
         return (None, RecieveCode::Ignore);
     }
@@ -408,5 +407,6 @@ enum RecieveCode {
     Accept,
     AckOnly,
     Ignore,
+    Rejoin
 }
 

@@ -59,7 +59,9 @@ pub enum ElevatorBehaviour {
     Idle,
     Moving,
     DoorOpen,
-    Error,
+    TravelError,
+    ObstructionError,
+    CosmicError,
 }
 
 

@@ -22,7 +22,10 @@
 //! # Related
 //! See [`world_view`] for worldview structure and serialization logic.
 
-use crate::{elevio::elev::Elevator, world_view::{ElevatorContainer, WorldView}};
+use crate::elevator_logic::ElevatorBehaviour;
+use crate::elevio::elev::Elevator; 
+use crate::world_view::ElevatorContainer;
+use crate::world_view::WorldView;
 
 
 /// Sets all hall lights
@@ -51,6 +54,13 @@ pub fn set_hall_lights(wv: &WorldView, e: Elevator, self_container: &ElevatorCon
         if floor != e.num_floors {
             e.call_button_light(floor, 0, *up);
         }
+    }
+
+    // Door light
+    if self_container.behaviour == ElevatorBehaviour::DoorOpen {
+        set_door_open_light(e.clone());
+    } else {
+        clear_door_open_light(e.clone());
     }
 }
 
