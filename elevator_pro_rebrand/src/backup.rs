@@ -52,10 +52,10 @@ use socket2::{Socket, Domain, Type, Protocol};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::sync::watch;
-use tokio::time::{sleep, Duration, timeout};
+use tokio::time::{sleep, timeout};
 use serde::{Serialize, Deserialize};
 use crate::network::ConnectionStatus;
-use crate::world_view::{ElevatorContainer, WorldView, serialize};
+use crate::world_view::{ WorldView, serialize};
 use crate::{config, init, network, world_view};
 use crate::print;
 
@@ -160,7 +160,7 @@ fn start_backup_terminal() {
 /// # Behavior
 /// - If sending fails, a warning is printed and the backup terminal is relaunched after delay.
 /// - The loop exits after failure, assuming a new client will reconnect.
-pub async fn handle_backup_client(
+async fn handle_backup_client(
     mut stream: TcpStream, 
     rx: watch::Receiver<BackupPayload>
 ) {
@@ -200,7 +200,7 @@ pub async fn handle_backup_client(
 /// - Failures to send payloads are printed but do not crash the server.
 pub async fn start_backup_server(
     wv_watch_rx: watch::Receiver<WorldView>,
-    mut network_watch_rx: watch::Receiver<network::ConnectionStatus>,
+    network_watch_rx: watch::Receiver<network::ConnectionStatus>,
 ) {
     println!("Backup-server starting...");
     
