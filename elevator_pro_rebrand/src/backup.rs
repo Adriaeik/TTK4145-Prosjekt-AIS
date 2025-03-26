@@ -1,3 +1,48 @@
+//! # ⚠️ NOT part of the final solution – Legacy backup module
+//!
+//! **This module is NOT part of the final distributed system solution.**
+//!
+//! It was originally developed as an **concept for local fault tolerance**, 
+//! where a backup process would start automatically in a separate terminal if the main
+//! elevator program crashed. This idea was **inspired by the fault tolerance mechanisms 
+//! presented in the real-time lab exercises** in TTK4145.
+//!
+//! ## Intended Failover Behavior (Not Active in Final Design):
+//! - To **automatically restart** the elevator program locally in case of crashes.
+//! - To allow the elevator to **serve pending tasks while offline**, 
+//!   even without reconnecting to the network.
+//! - To eventually **rejoin the network** and synchronize with the system if a connection was restored.
+//!
+//! ## ❌ Why is it not part of our solution?
+//! After discussions with course assistants and a better understanding of the assignment,
+//! it became clear that:
+//! - The project aims to implement **a distributed system**, not local persistence or replication.
+//! - A local failover process like this is conceptually similar to **writing to a file and reloading**, 
+//!   which is **explicitly not the intended direction** of the assignment.
+//! - All call redundancy and recovery should happen through the **shared synchronized worldview**,
+//!   not through isolated local state or takeover logic.
+//!
+//! As a result, the failover behavior was disabled (e.g., by using high takeover timeouts),
+//! and this module now functions purely as a **GUI client**:
+//! - Connects to the master
+//! - Receives `WorldView` updates
+//! - Visualizes elevator state and network status using a colorized print
+//!
+//! ## 📌 Summary:
+//! - This is a **separate visualization tool**, _not part of the distributed control logic_.
+//! - It remains in the codebase as a helpful debug utility, but should not be considered a part of the system design.
+//! 
+//! ## 🧠 Note:
+//! In industrial applications, local crash recovery _might_ be useful,
+//! especially to avoid reinitializing the elevator in a potentially unstable state.
+//! For example, if a bug caused a crash, restarting **at the same point** could lead to
+//! an immediate second crash. A clean backup process, starting with the previous tasks,
+//! can offer a more controlled re-entry.
+//!
+//! However, this type of resilience mechanism falls outside the scope and intention
+//! of this assignment, which emphasizes **distributed coordination and recovery**
+//! via the networked `WorldView`, not local persistence or reboot logic.
+
 use std::env;
 use std::net::ToSocketAddrs;
 use std::process::Command;
@@ -14,25 +59,50 @@ use crate::world_view::{ElevatorContainer, WorldView, serialize};
 use crate::{config, init, network, world_view};
 use crate::print;
 
+/// Struct representing the data sent from the main process to the backup client.
+///
+/// It contains two components:
+/// - `worldview`: The current `WorldView` of the system, used for visualization and potential local control.
+/// - `network_status`: The latest known network status (internet and elevator mesh).
+///
+/// This payload is serialized and transmitted over TCP to keep the backup client synchronized
+/// with the live system state.
 #[derive(Serialize, Deserialize, Clone, Debug)]
 struct BackupPayload {
     pub worldview: world_view::WorldView,
     pub network_status: ConnectionStatus,
 }
-// Static variable to see if backup has started
+
+/// Atomic flag to ensure that the backup terminal is only launched once.
+///
+/// Prevents spawning multiple backup clients simultaneously. Once set to `true`,
+/// repeated calls to `start_backup_terminal()` will have no effec
 static BACKUP_STARTED: AtomicBool = AtomicBool::new(false);
 
-/// Creates a non blocking TCP listener with reusable address
+/// Creates a non-blocking TCP listener on the specified port, with address reuse enabled.
+///
+/// This helper sets up a low-level socket bound to `localhost:<port>`, configured
+/// for asynchronous operation and reuse of the address.
+///
+/// # Parameters
+/// - `port`: The TCP port number to bind to.
+///
+/// # Returns
+/// A `TcpListener` ready for accepting incoming connections.
+///
+/// # Panics
+/// This function will panic if:
+/// - The address cannot be resolved.
+/// - No valid IPv4 address is found.
+/// - Socket creation or binding fails.
 fn create_reusable_listener(
     port: u16
 ) -> TcpListener {
     let addr_str = format!("localhost:{}", port);
-    // Resolve alle mulige adresser til "localhost"
     let addr_iter = addr_str
         .to_socket_addrs()
         .expect("Klarte ikkje resolve 'localhost'");
 
-    // Prøv første IPv4-adresse
     let addr = addr_iter
         .filter(|a| a.is_ipv4())
         .next()
@@ -51,7 +121,17 @@ fn create_reusable_listener(
         .expect("Couldnt create TcpListener")
 }
 
-/// Startes the program with backup argument in a new terminal if the backup is not running.
+/// Launches a new terminal window and starts the program in backup mode.
+///
+/// Uses the current binary path and appends the `backup` argument, causing
+/// the program to run as a backup client.
+///
+/// This function checks the `BACKUP_STARTED` flag to ensure only one
+/// backup process is started.
+///
+/// # Notes
+/// - Only supported on Unix-like systems using `gnome-terminal`.
+/// - Has no effect if backup is already running.
 fn start_backup_terminal() {
     if !BACKUP_STARTED.load(Ordering::SeqCst) {
         let current_exe = env::current_exe().expect("Couldnt extract the executable");
@@ -66,7 +146,18 @@ fn start_backup_terminal() {
     }
 }
 
-/// Sender serialisert `BackupPayload` kontinuerleg til backup-klient
+/// Continuously sends serialized `BackupPayload` updates to a connected backup client.
+///
+/// This task runs on the backup-server side. It listens on a watch channel
+/// for updated payloads and transmits them to the connected client over TCP.
+///
+/// # Parameters
+/// - `stream`: The TCP connection to the backup client.
+/// - `rx`: A `watch::Receiver` for updated `BackupPayload` values.
+///
+/// # Behavior
+/// - If sending fails, a warning is printed and the backup terminal is relaunched after delay.
+/// - The loop exits after failure, assuming a new client will reconnect.
 pub async fn handle_backup_client(
     mut stream: TcpStream, 
     rx: watch::Receiver<BackupPayload>
@@ -89,18 +180,22 @@ pub async fn handle_backup_client(
 }
 
 
-/// Function to start and maintain connection to the backup-program
-/// 
-/// ## Parameters
-/// `wv_watch_rx`: Rx on watch the worldview is being sent on in the system  
-/// 
-/// ## Behavior
-/// - Sets up a reusable TCP listener and starts a backup program in a new terminal
-/// - Continously sends the latest worldview to the backup asynchronously
-/// - Continously reads the latest worldview shich will be sent
-/// 
-/// ## Note
-/// This function is permanently blocking, and should be ran asynchronously 
+/// Starts the backup server, listening for incoming backup clients and
+/// transmitting the current system state (`WorldView`) and network status.
+///
+/// # Parameters
+/// - `wv_watch_rx`: Watch receiver for current `WorldView`.
+/// - `network_watch_rx`: Watch receiver for current `ConnectionStatus`.
+///
+/// # Behavior
+/// - Spawns a TCP listener to accept connections from a backup client.
+/// - On connection, launches a handler that sends periodic `BackupPayload` updates.
+/// - Spawns a task to continuously refresh the payload with the latest worldview and network status.
+///
+/// # Notes
+/// - This function is blocking and must be run as an asynchronous task.
+/// - It starts the backup terminal once at initialization.
+/// - Failures to send payloads are printed but do not crash the server.
 pub async fn start_backup_server(
     wv_watch_rx: watch::Receiver<WorldView>,
     mut network_watch_rx: watch::Receiver<network::ConnectionStatus>,
@@ -150,26 +245,26 @@ pub async fn start_backup_server(
             sleep(config::BACKUP_WORLDVIEW_REFRESH_INTERVAL).await;
         }
     });
-
-    
-
-    // // Task for å printe ny nettverksstatus når den endrar seg
-    // tokio::spawn(async move {
-    //     loop {
-    //         if network_watch_rx.changed().await.is_ok() {
-    //             let status = network_watch_rx.borrow().clone();
-    //             println!(
-    //                 "🔄 Backup-mottatt status: on_internett={}, connected_on_elevator_network={}, packet_loss={}%",
-    //                 status.on_internett,
-    //                 status.connected_on_elevator_network,
-    //                 status.packet_loss
-    //             );
-    //         }
-    //     }
-    // });
 }
 
-
+/// Entry point for the backup program (invoked with `cargo run -- backup`).
+///
+/// Connects to the main process and listens for serialized `BackupPayload`
+/// updates over TCP. Displays the current worldview and network status in the terminal.
+///
+/// # Behavior
+/// - Continuously tries to connect to the main process until success or timeout.
+/// - Deserializes incoming data and prints system state via `print::worldview`.
+/// - If the main process connection fails repeatedly beyond the threshold,
+///   the backup promotes itself and returns its local elevator container.
+///
+/// # Returns
+/// - `Some(ElevatorContainer)` if failover is triggered and the backup should take over.
+/// - `None` if failover failed or not applicable.
+///
+/// # Notes
+/// In the current solution, this failover logic is disabled using a high timeout.
+/// The function is now used solely as a live GUI for displaying the system state.
 pub async fn run_as_backup() -> Option<world_view::ElevatorContainer> {
     println!("Starting backup-client...");
     let mut current_wv = init::initialize_worldview(None).await;

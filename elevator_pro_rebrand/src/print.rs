@@ -253,14 +253,34 @@ pub fn cosmic_err(fun: String) {
     
     println!();
 }
-
-/// Hjelpefunksjon for å sikre at kolonner har fast breidde
+/// Pads the input text to a fixed display width using spaces.
+/// 
+/// Accounts for characters that may take more than one column width (e.g. Unicode symbols),
+/// ensuring aligned text in terminal-based tables or UI output.
+/// 
+/// # Parameters
+/// - `text`: The string to pad.
+/// - `width`: The total width the text should occupy (including padding).
+///
+/// # Returns
+/// A `String` with the original text left-aligned and padded with spaces to match the desired width.
 fn pad_text(text: &str, width: usize) -> String {
     let visible_width = UnicodeWidthStr::width(text);
     let padding = width.saturating_sub(visible_width);
     format!("{}{}", text, " ".repeat(padding))
 }
 
+/// Returns a colored and padded string representation of a boolean value.
+/// 
+/// Uses green for `true` and red for `false`, and pads the result to a fixed width.
+/// Useful for displaying network or status indicators in colored terminal output.
+/// 
+/// # Parameters
+/// - `value`: The boolean value to represent.
+/// - `width`: The width to pad the output to.
+///
+/// # Returns
+/// A colored `String` containing "true" or "false", padded to the given width.
 fn colored_bool_label(value: bool, width: usize) -> String {
     let raw_text = if value { "true" } else { "false" };
     let padded = pad_text(raw_text, width); // brukar din hjelpefunksjon
@@ -271,7 +291,20 @@ fn colored_bool_label(value: bool, width: usize) -> String {
     }
 }
 
-
+/// Computes an ANSI RGB color escape sequence based on packet loss percentage.
+/// 
+/// The color transitions smoothly:
+/// - Green at 0% loss (0,255,0)
+/// - Yellow at 50% loss (255,255,0)
+/// - Red at 100% loss (255,0,0)
+/// 
+/// Intended for use in terminal UIs to visually represent loss severity.
+///
+/// # Parameters
+/// - `loss`: Packet loss as a percentage in the range 0–100.
+///
+/// # Returns
+/// An ANSI escape string that sets the foreground color for subsequent text.
 fn rgb_color_for_loss(loss: u8) -> String {
     // loss frå 0 → 100 skal gå frå grøn (0,255,0) → gul (255,255,0) → raud (255,0,0)
     let (r, g) = if loss <= 50 {
@@ -286,6 +319,17 @@ fn rgb_color_for_loss(loss: u8) -> String {
     format!("\x1b[38;2;{};{};0m", r, g)
 }
 
+/// Generates a horizontal colored bar representing packet loss visually in the terminal.
+/// 
+/// The bar is filled proportionally to the loss percentage, with each filled segment
+/// colored using a logarithmic gradient between green and red to emphasize early degradation.
+/// 
+/// # Parameters
+/// - `loss`: Packet loss as a percentage from 0 to 100.
+/// - `width`: The total width (number of characters) of the bar.
+///
+/// # Returns
+/// A `String` containing the ANSI-colored loss bar.
 fn colored_loss_bar(loss: u8, width: usize) -> String {
     let mut filled = (loss as usize * width) / 100;
     if loss == 0 {
@@ -311,8 +355,31 @@ fn colored_loss_bar(loss: u8, width: usize) -> String {
     bar
 }
 
-
-/// Logger `wv` i eit fint tabellformat
+/// Logs the current `WorldView` state to the terminal in a structured and colorized table format.
+///
+/// This function visually presents the status of the elevator system, including:
+/// - Network connection status (internet and elevator mesh)
+/// - Packet loss as a colored percentage and visual bar
+/// - Hall calls across all floors (up/down requests)
+/// - Detailed state of each elevator (ID, door, obstruction, last floor, cab requests, hall tasks, etc.)
+///
+/// The display uses Unicode symbols and ANSI color codes for clarity:
+/// - Green/red circles for active/inactive requests
+/// - Directional arrows and colors to indicate elevator movement or door states
+///
+/// # Parameters
+/// - `worldview`: A reference to the current global `WorldView` instance.
+/// - `connection`: An optional `ConnectionStatus` containing internet and elevator network status
+///                 as well as the current packet loss (0–100%).
+///
+/// # Behavior
+/// - If configured printing is disabled (`config::PRINT_WV_ON` is false), the function exits early.
+/// - Displays high-level metadata, followed by per-elevator breakdown.
+/// - Pads and aligns all output to fit well in monospaced terminal environments.
+///
+/// # Notes
+/// - This is intended for human-readable debugging and monitoring purposes.
+/// - Printing frequency should be limited (e.g., once per 500 ms).
 pub fn worldview(worldview: &WorldView, connection: Option<network::ConnectionStatus> ) {
     let print_stat = config::PRINT_WV_ON.lock().unwrap().clone();
     if !print_stat {
