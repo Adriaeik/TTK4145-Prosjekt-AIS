@@ -90,7 +90,7 @@ async fn main() {
     let remove_container_tx = main_mpscs.txs.remove_container;
     let container_tx = main_mpscs.txs.container;
     let connection_to_master_failed_tx_clone = main_mpscs.txs.connection_to_master_failed.clone(); //TODO:: remove
-    let sent_tcp_container_tx = main_mpscs.txs.sent_tcp_container;
+    let sent_container_tx = main_mpscs.txs.sent_container;
     let connection_to_master_failed_tx = main_mpscs.txs.connection_to_master_failed;
     let new_wv_after_offline_tx = main_mpscs.txs.new_wv_after_offline;
     /* END ----------- Seperate the mpsc Tx's so they can be sent to their designated tasks ---------------------- */
@@ -209,13 +209,13 @@ async fn main() {
         let wv_watch_rx = wv_watch_rx.clone();
         tokio::spawn(async move {
             print::info("Starting UDP direct network".to_string());
-            let _ = network::udp_net::start_udp_network(
+            let _ = network::udp_net::start_direct_udp_network(
                 wv_watch_rx,
                 container_tx,
                 packetloss_rx,
                 connection_to_master_failed_tx,
                 remove_container_tx,
-                sent_tcp_container_tx,
+                sent_container_tx,
             ).await;
         });
     }
@@ -226,7 +226,7 @@ async fn main() {
     //     let wv_watch_rx = wv_watch_rx.clone();
     //     let _tcp_task = tokio::spawn(async move {
     //         print::info("Starting TCP handler".to_string());
-    //         let _ = tcp_network::tcp_handler(wv_watch_rx, remove_container_tx, container_tx, connection_to_master_failed_tx, sent_tcp_container_tx, socket_rx).await;
+    //         let _ = tcp_network::tcp_handler(wv_watch_rx, remove_container_tx, container_tx, connection_to_master_failed_tx, sent_container_tx, socket_rx).await;
     //     });
     // }
     

@@ -72,7 +72,7 @@ use std::collections::HashMap;
 /// The function operates as an infinite loop, continuously polling the following channels:
 ///
 /// ### Slave-related channels:
-/// - `sent_tcp_container`: Removes tasks or hall requests that were successfully transmitted to master.
+/// - `sent_container`: Removes tasks or hall requests that were successfully transmitted to master.
 /// - `udp_wv`: Merges received worldview via UDP (usually at startup or reconnection).
 /// - `connection_to_master_failed`: Triggers "network abort", clearing out all elevators except the local one.
 ///
@@ -106,7 +106,7 @@ pub async fn update_wv_watch(mut mpsc_rxs: MpscRxs, worldview_watch_tx: watch::S
 
 /* CHANNELS SLAVE MAINLY RECIEVES ON */
         /*_____Update worldview based on information send on TCP_____ */
-        match mpsc_rxs.sent_tcp_container.try_recv() {
+        match mpsc_rxs.sent_container.try_recv() {
             Ok(msg) => {
                 wv_edited_I = clear_from_sent_tcp(&mut worldview, msg);
             },
@@ -218,7 +218,7 @@ pub struct MpscTxs {
     pub remove_container: mpsc::Sender<u8>,
 
     /// Sends a TCP container message that has been transmitted to the master.
-    pub sent_tcp_container: mpsc::Sender<ElevatorContainer>,
+    pub sent_container: mpsc::Sender<ElevatorContainer>,
 
     /// Sends delegated tasks from the manager
     pub delegated_tasks: mpsc::Sender<HashMap<u8, Vec<[bool; 2]>>>,
@@ -253,7 +253,7 @@ pub struct MpscRxs {
     pub remove_container: mpsc::Receiver<u8>,
 
     /// Recieves TCP container messages that have been transmitted.
-    pub sent_tcp_container: mpsc::Receiver<ElevatorContainer>,
+    pub sent_container: mpsc::Receiver<ElevatorContainer>,
 
     /// Recieves delegated tasks from the manager
     pub delegated_tasks: mpsc::Receiver<HashMap<u8, Vec<[bool; 2]>>>,
@@ -286,7 +286,7 @@ impl Mpscs {
         let (tx_connection_to_master_failed, rx_connection_to_master_failed) = mpsc::channel(300);
         let (tx_container, rx_container) = mpsc::channel(300);
         let (tx_remove_container, rx_remove_container) = mpsc::channel(300);
-        let (tx_sent_tcp_container, rx_sent_tcp_container) = mpsc::channel(300);
+        let (tx_sent_container, rx_sent_container) = mpsc::channel(300);
         let (tx_buf3, rx_buf3) = mpsc::channel(300);
         let (tx_buf4, rx_buf4) = mpsc::channel(300);
         let (tx_buf5, rx_buf5) = mpsc::channel(300);
@@ -301,7 +301,7 @@ impl Mpscs {
                 connection_to_master_failed: tx_connection_to_master_failed,
                 container: tx_container,
                 remove_container: tx_remove_container,
-                sent_tcp_container: tx_sent_tcp_container,
+                sent_container: tx_sent_container,
                 delegated_tasks: tx_buf3,
                 elevator_states: tx_buf4,
                 new_wv_after_offline: tx_buf5,
@@ -315,7 +315,7 @@ impl Mpscs {
                 connection_to_master_failed: rx_connection_to_master_failed,
                 container: rx_container,
                 remove_container: rx_remove_container,
-                sent_tcp_container: rx_sent_tcp_container,
+                sent_container: rx_sent_container,
                 delegated_tasks: rx_buf3,
                 elevator_states: rx_buf4,
                 new_wv_after_offline: rx_buf5,
