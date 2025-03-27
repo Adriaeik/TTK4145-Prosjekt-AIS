@@ -209,7 +209,7 @@ async fn main() {
         let wv_watch_rx = wv_watch_rx.clone();
         tokio::spawn(async move {
             print::info("Starting UDP direct network".to_string());
-            let _ = network::udp_net::start_direct_udp_network(
+            let _ = network::udp_net::start_udp_network(
                 wv_watch_rx,
                 container_tx,
                 packetloss_rx,
