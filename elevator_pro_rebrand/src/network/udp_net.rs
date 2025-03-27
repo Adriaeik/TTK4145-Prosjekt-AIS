@@ -164,6 +164,7 @@ async fn receive_udp_master(
 
         let mut state_locked = state.lock().await;
         let entry = state_locked.entry(slave_addr).or_insert(new_state.clone());
+        let last_seen = entry.last_seen;
         let last_seq = entry.last_seq.clone();
         
         let msg = parse_message(&buf[..len], last_seq);
@@ -190,7 +191,14 @@ async fn receive_udp_master(
 
                 if code != RecieveCode::Ignore {
                     let packetloss = packetloss_rx.borrow().clone();
-                        let redundancy = get_redundancy(packetloss.packet_loss);
+                        let redundancy = get_redundancy(packetloss.packet_loss, last_seen).await;
+                        print::warn(format!(
+                            "Sending {} ACKs to {} (loss: {}%, time since last: {:.2}s)",
+                            redundancy,
+                            slave_addr,
+                            packetloss.packet_loss,
+                            Instant::now().duration_since(last_seen).as_secs_f64()
+                        ));
                         send_acks(
                             &socket,
                             last_seq,
@@ -265,7 +273,8 @@ async fn send_udp(
     let server_addr: SocketAddr = format!("{}.{}:{}", config::NETWORK_PREFIX, wv.master_id, 50000).parse().unwrap();
     let mut buf = [0; 65535];
     
-    
+    let mut last_seen_from_master = Instant::now();
+
     let mut fails = 0;
     let mut backoff_timeout_ms = timeout_ms;
 
@@ -280,7 +289,14 @@ async fn send_udp(
     loop {
         if should_send {
             let packetloss = packetloss_rx.borrow().clone();
-            let redundancy = get_redundancy(packetloss.packet_loss);
+            let redundancy = get_redundancy(packetloss.packet_loss, last_seen_from_master).await;
+            println!(
+                "Sending packet {} with redundancy {} (loss: {}%, time since last ACK: {:.2}s)",
+                seq_num,
+                redundancy,
+                packetloss.packet_loss,
+                Instant::now().duration_since(last_seen_from_master).as_secs_f64()
+            );
             // println!("Sending packet nr. {} with {} copies (estimated loss: {}%)", seq_num, redundancy, packetloss.packet_loss);
             send_packet(
                 &socket, 
@@ -317,6 +333,7 @@ async fn send_udp(
                     let seq_opt: Option<[u8; 2]> = buf[..len].try_into().ok();
                     if let Some(seq) = seq_opt {
                         if seq_num == u16::from_le_bytes(seq) {
+                            last_seen_from_master = Instant::now();
                             let _ = sent_tcp_container_tx.send(sent_cont).await;
                             println!("Master acked the cont");
                             return Ok(());
@@ -331,15 +348,16 @@ async fn send_udp(
 }
 
 
-fn get_redundancy(packetloss: u8) -> usize {
-    match packetloss {
-        // p if p < 25 => 4,
-        // p if p < 50 => 8,
-        // p if p < 75 => 16,
-        // p if p < 90 => 20,
-        _ => 100,
-    }
-}
+// fn get_redundancy(packetloss: u8) -> usize {
+//     match packetloss {
+//         // p if p < 25 => 4,
+//         // p if p < 50 => 8,
+//         // p if p < 75 => 16,
+//         // p if p < 90 => 20,
+//         _ => 100,
+//     }
+// }
+
 
 
 async fn send_packet(
@@ -414,3 +432,75 @@ enum RecieveCode {
     Rejoin
 }
 
+
+struct PID {
+    kp: f64,
+    ki: f64,
+    kd: f64,
+    prev_error: f64,
+    integral: f64,
+    last_time: Option<Instant>,
+}
+
+impl PID {
+    fn new(kp: f64, ki: f64, kd: f64) -> Self {
+        Self {
+            kp,
+            ki,
+            kd,
+            prev_error: 0.0,
+            integral: 0.0,
+            last_time: None,
+        }
+    }
+
+    fn update(&mut self, setpoint: f64, measurement: f64, now: Instant) -> f64 {
+        let error = (setpoint - measurement).abs();
+        let dt = self.last_time.map_or(0.1, |last| {
+            let secs = now.duration_since(last).as_secs_f64();
+            if secs < 0.001 { 0.001 } else { secs }
+        });
+
+        self.integral += error * dt;
+        let derivative = (error - self.prev_error) / dt;
+        self.prev_error = error;
+        self.last_time = Some(now);
+
+        self.kp * error + self.ki * self.integral + self.kd * derivative
+    }
+}
+
+use once_cell::sync::Lazy;
+
+static REDUNDANCY_PID: Lazy<Mutex<PID>> = Lazy::new(|| {
+    Mutex::new(PID::new(100.0, 10.05, 1.01)) // Tuning-verdiar: test gjerne!
+});
+
+fn clamp(val: f64, min: f64, max: f64) -> f64 {
+    val.max(min).min(max)
+}
+
+pub async fn get_redundancy(packetloss: u8, last_seen: Instant) -> usize {
+    let now = Instant::now();
+    let time_since_last = now.duration_since(last_seen).as_secs_f64(); // i sekund
+
+    let setpoint = 0.1; // 10 ms ønsket tid mellom mottak
+    let measurement = time_since_last;
+
+    let output = {
+        let mut pid = REDUNDANCY_PID.lock().await;
+        pid.update(setpoint, measurement, now)
+    };
+
+    let base = 1.0;
+    let redundans = clamp(base + output, 1.0, 600.0);
+
+    println!(
+        "[PID] Last seen: {:.3}s | Error: {:.3} | Redundancy: {:.1}",
+        time_since_last,
+        setpoint - measurement,
+        redundans
+    );
+
+    redundans.round() as usize
+}
