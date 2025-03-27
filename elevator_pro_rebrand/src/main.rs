@@ -31,13 +31,15 @@ use tokio::sync::watch;
 
 
 #[tokio::main]
-async fn main() {
+async fn main() 
+{
     // Determine if this instance should run in backup mode (via CLI argument)
     let is_backup = init::parse_args();
     
     let mut self_container: Option<world_view::ElevatorContainer> = None;
-    if is_backup {
-        println!("Starting backup-process...");
+    if is_backup 
+    {
+        print::info(format!("Starting backup-process..."));
         self_container = backup::run_as_backup().await;
     }    
     
@@ -108,9 +110,9 @@ async fn main() {
         // when network conditions change.
 
         let wv_watch_rx = wv_watch_rx.clone();
-        let _network_status_watcher_task = tokio::spawn(async move {
+        tokio::spawn(async move {
             print::info("Starting to monitor internet".to_string());
-            let _ = network::watch_ethernet(wv_watch_rx, network_watch_tx, new_wv_after_offline_tx).await;
+            network::watch_ethernet(wv_watch_rx, network_watch_tx, new_wv_after_offline_tx).await;
         });
     }
     /* END ----------- Task to watch over the internet connection ---------------------- */
@@ -120,25 +122,25 @@ async fn main() {
     /* START ----------- Critical tasks tasks ----------- */
     {
         // Continously updates the local worldview
-        let _update_wv_task = tokio::spawn(async move {
+        tokio::spawn(async move {
             print::info("Starting to update worldview".to_string());
-            let _ = local_network::update_wv_watch(mpsc_rxs, wv_watch_tx, &mut worldview).await;
+            local_network::update_wv_watch(mpsc_rxs, wv_watch_tx, &mut worldview).await;
         });
     }
     {
         // Task handling the elevator
         let wv_watch_rx = wv_watch_rx.clone();
-        let _local_elev_task = tokio::spawn(async move {
+        tokio::spawn(async move {
             print::info("Starting to run local elevator".to_string());
-            let _ = elevator_logic::run_local_elevator(wv_watch_rx, elevator_states_tx).await;
+            elevator_logic::run_local_elevator(wv_watch_rx, elevator_states_tx).await;
         });
     }
     {
         // Starting the task manager, responsible for delegating tasks
         let wv_watch_rx = wv_watch_rx.clone();
-        let _manager_task = tokio::spawn(async move {
+        tokio::spawn(async move {
             print::info("Staring task manager".to_string());
-            let _ = manager::start_manager(wv_watch_rx, delegated_tasks_tx).await;
+            manager::start_manager(wv_watch_rx, delegated_tasks_tx).await;
         });
     }
     /* END ----------- Critical tasks tasks ----------- */
@@ -156,11 +158,11 @@ async fn main() {
         // It is currently used only as a GUI visualizer and debugging tool
         //
         // For more, see `mod backup`: `//! # ⚠️ NOT part of the final solution – Legacy backup module`
-        // let wv_watch_rx = wv_watch_rx.clone();
-        // let _backup_task = tokio::spawn(async move {
-        //     print::info("Starting backup".to_string());
-        //     tokio::spawn(backup::start_backup_server(wv_watch_rx, network_watch_rx));
-        // });
+        let wv_watch_rx = wv_watch_rx.clone();
+        let _backup_task = tokio::spawn(async move {
+            print::info("Starting backup".to_string());
+            tokio::spawn(backup::start_backup_server(wv_watch_rx, network_watch_rx));
+        });
     }
     /* END ----------- Backup server ----------- */
         
@@ -174,7 +176,7 @@ async fn main() {
         //
         // Received data is forwarded to the worldview updater via mpsc.
         let wv_watch_rx = wv_watch_rx.clone();
-        let _listen_task = tokio::spawn(async move {
+        tokio::spawn(async move {
             print::info("Starting to listen for UDP-broadcast".to_string());
             let _ = udp_broadcast::start_udp_listener(wv_watch_rx, udp_wv_tx).await;
         });
@@ -183,7 +185,7 @@ async fn main() {
     {
         // If master, Periodically broadcasts the `WorldView` to all over UDP.
         let wv_watch_rx = wv_watch_rx.clone();
-        let _broadcast_task = tokio::spawn(async move {
+        tokio::spawn(async move {
             print::info("Starting UDP-broadcaster".to_string());
             let _ = udp_broadcast::start_udp_broadcaster(wv_watch_rx).await;
         });
@@ -201,7 +203,7 @@ async fn main() {
         let wv_watch_rx = wv_watch_rx.clone();
         tokio::spawn(async move {
             print::info("Starting UDP direct network".to_string());
-            let _ = network::udp_direct::start_direct_udp_broadcast(
+            network::udp_direct::start_direct_udp_broadcast(
                 wv_watch_rx,
                 container_tx,
                 packetloss_rx,

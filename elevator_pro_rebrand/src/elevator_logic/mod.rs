@@ -53,7 +53,8 @@ use tokio::time::sleep;
 pub async fn run_local_elevator(
     wv_watch_rx: watch::Receiver<WorldView>, 
     elevator_states_tx: mpsc::Sender<ElevatorContainer>
-) {
+) 
+{
     let (local_elev_tx, local_elev_rx) = mpsc::channel::<ElevMessage>(100);
     
     let elevator = self_elevator::init(local_elev_tx).await;
@@ -133,7 +134,8 @@ async fn handle_elevator(
     elevator_states_tx: mpsc::Sender<ElevatorContainer>, 
     mut local_elev_rx: mpsc::Receiver<elevio::ElevMessage>, 
     e: Elevator
-) {
+) 
+{
     
     let mut wv = world_view::get_wv(wv_watch_rx.clone());
     let mut self_container = await_valid_self_container(wv_watch_rx.clone()).await;
@@ -244,7 +246,8 @@ async fn handle_elevator(
 async fn update_tasks_and_hall_requests(
     self_container: &mut ElevatorContainer, 
     wv: &WorldView
-){
+)
+{
     if let Some(task_container) = world_view::extract_self_elevator_container(wv) 
     {
         self_container.tasks = task_container.tasks.clone();
@@ -278,8 +281,10 @@ async fn update_tasks_and_hall_requests(
 /// ```
 async fn await_valid_self_container(
     wv_rx: watch::Receiver<WorldView>
-) -> ElevatorContainer {
-    loop {
+) -> ElevatorContainer 
+{
+    loop 
+    {
         let wv = world_view::get_wv(wv_rx.clone());
         if let Some(container) = world_view::extract_self_elevator_container(&wv) 
         {
@@ -308,7 +313,8 @@ async fn await_valid_self_container(
 fn update_motor_direction_if_needed(
     self_container: &ElevatorContainer, 
     e: &Elevator
-) {
+) 
+{
     if self_container.behaviour != ElevatorBehaviour::DoorOpen 
     {
         e.motor_direction(self_container.dirn as u8);
@@ -333,7 +339,8 @@ fn update_error_state(
     error_timer: &timer::Timer,
     prev_cab_priority_timer_stat: &mut bool,
     prev_behavior: &ElevatorBehaviour,
-) {
+) 
+{
     if error_timer.timer_timeouted() 
     {
         if was_prew_state_error(prev_behavior){ return;}
@@ -359,7 +366,8 @@ fn update_error_state(
 
 fn was_prew_state_error(
     prev_behavior:  &ElevatorBehaviour
-) -> bool {
+) -> bool 
+{
     *prev_behavior == ElevatorBehaviour::ObstructionError || 
     *prev_behavior == ElevatorBehaviour::TravelError || 
     *prev_behavior == ElevatorBehaviour::CosmicError 
@@ -382,13 +390,14 @@ fn was_prew_state_error(
 fn track_behavior_change(
     self_container: &ElevatorContainer,
     prev_behavior: &mut ElevatorBehaviour,
-) -> ElevatorBehaviour {
+) -> ElevatorBehaviour 
+{
     let last_behavior = *prev_behavior;
 
     if *prev_behavior != self_container.behaviour 
     {
         *prev_behavior = self_container.behaviour;
-        println!("Endra status: {:?} -> {:?}", last_behavior, self_container.behaviour);
+        print::info(format!("Changed behaviour: {:?} -> {:?}", last_behavior, self_container.behaviour));
     }
 
     last_behavior
@@ -410,7 +419,8 @@ fn stop_motor_on_dooropen_to_error(
     self_container: &mut ElevatorContainer,
     last_behavior: ElevatorBehaviour,
     current_behavior: ElevatorBehaviour,
-) {
+) 
+{
     if last_behavior == ElevatorBehaviour::DoorOpen && current_behavior == ElevatorBehaviour::ObstructionError 
     {
         self_container.dirn = Dirn::Stop;

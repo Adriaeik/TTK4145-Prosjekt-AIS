@@ -19,7 +19,6 @@ pub fn call_buttons(elev: elev::Elevator, ch: cbc::Sender<CallButton>, period: t
             for c in 0..3 {
                 let v = elev.call_button(f, c);
                 if v && prev[f as usize][c as usize] != v {
-                    println!("{:?}",c);
                     ch.send(CallButton { floor: f, call_type: CallType::from(c), elev_id: network::read_self_id()}).unwrap();
                 }
                 prev[f as usize][c as usize] = v;

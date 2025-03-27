@@ -70,7 +70,8 @@ pub async fn on_init(
     e: Elevator,
     local_elev_rx: &mut mpsc::Receiver<elevio::ElevMessage>,
     timers: &mut ElevatorTimers,
-) {
+) 
+{
     e.motor_direction(Dirn::Down as u8);
     self_container.behaviour = ElevatorBehaviour::Moving;
     self_container.dirn = Dirn::Down;
@@ -116,7 +117,8 @@ pub async fn handle_floor_sensor_update(
     e: Elevator,
     prev_floor: &mut u8,
     timers: &mut ElevatorTimers,
-) {
+) 
+{
     if *prev_floor != self_container.last_floor_sensor 
     {
         on_floor_arrival(self_container, e, &mut timers.door, &mut timers.cab_priority).await;
@@ -140,7 +142,8 @@ pub async fn handle_stop_button(
     self_container: &mut ElevatorContainer,
     e: Elevator,
     prev_stop_btn: &mut bool,
-) {
+) 
+{
     if *prev_stop_btn != self_container.stop 
     {
         if self_container.stop 
@@ -176,7 +179,8 @@ pub async fn handle_door_timeout(
     e: Elevator,
     door_timer: &Timer,
     cab_priority_timer: &mut Timer,
-) {
+) 
+{
     if door_timer.timer_timeouted() && !self_container.obstruction 
     {
         if request::moving_towards_cab_call(&self_container.clone()) 
@@ -210,7 +214,8 @@ pub fn handle_error_timeout(
     cab_priority_timer: &Timer,
     error_timer: &mut Timer,
     prev_cab_priority_timer_stat: bool,
-) {
+) 
+{
     if !cab_priority_timer.timer_timeouted() || self_container.behaviour == ElevatorBehaviour::Idle 
     {
         error_timer.timer_start();
@@ -246,7 +251,8 @@ pub fn handle_idle_state(
     self_container: &mut ElevatorContainer,
     e: Elevator,
     door_timer: &mut Timer,
-) {
+) 
+{
     if self_container.behaviour == ElevatorBehaviour::Idle 
     {
         let status_pair = request::choose_direction(&self_container.clone());
@@ -291,7 +297,8 @@ async fn on_floor_arrival(
     e: Elevator,
     door_timer: &mut Timer,
     cab_priority_timer: &mut Timer,
-) {
+) 
+{
     // Fix startup case: sensor value is 255 when between floors → set to top floor
     if elevator.last_floor_sensor > elevator.num_floors 
     {
@@ -332,7 +339,9 @@ async fn on_floor_arrival(
 /// # Parameters
 /// - `elevator`: Mutable reference to the elevator's internal state.
 /// - `e`: Elevator hardware interface, used to control lights and motor.
-async fn on_door_timeout(elevator: &mut ElevatorContainer, e: Elevator) 
+async fn on_door_timeout(
+    elevator: &mut ElevatorContainer, e: Elevator
+) 
 {
     match elevator.behaviour 
     {

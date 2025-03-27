@@ -73,7 +73,8 @@ use tokio::time::{sleep, timeout};
 /// with the live system state.
 /// 
 #[derive(Serialize, Deserialize, Clone, Debug)]
-struct BackupPayload {
+struct BackupPayload 
+{
     pub worldview: world_view::WorldView,
     pub network_status: ConnectionStatus,
 }
@@ -105,12 +106,14 @@ static BACKUP_STARTED: AtomicBool = AtomicBool::new(false);
 pub async fn start_backup_server(
     wv_watch_rx: watch::Receiver<WorldView>,
     network_watch_rx: watch::Receiver<network::ConnectionStatus>,
-) {
-    println!("Backup-server starting...");
+) 
+{
+    print::info(format!("Backup-server starting..."));
     
     let listener = create_reusable_listener(config::BCU_PORT);
     let wv = world_view::get_wv(wv_watch_rx.clone());
-    let initial_payload = BackupPayload {
+    let initial_payload = BackupPayload 
+    {
         worldview: wv.clone(),
         network_status: ConnectionStatus::new(),
     };
@@ -121,7 +124,8 @@ pub async fn start_backup_server(
     
     // Task to handle the backup.
     tokio::spawn(async move {
-        loop {
+        loop 
+        {
             let (socket, _) = listener
                 .accept()
                 .await
@@ -135,17 +139,20 @@ pub async fn start_backup_server(
     let wv_rx_clone = wv_watch_rx.clone();
 
     tokio::spawn(async move {
-        loop {
+        loop 
+        {
             let new_wv = world_view::get_wv(wv_rx_clone.clone());
             let status = network_watch_rx.borrow().clone();
 
-            let payload = BackupPayload {
+            let payload = BackupPayload 
+            {
                 worldview: new_wv,
                 network_status: status,
             };
 
-            if tx_clone.send(payload).is_err() {
-                println!("Klarte ikkje sende payload til backup-klient");
+            if tx_clone.send(payload).is_err() 
+            {
+                print::err(format!("Failed to sen payload to backup"));
             }
 
             sleep(config::BACKUP_WORLDVIEW_REFRESH_INTERVAL).await;
@@ -171,31 +178,40 @@ pub async fn start_backup_server(
 /// # Notes
 /// In the current solution, this failover logic is disabled using a high timeout.
 /// The function is now used solely as a live GUI for displaying the system state.
-pub async fn run_as_backup() -> Option<world_view::ElevatorContainer> {
+pub async fn run_as_backup() -> Option<world_view::ElevatorContainer> 
+{
     println!("Starting backup-client...");
     let mut current_wv = init::initialize_worldview(None).await;
     let mut retries = 0;
     
-    loop {
+    loop 
+    {
         match timeout(
             config::MASTER_TIMEOUT,
             TcpStream::connect(format!("localhost:{}", config::BCU_PORT))
-        ).await {
-            Ok(Ok(mut stream)) => {
+        ).await 
+        {
+            Ok(Ok(mut stream)) => 
+            {
                 retries = 0;
                 let mut buf = vec![0u8; 1024];
 
-                loop {
-                    match stream.read(&mut buf).await {
-                        Ok(0) => {
-                            eprintln!("Master connection has ended.");
+                loop 
+                {
+                    match stream.read(&mut buf).await 
+                    {
+                        Ok(0) => 
+                        {
+                            print::err(format!("Master connection has ended."));
                             break;
                         },
-                        Ok(n) => {
+                        Ok(n) => 
+                        {
                             let raw = &buf[..n];
                             let payload: Option<BackupPayload> = bincode::deserialize(raw).ok();
 
-                            if let Some(payload) = payload {
+                            if let Some(payload) = payload 
+                            {
                                 current_wv = payload.worldview;
                                 let status = payload.network_status;
 
@@ -203,28 +219,34 @@ pub async fn run_as_backup() -> Option<world_view::ElevatorContainer> {
                                 io::stdout().flush().unwrap();
 
                                 print::worldview(&current_wv, Some(status));
-                            } else {
-                                println!("Klarte ikkje deserialisere payload.");
+                            } else 
+                            {
+                                print::warn(format!("Klarte ikkje deserialisere payload."));
                                 continue;
                             }
                         },
-                        Err(e) => {
-                            eprintln!("Error while reading from master: {}", e);
+                        Err(e) => 
+                        {
+                            print::err(format!("Error while reading from master: {}", e));
                             break;
                         }
                     }
                 }
 
             },
-            _ => {
+            _ => 
+            {
                 retries += 1;
-                eprintln!("Failed to connect to master, retry {}.", retries);
-                if retries > config::BACKUP_FAILOVER_THRESHOLD {
-                    eprintln!("Master failed, promoting backup to master!");
+                print::err(format!("Failed to connect to master, retry {}.", retries));
+                if retries > config::BACKUP_FAILOVER_THRESHOLD 
+                {
+                    print::err(format!("Master failed, promoting backup to master!"));
                     // Her kan failover-logikken setjast i gang, t.d. køyre master-logikken.
-                    match world_view::extract_self_elevator_container(&current_wv).to_owned() {
+                    match world_view::extract_self_elevator_container(&current_wv).to_owned() 
+                    {
                         Some(container) => return Some(container.to_owned()),
-                        None => {
+                        None => 
+                        {
                             print::warn(format!("Failed to extract self elevator container"));
                             return None;
                         }

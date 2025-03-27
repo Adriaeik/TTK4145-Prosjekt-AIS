@@ -94,33 +94,45 @@ use std::collections::HashMap;
 ///
 /// It must be run as an asynchronous task during system startup and should never exit during runtime.
 #[allow(non_snake_case)]
-pub async fn update_wv_watch(mut mpsc_rxs: MpscRxs, worldview_watch_tx: watch::Sender<WorldView>, mut worldview: &mut WorldView) {
+pub async fn update_wv_watch(
+    mut mpsc_rxs: MpscRxs, 
+    worldview_watch_tx: watch::Sender<WorldView>, 
+    mut worldview: &mut WorldView
+) 
+{
     let _ = worldview_watch_tx.send(worldview.clone());
     
     let mut wv_edited_I = false;
     let mut master_container_updated_I = false;
 
-    let (master_container_tx, mut master_container_rx) = mpsc::channel::<ElevatorContainer>(100);    
-    loop {
+    let (master_container_tx, mut master_container_rx) = mpsc::channel::<ElevatorContainer>(100);
 
+    loop 
+    {
 /* CHANNELS SLAVE MAINLY RECIEVES ON */
         /*_____Update worldview based on information send on TCP_____ */
-        match mpsc_rxs.sent_container.try_recv() {
-            Ok(msg) => {
+        match mpsc_rxs.sent_container.try_recv() 
+        {
+            Ok(msg) => 
+            {
                 wv_edited_I = clear_from_sent_data(&mut worldview, msg);
             },
             Err(_) => {},
         }
         /*_____Update worldview based on worldviews recieved on UDP_____ */
-        match mpsc_rxs.udp_wv.try_recv() {
-            Ok(mut master_wv) => {
+        match mpsc_rxs.udp_wv.try_recv() 
+        {
+            Ok(mut master_wv) => 
+            {
                 wv_edited_I = join_wv_from_udp(&mut worldview, &mut master_wv);
             },
             Err(_) => {}, 
         }
         /*_____Update worldview when tcp to master has failed_____ */
-        match mpsc_rxs.connection_to_master_failed.try_recv() {
-            Ok(_) => {
+        match mpsc_rxs.connection_to_master_failed.try_recv() 
+        {
+            Ok(_) => 
+            {
                 wv_edited_I = abort_network(&mut worldview);
             },
             Err(_) => {},
@@ -129,30 +141,38 @@ pub async fn update_wv_watch(mut mpsc_rxs: MpscRxs, worldview_watch_tx: watch::S
         
 /* CHANNELS MASTER MAINLY RECIEVES ON */
         /*_____Update worldview based on message from master (simulated TCP message, so the master treats its own elevator as a slave)_____*/
-        match master_container_rx.try_recv() {
-            Ok(container) => {
+        match master_container_rx.try_recv() 
+        {
+            Ok(container) => 
+            {
                 wv_edited_I = join_wv_from_container(&mut worldview, &container).await;
             },
             Err(_) => {},
         }
         /*_____Update worldview based on message from slave_____*/
-        match mpsc_rxs.container.try_recv() {
-            Ok(container) => {
+        match mpsc_rxs.container.try_recv() 
+        {
+            Ok(container) => 
+            {
                 wv_edited_I = join_wv_from_container(&mut worldview, &container).await;
             },
             Err(_) => {},
         }
         /*_____Update worldview when a slave should be removed_____ */
-        match mpsc_rxs.remove_container.try_recv() {
-            Ok(id) => {
-                println!("Skal fjerne ID: {}", id);
+        match mpsc_rxs.remove_container.try_recv() 
+        {
+            Ok(id) => 
+            {
+                print::master(format!("Removing ID: {}", id));
                 wv_edited_I = remove_container(&mut worldview, id); 
             },
             Err(_) => {},
         }
         /*_____Update worldview when new tasks has been given_____ */
-        match mpsc_rxs.delegated_tasks.try_recv() {
-            Ok(map) => {
+        match mpsc_rxs.delegated_tasks.try_recv() 
+        {
+            Ok(map) => 
+            {
                 wv_edited_I = distribute_tasks(&mut worldview, map);
             },
             Err(_) => {},
@@ -161,16 +181,20 @@ pub async fn update_wv_watch(mut mpsc_rxs: MpscRxs, worldview_watch_tx: watch::S
 
 /* CHANNELS MASTER AND SLAVE RECIEVES ON */
         /*____Update worldview based on changes in the local elevator_____ */
-        match mpsc_rxs.elevator_states.try_recv() {
-            Ok(container) => {
+        match mpsc_rxs.elevator_states.try_recv() 
+        {
+            Ok(container) => 
+            {
                 wv_edited_I = update_elev_states(&mut worldview, container);
                 master_container_updated_I = world_view::is_master(&worldview);
             },
             Err(_) => {},
         }
         /*_____Update worldview after you reconeccted to internet  */
-        match mpsc_rxs.new_wv_after_offline.try_recv() {
-            Ok(mut read_wv) => {
+        match mpsc_rxs.new_wv_after_offline.try_recv() 
+        {
+            Ok(mut read_wv) => 
+            {
                 merge_wv_after_offline(&mut worldview, &mut read_wv);
                 let _ = worldview_watch_tx.send(worldview.clone());
             },
@@ -180,17 +204,21 @@ pub async fn update_wv_watch(mut mpsc_rxs: MpscRxs, worldview_watch_tx: watch::S
         
         
         /*_____If master container has changed, send the container on master_container_tx_____ */
-        if master_container_updated_I {
-            if let Some(container) = world_view::extract_self_elevator_container(&worldview) {
+        if master_container_updated_I 
+        {
+            if let Some(container) = world_view::extract_self_elevator_container(&worldview) 
+            {
                 let _ = master_container_tx.send(container.clone()).await;
-            } else {
+            } else 
+            {
                 print::warn(format!("Failed to extract self elevator container – skipping update"));
             }
             master_container_updated_I = false;
         }
         
         /* UPDATE WORLDVIEW WATCH */
-        if wv_edited_I {
+        if wv_edited_I 
+        {
             let _ = worldview_watch_tx.send(worldview.clone());
             wv_edited_I = false;
         }
@@ -203,7 +231,8 @@ pub async fn update_wv_watch(mut mpsc_rxs: MpscRxs, worldview_watch_tx: watch::S
 /// These channels are primarely used to send data to the task updating the local worldview.
 #[allow(missing_docs)]
 #[derive(Clone)]
-pub struct MpscTxs {
+pub struct MpscTxs 
+{
     /// Sends a UDP worldview packet.
     pub udp_wv: mpsc::Sender<WorldView>,
 
@@ -238,7 +267,8 @@ pub struct MpscTxs {
 /// Struct containing multiple MPSC (multi-producer, single-consumer) receiver channels.
 /// These channels are used to receive data from different parts of the system.
 #[allow(missing_docs)]
-pub struct MpscRxs {
+pub struct MpscRxs 
+{
     /// Recieves a UDP worldview packet.
     pub udp_wv: mpsc::Receiver<WorldView>,
 
@@ -271,7 +301,8 @@ pub struct MpscRxs {
 }
 
 /// Struct that combines MPSC senders and receivers into a single entity.
-pub struct Mpscs {
+pub struct Mpscs 
+{
     /// Contains all sender channels.
     pub txs: MpscTxs,
     /// Contains all receiver channels.
@@ -280,7 +311,8 @@ pub struct Mpscs {
 
 impl Mpscs {
     /// Creates a new `Mpscs` instance with initialized channels.
-    pub fn new() -> Self {
+    pub fn new() -> Self 
+    {
         let (tx_udp, rx_udp) = mpsc::channel(300);
         let (tx_connection_to_master_failed, rx_connection_to_master_failed) = mpsc::channel(300);
         let (tx_container, rx_container) = mpsc::channel(300);
@@ -294,8 +326,10 @@ impl Mpscs {
         let (tx_buf8, rx_buf8) = mpsc::channel(300);
         let (tx_buf9, rx_buf9) = mpsc::channel(300);
 
-        Mpscs {
-            txs: MpscTxs {
+        Mpscs 
+        {
+            txs: MpscTxs 
+            {
                 udp_wv: tx_udp,
                 connection_to_master_failed: tx_connection_to_master_failed,
                 container: tx_container,
@@ -309,7 +343,8 @@ impl Mpscs {
                 mpsc_buffer_ch8: tx_buf8,
                 mpsc_buffer_ch9: tx_buf9,
             },
-            rxs: MpscRxs {
+            rxs: MpscRxs 
+            {
                 udp_wv: rx_udp,
                 connection_to_master_failed: rx_connection_to_master_failed,
                 container: rx_container,

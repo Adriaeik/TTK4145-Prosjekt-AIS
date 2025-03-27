@@ -90,12 +90,17 @@ static HALL_INSTANTS: LazyLock<Mutex<[[Instant; 2]; 4]>> = LazyLock::new(|| {
 /// - Updates `calls` and `tasks_status` with local data.
 /// - Ensures that `tasks_status` retains only tasks present in `tasks`.
 /// - If the local elevator is missing in `master_wv`, it is added to `master_wv`.
-pub fn join_wv_from_udp(my_wv: &mut WorldView, master_wv: &mut WorldView) -> bool {
+pub fn join_wv_from_udp(
+    my_wv: &mut WorldView, 
+    master_wv: &mut WorldView
+) -> bool 
+{
     let my_self_index = world_view::get_index_to_container(network::read_self_id() , my_wv);
     let master_self_index = world_view::get_index_to_container(network::read_self_id() , master_wv);
     
     
-    if let (Some(i_org), Some(i_new)) = (my_self_index, master_self_index) {
+    if let (Some(i_org), Some(i_new)) = (my_self_index, master_self_index) 
+    {
         let my_view = &my_wv.elevator_containers[i_org];
         let master_view = &mut master_wv.elevator_containers[i_new];
 
@@ -108,7 +113,8 @@ pub fn join_wv_from_udp(my_wv: &mut WorldView, master_wv: &mut WorldView) -> boo
         master_view.cab_requests = my_view.cab_requests.clone();
 
 
-    } else if let Some(i_org) = my_self_index {
+    } else if let Some(i_org) = my_self_index 
+    {
         // If the local elevator is missing in master_wv, add it
         master_wv.add_elev(my_wv.elevator_containers[i_org].clone());
     }
@@ -137,7 +143,10 @@ pub fn join_wv_from_udp(my_wv: &mut WorldView, master_wv: &mut WorldView) -> boo
 /// let mut worldview = vec![/* some serialized data */];
 /// abort_network(&mut worldview);
 /// ```
-pub fn abort_network(wv: &mut WorldView) -> bool {
+pub fn abort_network(
+    wv: &mut WorldView
+) -> bool 
+{
     wv.elevator_containers.retain(|elevator| elevator.elevator_id == network::read_self_id());
     wv.set_num_elev(wv.elevator_containers.len() as u8);
     wv.master_id = network::read_self_id();
@@ -175,31 +184,41 @@ pub fn abort_network(wv: &mut WorldView) -> bool {
 /// let ok = join_wv_from_container(&mut wv, &cont).await;
 /// assert!(ok);
 /// ```
-pub async fn join_wv_from_container(wv: &mut WorldView, container: &ElevatorContainer) -> bool {
+pub async fn join_wv_from_container(
+    wv: &mut WorldView, 
+    container: &ElevatorContainer
+) -> bool 
+{
     // If the slave does not exist, add it as-is
-    if None == wv.elevator_containers.iter().position(|x| x.elevator_id == container.elevator_id) {
+    if None == wv.elevator_containers.iter().position(|x| x.elevator_id == container.elevator_id) 
+    {
         wv.add_elev(container.clone());
     }
 
     let self_idx = world_view::get_index_to_container(container.elevator_id, &wv);
-    if let Some(i) = self_idx {
+    if let Some(i) = self_idx 
+    {
         // Add the slave's sent hall_requests to worldview's hall_requests
-        for (row1, row2) in wv.hall_request.iter_mut().zip(container.unsent_hall_request.iter()) {
-            for (val1, val2) in row1.iter_mut().zip(row2.iter()) {
-                if !*val1 && *val2 {
+        for (row1, row2) in wv.hall_request.iter_mut().zip(container.unsent_hall_request.iter()) 
+        {
+            for (val1, val2) in row1.iter_mut().zip(row2.iter()) 
+            {
+                if !*val1 && *val2 
+                {
                     *val1 = true;
-                    
                 }
             }
         }
 
         // Add slaves unfinished tasks to hall_requests
-        if wv.elevator_containers[i].behaviour != ElevatorBehaviour::ObstructionError || wv.elevator_containers[i].behaviour != ElevatorBehaviour::TravelError {
+        if wv.elevator_containers[i].behaviour != ElevatorBehaviour::ObstructionError || wv.elevator_containers[i].behaviour != ElevatorBehaviour::TravelError 
+        {
             wv.hall_request = merge_hall_requests(&wv.hall_request, &wv.elevator_containers[i].tasks);
         }
         
         // If you are master, this is your own container. You can then safely mark all hall_requests as sent and recieved by the master
-        if world_view::is_master(wv) {
+        if world_view::is_master(wv) 
+        {
             wv.elevator_containers[i].unsent_hall_request = vec![[false; 2]; wv.elevator_containers[i].num_floors as usize];
         }
 
@@ -214,23 +233,29 @@ pub async fn join_wv_from_container(wv: &mut WorldView, container: &ElevatorCont
         wv.elevator_containers[i].last_behaviour = container.last_behaviour;
         
         //Remove taken hall_requests
-        for (idx, [up, down]) in wv.hall_request.iter_mut().enumerate() {
-            if (wv.elevator_containers[i].behaviour == ElevatorBehaviour::DoorOpen) && (wv.elevator_containers[i].last_floor_sensor == (idx as u8)) {
+        for (idx, [up, down]) in wv.hall_request.iter_mut().enumerate() 
+        {
+            if (wv.elevator_containers[i].behaviour == ElevatorBehaviour::DoorOpen) && (wv.elevator_containers[i].last_floor_sensor == (idx as u8)) 
+            {
                 let floor = wv.elevator_containers[i].last_floor_sensor as usize;
-                let dirn = match wv.elevator_containers[i].dirn {
+                let dirn = match wv.elevator_containers[i].dirn 
+                {
                     Dirn::Down => Some(1),
                     Dirn::Up => Some(0),
                     Dirn::Stop => None,
                 };
 
-                if wv.elevator_containers[i].last_behaviour != ElevatorBehaviour::DoorOpen {
+                if wv.elevator_containers[i].last_behaviour != ElevatorBehaviour::DoorOpen 
+                {
                     update_hall_instants(floor, Some(0));
                     update_hall_instants(floor, Some(1));
                 }
 
-                if wv.elevator_containers[i].dirn == Dirn::Up  && time_since_hall_instants(floor, dirn) > Duration::from_secs(3) {
+                if wv.elevator_containers[i].dirn == Dirn::Up  && time_since_hall_instants(floor, dirn) > Duration::from_secs(3) 
+                {
                     *up = false;
-                } else if wv.elevator_containers[i].dirn == Dirn::Down && time_since_hall_instants(floor, dirn) > Duration::from_secs(3) {
+                } else if wv.elevator_containers[i].dirn == Dirn::Down && time_since_hall_instants(floor, dirn) > Duration::from_secs(3) 
+                {
                     *down = false;
                 }
             }
@@ -240,7 +265,8 @@ pub async fn join_wv_from_container(wv: &mut WorldView, container: &ElevatorCont
         update_cab_request_backup(&mut wv.cab_requests_backup, wv.elevator_containers[i].clone());
 
         return true;
-    } else {
+    } else 
+    {
         // If this is printed, the slave does not exist in the worldview. This is theoretically impossible, as the slave is added to the worldview just before this if it does not already exist.
         print::cosmic_err("The elevator does not exist join_wv_from_conatiner()".to_string());
         return false;
@@ -269,7 +295,11 @@ pub async fn join_wv_from_container(wv: &mut WorldView, container: &ElevatorCont
 /// let elevator_id = 2;
 /// remove_container(&mut worldview, elevator_id);
 /// ```
-pub fn remove_container(wv: &mut WorldView, id: u8) -> bool {
+pub fn remove_container(
+    wv: &mut WorldView, 
+    id: u8
+) -> bool 
+{
     wv.remove_elev(id);
     true
 }
@@ -295,21 +325,33 @@ pub fn remove_container(wv: &mut WorldView, id: u8) -> bool {
 /// let tcp_container = vec![/* some serialized container data */];
 /// clear_from_sent_data(&mut worldview, tcp_container);
 /// ```
-pub fn clear_from_sent_data(wv: &mut WorldView, tcp_container: ElevatorContainer) -> bool {
+pub fn clear_from_sent_data(
+    wv: &mut WorldView, 
+    tcp_container: ElevatorContainer
+) -> bool 
+{
     let self_idx = world_view::get_index_to_container(network::read_self_id() , &wv);
     
-    if let Some(i) = self_idx {
+    if let Some(i) = self_idx 
+    {
         /*_____ Remove sent Hall request _____ */
         for (row1, row2) in wv.elevator_containers[i].unsent_hall_request
-                                                        .iter_mut().zip(tcp_container.unsent_hall_request.iter()) {
-            for (val1, val2) in row1.iter_mut().zip(row2.iter()) {
-                if *val1 && *val2 {
+                                                        .iter_mut()
+                                                        .zip(tcp_container.unsent_hall_request.iter()) 
+        {
+            for (val1, val2) in row1
+                                                    .iter_mut()
+                                                    .zip(row2.iter()) 
+            {
+                if *val1 && *val2 
+                {
                     *val1 = false;
                 }
             }
         }
         return true;
-    } else {
+    } else 
+    {
         // If this is printed, you do not exist in your worldview
         print::cosmic_err("The elevator does not exist clear_sent_container_stuff()".to_string());
         return false;
@@ -328,9 +370,15 @@ pub fn clear_from_sent_data(wv: &mut WorldView, tcp_container: ElevatorContainer
 /// # Return
 /// true
 /// 
-pub fn distribute_tasks(wv: &mut WorldView, map: HashMap<u8, Vec<[bool; 2]>>) -> bool {
-    for elev in wv.elevator_containers.iter_mut() {
-        if let Some(tasks) = map.get(&elev.elevator_id) {
+pub fn distribute_tasks(
+    wv: &mut WorldView, 
+    map: HashMap<u8, Vec<[bool; 2]>>
+) -> bool 
+{
+    for elev in wv.elevator_containers.iter_mut() 
+    {
+        if let Some(tasks) = map.get(&elev.elevator_id) 
+        {
             elev.tasks = tasks.clone();
         }
     }
@@ -339,10 +387,15 @@ pub fn distribute_tasks(wv: &mut WorldView, map: HashMap<u8, Vec<[bool; 2]>>) ->
 
 
 /// Updates states to the elevator in wv with same ID as container 
-pub fn update_elev_states(wv: &mut WorldView, container: ElevatorContainer) -> bool {
+pub fn update_elev_states(
+    wv: &mut WorldView, 
+    container: ElevatorContainer
+) -> bool 
+{
     let idx = world_view::get_index_to_container(container.elevator_id, wv);
 
-    if let Some(i) = idx {
+    if let Some(i) = idx 
+    {
         wv.elevator_containers[i].cab_requests = container.cab_requests;
         wv.elevator_containers[i].dirn = container.dirn;
         wv.elevator_containers[i].obstruction = container.obstruction;
@@ -359,9 +412,13 @@ pub fn update_elev_states(wv: &mut WorldView, container: ElevatorContainer) -> b
 /// # Parameters
 /// `my_wv`: Mutable reference to the local worldview
 /// `read_wv`: Reference to the networks worldview
-pub fn merge_wv_after_offline(my_wv: &mut WorldView, read_wv: &mut WorldView) {
+pub fn merge_wv_after_offline(
+    my_wv: &mut WorldView, 
+    read_wv: &mut WorldView) 
+    {
     /* If you become the new master on the system */
-    if my_wv.master_id < read_wv.master_id {
+    if my_wv.master_id < read_wv.master_id 
+    {
         read_wv.hall_request = merge_hall_requests(&read_wv.hall_request, &my_wv.hall_request);
         read_wv.master_id = my_wv.master_id;
         let my_wv_elevs: Vec<ElevatorContainer> = my_wv.elevator_containers.clone();
@@ -374,13 +431,16 @@ pub fn merge_wv_after_offline(my_wv: &mut WorldView, read_wv: &mut WorldView) {
             .collect();
 
         /* Add elevators you had which the network didnt know about (yourself) */
-        for elev in my_wv_elevs {
-            if !existing_ids.contains(&elev.elevator_id) {
+        for elev in my_wv_elevs 
+        {
+            if !existing_ids.contains(&elev.elevator_id) 
+            {
                 read_wv.elevator_containers.push(elev);
             }
         }
 
-    } else {
+    } else 
+    {
         read_wv.hall_request = merge_hall_requests(&read_wv.hall_request, &my_wv.hall_request);
     }
 
@@ -401,15 +461,25 @@ pub fn merge_wv_after_offline(my_wv: &mut WorldView, read_wv: &mut WorldView) {
 
 /* _______________ START PRIVATE FUNCTIONS _______________ */
 
-fn update_hall_instants(floor: usize, direction: Option<usize>) {
-    if let Some(dirn) = direction {
+fn update_hall_instants(
+    floor: usize, 
+    direction: Option<usize>
+) 
+{
+    if let Some(dirn) = direction 
+    {
         let mut lock = HALL_INSTANTS.lock().unwrap();
         lock[floor][dirn] = Instant::now();
     }
 }
 
-fn time_since_hall_instants(floor: usize, direction: Option<usize>) -> std::time::Duration {
-    if let Some(dirn) = direction {
+fn time_since_hall_instants(
+    floor: usize, 
+    direction: Option<usize>
+) -> std::time::Duration 
+{
+    if let Some(dirn) = direction 
+    {
         let lock = HALL_INSTANTS.lock().unwrap();
         return lock[floor][dirn].elapsed()
     }
@@ -425,7 +495,11 @@ fn time_since_hall_instants(floor: usize, direction: Option<usize>) -> std::time
 /// 
 /// ## Behaviour
 /// Insert the container's cab_requests in key: container.elevator_id. If no old keys matches the id, a new entry is added. 
-fn update_cab_request_backup(backup: &mut HashMap<u8, Vec<bool>>, container: ElevatorContainer) {
+fn update_cab_request_backup(
+    backup: &mut HashMap<u8, Vec<bool>>, 
+    container: ElevatorContainer
+) 
+{
     backup.insert(container.elevator_id, container.cab_requests);
 }
 
@@ -461,7 +535,11 @@ fn update_cab_request_backup(backup: &mut HashMap<u8, Vec<bool>>, container: Ele
 /// 
 /// ```
 /// 
-fn merge_hall_requests(hall_req_1: &Vec<[bool; 2]>, hall_req_2: &Vec<[bool; 2]>) -> Vec<[bool; 2]> {
+fn merge_hall_requests(
+    hall_req_1: &Vec<[bool; 2]>, 
+    hall_req_2: &Vec<[bool; 2]>
+) -> Vec<[bool; 2]> 
+{
     let mut merged_hall_req = hall_req_1.clone();
     merged_hall_req
         .iter_mut()
@@ -471,7 +549,8 @@ fn merge_hall_requests(hall_req_1: &Vec<[bool; 2]>, hall_req_2: &Vec<[bool; 2]>)
             read[1] |= my[1];
         });
     
-    if hall_req_2.len() > hall_req_1.len() {
+    if hall_req_2.len() > hall_req_1.len() 
+    {
         merged_hall_req
             .extend_from_slice(&hall_req_2[hall_req_1.len()..]);
     }

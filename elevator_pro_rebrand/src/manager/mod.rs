@@ -33,17 +33,22 @@ use tokio::time::sleep;
 pub async fn start_manager(
     wv_watch_rx: watch::Receiver<WorldView>, 
     delegated_tasks_tx: mpsc::Sender<HashMap<u8, Vec<[bool; 2]>>>
-) {
+) 
+{
     let mut wv = world_view::get_wv(wv_watch_rx.clone());
 
-    loop {
+    loop 
+    {
         // Update local copy of the world view
-        if world_view::update_wv(wv_watch_rx.clone(), &mut wv).await {
+        if world_view::update_wv(wv_watch_rx.clone(), &mut wv).await 
+        {
             // Check if this node is the master
-            if world_view::is_master(&wv) {
+            if world_view::is_master(&wv) 
+            {
                 // Calculate and send out delegated hall requests
                 let _ = delegated_tasks_tx.send(get_elev_tasks(&wv).await).await;
-            } else {
+            } else 
+            {
                 // If not master, wait before checking again
                 sleep(config::SLAVE_TIMEOUT).await;
             }
@@ -72,13 +77,18 @@ pub async fn start_manager(
 /// Returns:
 /// - A `HashMap` where each key is an elevator ID (`u8`), and each value is a list of `[bool; 2]` 
 ///   arrays indicating hall call assignments (up/down).
-async fn get_elev_tasks(wv: &WorldView) -> HashMap<u8, Vec<[bool; 2]>> {
+async fn get_elev_tasks(
+    wv: &WorldView
+) -> HashMap<u8, Vec<[bool; 2]>> 
+{
     let json_str = json_serial::create_hall_request_json(wv).await;
 
-    if let Some(str) = json_str {
+    if let Some(str) = json_str 
+    {
         let json_cost_str = json_serial::run_cost_algorithm(str.clone()).await;
 
-        if json_cost_str.trim().is_empty() {
+        if json_cost_str.trim().is_empty() 
+        {
             print::err(format!(
                 "run_cost_algorithm returned an empty string"
             ));

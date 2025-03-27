@@ -33,7 +33,8 @@ use std::hash::{Hash, Hasher};
 
 /// Represents different types of elevator messages.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum ElevMsgType {
+pub enum ElevMsgType 
+{
     /// Call button press event.
     CALLBTN,
     /// Floor sensor event.
@@ -46,7 +47,8 @@ pub enum ElevMsgType {
 
 /// Represents a message related to elevator events.
 #[derive(Debug, Clone)]
-pub struct ElevMessage {
+pub struct ElevMessage 
+{
     /// The type of elevator message.
     pub msg_type: ElevMsgType,
     /// Optional call button information, if applicable.
@@ -71,7 +73,8 @@ pub struct ElevMessage {
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[repr(u8)] // Ensures the enum is stored as a single byte.
 #[allow(non_camel_case_types)]
-pub enum CallType {
+pub enum CallType 
+{
     /// Call to go up.
     UP = 0,
     
@@ -84,7 +87,8 @@ pub enum CallType {
     /// Represents an invalid call type.
     COSMIC_ERROR = 255,
 }
-impl From<u8> for CallType {
+impl From<u8> for CallType 
+{
     /// Converts a `u8` value into a `CallType`.
     ///
     /// If the value does not match a valid `CallType`, it logs an error and returns `COSMIC_ERROR`.
@@ -99,8 +103,12 @@ impl From<u8> for CallType {
     /// let invalid_call = CallType::from(10);
     /// assert_eq!(invalid_call, CallType::COSMIC_ERROR);
     /// ```
-    fn from(value: u8) -> Self {
-        match value {
+    fn from(
+        value: u8
+    ) -> Self 
+    {
+        match value 
+        {
             0 => CallType::UP,
             1 => CallType::DOWN,
             2 => CallType::INSIDE,
@@ -119,7 +127,8 @@ impl From<u8> for CallType {
 /// - `call`: The type of call (up, down, inside).
 /// - `elev_id`: The ID of the elevator (relevant for `INSIDE` calls).
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, Eq)]
-pub struct CallButton {
+pub struct CallButton 
+{
     /// The floor where the call was made.
     pub floor: u8,
 
@@ -129,14 +138,17 @@ pub struct CallButton {
     /// The ID of the elevator making the call (only relevant for `INSIDE` calls).
     pub elev_id: u8,
 }
-impl Default for CallButton {
-    fn default() -> Self {
+impl Default for CallButton 
+{
+    fn default() -> Self 
+    {
         CallButton{floor: 1, call_type: CallType::INSIDE, elev_id: config::ERROR_ID}
     }
 }
 
 
-impl PartialEq for CallButton {
+impl PartialEq for CallButton 
+{
     /// Custom equality comparison for `CallButton`.
     ///
     /// Two call buttons are considered equal if they have the same floor and call type.
@@ -156,26 +168,32 @@ impl PartialEq for CallButton {
     ///
     /// assert_ne!(inside_button1, inside_button2); // Different elevators
     /// ```
-    fn eq(&self, other: &Self) -> bool {
+    fn eq(&self, other: &Self) -> bool 
+    {
         // Hvis call er INSIDE, sammenligner vi også elev_id
-        if self.call_type == CallType::INSIDE {
+        if self.call_type == CallType::INSIDE 
+        {
             self.floor == other.floor && self.call_type == other.call_type && self.elev_id == other.elev_id
-        } else {
+        } else 
+        {
             // For andre CallType er det tilstrekkelig å sammenligne floor og call
             self.floor == other.floor && self.call_type == other.call_type
         }
     }
 }
-impl Hash for CallButton {
+impl Hash for CallButton 
+{
     /// Custom hashing function to ensure consistency with `PartialEq`.
     ///
     /// This ensures that buttons with the same floor and call type have the same hash.
     /// For `INSIDE` calls, the elevator ID is also included in the hash.
-    fn hash<H: Hasher>(&self, state: &mut H) {
+    fn hash<H: Hasher>(&self, state: &mut H) 
+    {
         // Sørger for at hash er konsistent med eq
         self.floor.hash(state);
         self.call_type.hash(state);
-        if self.call_type == CallType::INSIDE {
+        if self.call_type == CallType::INSIDE 
+        {
             self.elev_id.hash(state);
         }
     }

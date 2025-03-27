@@ -47,7 +47,8 @@ use tokio::sync::watch;
 #[allow(missing_docs)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 /// Struct describing direction an elevator is taking calls in.
-pub enum Dirn {
+pub enum Dirn 
+{
     Down = -1,
     Stop = 0,
     Up = 1,
@@ -56,7 +57,8 @@ pub enum Dirn {
 #[allow(missing_docs)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 /// Struct describing the current behaviour of an elevator
-pub enum ElevatorBehaviour {
+pub enum ElevatorBehaviour 
+{
     Idle,
     Moving,
     DoorOpen,
@@ -68,7 +70,8 @@ pub enum ElevatorBehaviour {
 
 /// Represents the state of an elevator, including tasks, status indicators, and movement.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-pub struct ElevatorContainer {
+pub struct ElevatorContainer 
+{
     /// Unique identifier for the elevator.  
     /// Default: [config::ERROR_ID]
     pub elevator_id: u8,
@@ -113,9 +116,12 @@ pub struct ElevatorContainer {
     pub last_floor_sensor: u8,
 }
 
-impl Default for ElevatorContainer {
-    fn default() -> Self {
-        Self {
+impl Default for ElevatorContainer 
+{
+    fn default() -> Self 
+    {
+        Self 
+        {
             elevator_id: config::ERROR_ID,
             num_floors: config::DEFAULT_NUM_FLOORS,
             unsent_hall_request: vec![[false; 2]; config::DEFAULT_NUM_FLOORS as usize],
@@ -137,7 +143,8 @@ impl Default for ElevatorContainer {
 /// `WorldView` contains an overview of all elevators in the system, 
 /// the master elevator's ID, and the call buttons pressed outside the elevators.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-pub struct WorldView {
+pub struct WorldView 
+{
     /// Number of elevators in the system.
     n: u8, 
     /// The ID of the master elevator.
@@ -154,13 +161,15 @@ pub struct WorldView {
 }
 
 
-impl Default for WorldView {
+impl Default for WorldView 
+{
     /// Creates a default `WorldView` instance with no elevators and an invalid master ID.
-    fn default() -> Self {
-        Self {
+    fn default() -> Self 
+    {
+        Self 
+        {
             n: 0,
             master_id: config::ERROR_ID,
-            // pending_tasks: Vec::new(),
             hall_request: vec![[false; 2]; config::DEFAULT_NUM_FLOORS as usize],
             elevator_containers: Vec::new(),
             cab_requests_backup: HashMap::new(),
@@ -169,14 +178,18 @@ impl Default for WorldView {
 }
 
 
-impl WorldView {
+impl WorldView 
+{
     /// Adds an elevator to the system.
     ///
     /// Updates the number of elevators (`n`) accordingly.
     ///
     /// ## Parameters
     /// - `elevator`: The `ElevatorContainer` to be added.
-    pub fn add_elev(&mut self, elevator: ElevatorContainer) {
+    pub fn add_elev(&mut self, 
+        elevator: ElevatorContainer
+    ) 
+    {
         self.elevator_containers.push(elevator);
         self.n = self.elevator_containers.len() as u8;
     }
@@ -187,21 +200,27 @@ impl WorldView {
     ///
     /// ## Parameters
     /// - `id`: The ID of the elevator to remove.
-    pub fn remove_elev(&mut self, id: u8) {
+    pub fn remove_elev(&mut self, 
+        id: u8
+    ) 
+    {
         let initial_len = self.elevator_containers.len();
 
         self.elevator_containers.retain(|elevator| elevator.elevator_id != id);
     
-        if self.elevator_containers.len() == initial_len {
+        if self.elevator_containers.len() == initial_len 
+        {
             print::warn(format!("No elevator with ID {} was found. (remove_elev())", id));
-        } else {
+        } else 
+        {
             print::ok(format!("Elevator with ID {} was removed. (remove_elev())", id));
         }
         self.n = self.elevator_containers.len() as u8;
     }
 
     /// Returns the number of elevators in the system.
-    pub fn get_num_elev(&self) -> u8 {
+    pub fn get_num_elev(&self) -> u8 
+    {
         return self.n;
     }
 
@@ -213,21 +232,29 @@ impl WorldView {
     ///
     /// ## Parameters
     /// - `n`: The new number of elevators.
-    // TODO: Burde være veldig mulig å gjøre denne privat
-    pub fn set_num_elev(&mut self, n: u8)  {
+    pub fn set_num_elev(&mut self, 
+        n: u8
+    )  
+    {
         self.n = n;
     }
 }
 
 
 
-/// Serialiserer kva som helst `T` til `Vec<u8>` via bincode
-pub fn serialize<T: Serialize>(value: &T) -> Vec<u8> {
-    bincode::serialize(value).expect("Klarte ikkje serialisere verdi")
+/// Serialize any `<T>` to `Vec<u8>` if possible
+pub fn serialize<T: Serialize>(
+    value: &T
+) -> Vec<u8> 
+{
+    bincode::serialize(value).expect("Failed to serialize value")
 }
 
-/// Deserialiserer `&[u8]` til `T` viss mogleg
-pub fn deserialize<T: DeserializeOwned>(buf: &[u8]) -> Option<T> {
+/// Deserialized `&[u8]` to `<T>` if possible
+pub fn deserialize<T: DeserializeOwned>(
+    buf: &[u8]
+) -> Option<T> 
+{
     bincode::deserialize(buf).ok()
 }
 
@@ -244,11 +271,13 @@ pub fn deserialize<T: DeserializeOwned>(buf: &[u8]) -> Option<T> {
 /// ## Returns
 /// - `Some(usize)`: The index of the `ElevatorContainer` in the `WorldView` if found.
 /// - `None`: If no elevator with the given `id` exists.
-pub fn get_index_to_container(id: u8, wv: &WorldView) -> Option<usize> {
-    for i in 0..wv.get_num_elev() {
-        if wv.elevator_containers[i as usize].elevator_id == id {
-            return Some(i as usize);
-        }
+pub fn get_index_to_container(
+    id: u8, 
+    wv: &WorldView) -> Option<usize> 
+    {
+    for i in 0..wv.get_num_elev() 
+    {
+        if wv.elevator_containers[i as usize].elevator_id == id {return Some(i as usize)}
     }
     return None;
 }
@@ -278,7 +307,10 @@ pub fn get_index_to_container(id: u8, wv: &WorldView) -> Option<usize> {
 /// ```
 ///
 /// **Note:** This function clones the current state of `wv`, so any future changes to `wv` will not affect the returned vector.
-pub fn get_wv(wv_watch_rx: watch::Receiver<WorldView>) -> WorldView {
+pub fn get_wv(
+    wv_watch_rx: watch::Receiver<WorldView>
+) -> WorldView 
+{
     wv_watch_rx.borrow().clone()
 }
 
@@ -320,9 +352,14 @@ pub fn get_wv(wv_watch_rx: watch::Receiver<WorldView>) -> WorldView {
 /// ## Notes
 /// - This function is asynchronous and requires an async runtime, such as Tokio, to execute.
 /// - The `LocalChannels` channels allow for thread-safe communication across threads.
-pub async fn update_wv(wv_watch_rx: watch::Receiver<WorldView>, wv: &mut WorldView) -> bool {
+pub async fn update_wv(
+    wv_watch_rx: watch::Receiver<WorldView>, 
+    wv: &mut WorldView
+) -> bool 
+{
     let new_wv = wv_watch_rx.borrow().clone();  // Clone the latest data
-    if new_wv != *wv {  // Check if the data has changed compared to the current state
+    if new_wv != *wv 
+    {  // Check if the data has changed compared to the current state
         *wv = new_wv;  // Update the worldview if it has changed
         return true;
     }
@@ -337,7 +374,8 @@ pub async fn update_wv(wv_watch_rx: watch::Receiver<WorldView>, wv: &mut WorldVi
 /// ## Returns
 /// - `true` if the current system's `SELF_ID` matches the value at `MASTER_IDX` in the worldview.
 /// - `false` otherwise.
-pub fn is_master(wv: &WorldView) -> bool {
+pub fn is_master(wv: &WorldView) -> bool 
+{
     return network::read_self_id() == wv.master_id;
 }
 
@@ -357,7 +395,11 @@ pub fn is_master(wv: &WorldView) -> bool {
 ///
 /// ## Note
 /// If multiple containers have the same `id`, only the first match is returned.
-pub fn extract_elevator_container(wv: &WorldView, id: u8) -> Option<&ElevatorContainer> {
+pub fn extract_elevator_container(
+    wv: &WorldView, 
+    id: u8
+) -> Option<&ElevatorContainer> 
+{
     wv.elevator_containers.iter().find(|elevator| elevator.elevator_id == id)
 }
 
@@ -374,7 +416,10 @@ pub fn extract_elevator_container(wv: &WorldView, id: u8) -> Option<&ElevatorCon
 /// - A clone of the `ElevatorContainer` associated with `SELF_ID`.
 ///
 /// **Note:** This function internally calls `extract_elevator_container` to retrieve the correct elevator container.
-pub fn extract_self_elevator_container(wv: &WorldView) -> Option<&ElevatorContainer> {
+pub fn extract_self_elevator_container(
+    wv: &WorldView
+) -> Option<&ElevatorContainer> 
+{
     let id = network::read_self_id();
     extract_elevator_container(wv, id)
 }

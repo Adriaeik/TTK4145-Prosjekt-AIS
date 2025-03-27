@@ -62,14 +62,16 @@ use tokio::time::Duration;
 /// The timer can be started and queried to check whether the timeout duration has been exceeded.
 /// In addition to the regular (soft) timeout based on elapsed time, a "hard timeout" flag can be manually triggered
 /// to force the timer into a timeout state regardless of elapsed time.
-pub struct Timer {
+pub struct Timer 
+{
     hard_timeout: bool,
     timer_active: bool,
     timeout_duration: tokio::time::Duration,
     start_time: tokio::time::Instant,
 }
 
-impl Timer {
+impl Timer 
+{
     /// Creates and returns a new timer instance.
     ///
     /// The timer is initially inactive and has not timed out.
@@ -79,8 +81,11 @@ impl Timer {
     ///
     /// # Returns
     /// A new `Timer` instance with the specified timeout duration.
-    pub fn new(timeout_duration: tokio::time::Duration) -> Timer {
-        Timer{
+    pub fn new(
+        timeout_duration: tokio::time::Duration
+    ) -> Timer {
+        Timer
+        {
             hard_timeout: false,
             timer_active: false,
             timeout_duration: timeout_duration,
@@ -90,7 +95,8 @@ impl Timer {
     /// Starts the timer by setting it as active and resetting the start time.
     ///
     /// This also clears any manually set hard timeout.
-    pub fn timer_start(&mut self) {
+    pub fn timer_start(&mut self) 
+    {
         self.hard_timeout = false;
         self.timer_active = true;
         self.start_time = tokio::time::Instant::now();
@@ -99,14 +105,16 @@ impl Timer {
     /// Forces the timer into a timeout state, regardless of elapsed time.
     ///
     /// This is useful for emergency shutdowns or forced exits.
-    pub fn release_timer(&mut self) {
+    pub fn release_timer(&mut self) 
+    {
         self.hard_timeout = true;
     }
 
     /// Returns the duration elapsed since the timer was last started.
     ///
     /// This does not check whether the timer is active or has timed out.
-    pub fn get_wall_time(&mut self) -> tokio::time::Duration {
+    pub fn get_wall_time(&mut self) -> tokio::time::Duration 
+    {
         return tokio::time::Instant::now() - self.start_time
     }
 
@@ -119,7 +127,8 @@ impl Timer {
     ///
     /// # Returns
     /// `true` if the timer is considered to have timed out; `false` otherwise.
-    pub fn timer_timeouted(&self) -> bool {
+    pub fn timer_timeouted(&self) -> bool 
+    {
         return (self.timer_active && (tokio::time::Instant::now() - self.start_time) > self.timeout_duration) || self.hard_timeout;
     }
 }
@@ -130,7 +139,8 @@ impl Timer {
 /// This struct encapsulates all timers that track different timeout conditions
 /// such as door closing, inside call priority window, and general error state.
 /// Also includes state tracking related to inside call grace period.
-pub struct ElevatorTimers {
+pub struct ElevatorTimers 
+{
     /// Timer for automatic door closing.
     pub door: Timer,
 
@@ -152,7 +162,8 @@ pub struct ElevatorTimers {
     pub prev_cab_priority_timeout: bool,
 }
 
-impl ElevatorTimers {
+impl ElevatorTimers 
+{
     /// Creates a new `ElevatorTimers` instance with custom durations.
     ///
     /// # Parameters
@@ -167,7 +178,8 @@ impl ElevatorTimers {
         cab_priority_duration: Duration,
         error_duration: Duration,
     ) -> Self {
-        ElevatorTimers {
+        ElevatorTimers 
+        {
             door: Timer::new(door_duration),
             cab_priority: Timer::new(cab_priority_duration),
             error: Timer::new(error_duration),

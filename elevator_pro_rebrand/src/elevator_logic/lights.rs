@@ -45,7 +45,8 @@ pub fn set_hall_lights(
     wv: &WorldView, 
     e: Elevator, 
     self_container: &ElevatorContainer
-) {
+) 
+{
     for (i, [up, down]) in wv.hall_request.iter().enumerate() 
     {
         let floor = i as u8;
@@ -75,34 +76,39 @@ pub fn set_hall_lights(
 pub fn set_cab_light(
     e: Elevator, 
     last_floor: u8
-) {
+) 
+{
     e.floor_indicator(last_floor);
 }
 
 /// The function sets the door open light on
 pub fn set_door_open_light(
     e: Elevator
-) {
+) 
+{
     e.door_light(true);
 }
 
 /// The function sets the door open light off
 pub fn clear_door_open_light(
     e: Elevator
-) {
+) 
+{
     e.door_light(false);
 }
 
 /// The function sets the stop button light on
 pub fn set_stop_button_light(
     e: Elevator
-) {
+) 
+{
     e.stop_button_light(true);
 }
 
 /// The function sets the stop button light off
 pub fn clear_stop_button_light(
     e: Elevator
-) {
+) 
+{
     e.stop_button_light(false);
 }

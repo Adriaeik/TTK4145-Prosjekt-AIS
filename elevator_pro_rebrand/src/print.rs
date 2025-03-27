@@ -30,10 +30,14 @@ use unicode_width::UnicodeWidthStr;
 ///
 /// **Note:** This function does not return a value and prints directly to the terminal.
 /// If color output is not supported, the text may not appear as expected.
-pub fn color(msg: String, color: Colour) {
+pub fn color(
+    msg: String, 
+    color: Colour) 
+    {
     let print_stat = config::PRINT_ELSE_ON.lock().unwrap().clone();
     
-    if print_stat {
+    if print_stat 
+    {
         println!("{}{}\n", color.paint("[CUSTOM]:  "), color.paint(msg));
     }
 }
@@ -59,7 +63,8 @@ pub fn color(msg: String, color: Colour) {
 ///
 /// **Note:** This function does not return a value and prints directly to the terminal.
 /// If color output is not supported, the error message may not appear in red.
-pub fn err(msg: String) {
+pub fn err(msg: String) 
+{
     let print_stat = config::PRINT_ERR_ON.lock().unwrap().clone();
     
     if print_stat {
@@ -87,7 +92,8 @@ pub fn err(msg: String) {
 ///
 /// **Note:** This function does not return a value and prints directly to the terminal.
 /// If color output is not supported, the warning message may not appear in yellow.
-pub fn warn(msg: String) {
+pub fn warn(msg: String) 
+{
     let print_stat = config::PRINT_WARN_ON.lock().unwrap().clone();
     
     if print_stat {
@@ -115,7 +121,8 @@ pub fn warn(msg: String) {
 ///
 /// **Note:** This function does not return a value and prints directly to the terminal.
 /// If color output is not supported, the success message may not appear in green.
-pub fn ok(msg: String) {
+pub fn ok(msg: String) 
+{
     let print_stat = config::PRINT_OK_ON.lock().unwrap().clone();
 
     if print_stat {
@@ -143,7 +150,8 @@ pub fn ok(msg: String) {
 ///
 /// **Note:** This function does not return a value and prints directly to the terminal.
 /// If color output is not supported, the informational message may not appear in light blue.
-pub fn info(msg: String) {
+pub fn info(msg: String) 
+{
     let print_stat = config::PRINT_INFO_ON.lock().unwrap().clone();
     
     let light_blue = Colour::RGB(102, 178, 255); 
@@ -172,7 +180,8 @@ pub fn info(msg: String) {
 ///
 /// **Note:** This function does not return a value and prints directly to the terminal.
 /// If color output is not supported, the master message may not appear in pink.
-pub fn master(msg: String) {
+pub fn master(msg: String) 
+{
     let print_stat = config::PRINT_ELSE_ON.lock().unwrap().clone();
     
     let pink = Colour::RGB(255, 51, 255);
@@ -202,7 +211,8 @@ pub fn master(msg: String) {
 ///
 /// **Note:** This function does not return a value and prints directly to the terminal.
 /// If color output is not supported, the slave message may not appear in orange.
-pub fn slave(msg: String) {
+pub fn slave(msg: String) 
+{
     let print_stat = config::PRINT_ELSE_ON.lock().unwrap().clone();
     
     let random = Colour::RGB(153, 76, 0);
@@ -232,7 +242,8 @@ pub fn slave(msg: String) {
 /// ```
 ///
 /// **Note:** This function does not return a value and prints directly to the terminal. The message will be printed in a rainbow of colors.
-pub fn cosmic_err(fun: String) {
+pub fn cosmic_err(fun: String) 
+{
     // Print "[ERROR]:" in red
     print!("{}", Colour::Red.paint("[ERROR]: "));
     
@@ -248,7 +259,8 @@ pub fn cosmic_err(fun: String) {
     
     // Rest of the print in rainbow
     let message = format!("Cosmic rays flipped a bit! 👽 ⚛️ 🔄 1️⃣ 0️⃣  IN: {}", fun);
-    for (i, c) in message.chars().enumerate() {
+    for (i, c) in message.chars().enumerate() 
+    {
         let color = colors[i % colors.len()];
         print!("{}", color.paint(c.to_string()));
     }
@@ -266,7 +278,8 @@ pub fn cosmic_err(fun: String) {
 ///
 /// # Returns
 /// A `String` with the original text left-aligned and padded with spaces to match the desired width.
-fn pad_text(text: &str, width: usize) -> String {
+fn pad_text(text: &str, width: usize) -> String 
+{
     let visible_width = UnicodeWidthStr::width(text);
     let padding = width.saturating_sub(visible_width);
     format!("{}{}", text, " ".repeat(padding))
@@ -283,7 +296,8 @@ fn pad_text(text: &str, width: usize) -> String {
 ///
 /// # Returns
 /// A colored `String` containing "true" or "false", padded to the given width.
-fn colored_bool_label(value: bool, width: usize) -> String {
+fn colored_bool_label(value: bool, width: usize) -> String 
+{
     let raw_text = if value { "true" } else { "false" };
     let padded = pad_text(raw_text, width); // brukar din hjelpefunksjon
     if value {
@@ -307,13 +321,16 @@ fn colored_bool_label(value: bool, width: usize) -> String {
 ///
 /// # Returns
 /// An ANSI escape string that sets the foreground color for subsequent text.
-fn rgb_color_for_loss(loss: u8) -> String {
+fn rgb_color_for_loss(loss: u8) -> String 
+{
     // loss frå 0 → 100 skal gå frå grøn (0,255,0) → gul (255,255,0) → raud (255,0,0)
-    let (r, g) = if loss <= 50 {
+    let (r, g) = if loss <= 50 
+    {
         let ratio = loss as f32 / 50.0;
         let r = (ratio * 255.0) as u8;
         (r, 255)
-    } else {
+    } else 
+    {
         let ratio = (loss as f32 - 50.0) / 50.0;
         let g = ((1.0 - ratio) * 255.0) as u8;
         (255, g)
@@ -333,8 +350,10 @@ fn rgb_color_for_loss(loss: u8) -> String {
 /// # Returns
 /// A `String` containing the ANSI-colored loss bar.
 fn colored_loss_bar(loss: u8, width: usize) -> String {
+
     let mut filled = (loss as usize * width) / 100;
-    if loss == 0 {
+    if loss == 0 
+    {
         filled = 1;
     }
 
@@ -342,7 +361,8 @@ fn colored_loss_bar(loss: u8, width: usize) -> String {
 
     let k = 20.0; // juster for "kor bratt" det blir i starten
 
-    for i in 0..width {
+    for i in 0..width 
+    {
         let symbol = if i < filled { "█" } else { " " };
 
         let x = i as f32 / width as f32; // 0.0 → 1.0
@@ -382,17 +402,19 @@ fn colored_loss_bar(loss: u8, width: usize) -> String {
 /// # Notes
 /// - This is intended for human-readable debugging and monitoring purposes.
 /// - Printing frequency should be limited (e.g., once per 500 ms).
-pub fn worldview(worldview: &WorldView, connection: Option<network::ConnectionStatus> ) {
+pub fn worldview(worldview: &WorldView, connection: Option<network::ConnectionStatus> ) 
+{
     let print_stat = config::PRINT_WV_ON.lock().unwrap().clone();
-    if !print_stat {
-        return;
-    }
+    if !print_stat {return}
+
     // Legg til utskrift av nettverksstatus viss det er med
     println!("{}", ansi_term::Colour::Cyan.bold().paint("┌────────────────────────────────┐"));
     println!("{}", ansi_term::Colour::Cyan.bold().paint("│  ELEVATOR NETWORK CONNECTION   │")); 
     println!("{}", ansi_term::Colour::Cyan.bold().paint("└────────────────────────────────┘"));
-    match connection {
-        Some(status) => {
+    match connection 
+    {
+        Some(status) => 
+        {
             let on_net_color = colored_bool_label(status.on_internett, 5);
             let elev_net_color = colored_bool_label(status.connected_on_elevator_network, 5);
     
@@ -407,7 +429,8 @@ pub fn worldview(worldview: &WorldView, connection: Option<network::ConnectionSt
             println!("│ [{}] │", bar);
             println!("└───────────────────────────────┘");
         }
-        None => {
+        None => 
+        {
             println!("┌───────────────────────────────┐");
             println!("│ Connection status: Not set    │");
             println!("└───────────────────────────────┘");
@@ -431,16 +454,21 @@ pub fn worldview(worldview: &WorldView, connection: Option<network::ConnectionSt
         worldview.master_id
     );
 
-    for (floor, calls) in worldview.hall_request.iter().enumerate().rev() {
-        let up = if floor != worldview.hall_request.len() - 1 {
+    for (floor, calls) in worldview.hall_request.iter().enumerate().rev() 
+    {
+        let up = if floor != worldview.hall_request.len() - 1 
+        {
             if calls[0] { "🟢" } else { "🔴" }
-        } else {
+        } else 
+        {
             "  " // Ingen opp-knapp i øvste etasje
         };
 
-        let down = if floor != 0 {
+        let down = if floor != 0 
+        {
             if calls[1] { "🟢" } else { "🔴" }
-        } else {
+        } else 
+        {
             "  " // Ingen ned-knapp i nederste etasje
         };
 
@@ -459,16 +487,21 @@ pub fn worldview(worldview: &WorldView, connection: Option<network::ConnectionSt
     println!("{}", ansi_term::Colour::White.bold().paint("│ ID   │ Dør      │ Obstruksjon  │ Tasks        │ Siste etasje│ Calls (Etg:Call)     │ Elev status   │"));
     println!("├──────┼──────────┼──────────────┼──────────────┼─────────────┼──────────────────────┼───────────────┤");
 
-    for elev in &worldview.elevator_containers {
+    for elev in &worldview.elevator_containers 
+    {
         let id_text = pad_text(&format!("{}", elev.elevator_id), 4);
-        let door_text = if elev.behaviour == ElevatorBehaviour::DoorOpen || elev.behaviour == ElevatorBehaviour::ObstructionError {
+        let door_text = if elev.behaviour == ElevatorBehaviour::DoorOpen || elev.behaviour == ElevatorBehaviour::ObstructionError 
+        {
             pad_text(&Yellow.paint("Open").to_string(), 17)
-        } else {
+        } else 
+        {
             pad_text(&Green.paint("Lukka").to_string(), 17)
         };
-        let obstruction_text = if elev.obstruction {
+        let obstruction_text = if elev.obstruction 
+        {
             pad_text(&Red.paint("Ja").to_string(), 21)
-        } else {
+        } else 
+        {
             pad_text(&Green.paint("Nei").to_string(), 21)
         };
         
@@ -495,7 +528,8 @@ pub fn worldview(worldview: &WorldView, connection: Option<network::ConnectionSt
             })
             .collect();
 
-        let task_status = match (elev.dirn, elev.behaviour) {
+        let task_status = match (elev.dirn, elev.behaviour) 
+        {
             (_, ElevatorBehaviour::Idle) => pad_text(&Green.paint("Idle").to_string(), 22),
             (Dirn::Up, ElevatorBehaviour::Moving) => pad_text(&Yellow.paint("⬆️   Moving").to_string(), 23),
             (Dirn::Down, ElevatorBehaviour::Moving) => pad_text(&Yellow.paint("⬇️   Moving").to_string(), 23),
@@ -508,16 +542,19 @@ pub fn worldview(worldview: &WorldView, connection: Option<network::ConnectionSt
 
         let max_rows = std::cmp::max(tasks_emoji.len(), call_list_emoji.len());
 
-        for i in 0..max_rows {
+        for i in 0..max_rows 
+        {
             let task_entry = tasks_emoji.get(i).cloned().unwrap_or_else(|| "  ".to_string());
             let call_entry = call_list_emoji.get(i).cloned().unwrap_or_else(|| "  ".to_string());
 
-            if i == 0 {
+            if i == 0 
+            {
                 println!(
                     "│ {} │ {} │ {} │ {:<11} │ {:<11} │ {:<18} │ {} │",
                     id_text, door_text, obstruction_text, task_entry, elev.last_floor_sensor, call_entry, task_status
                 );
-            } else {
+            } else 
+            {
                 println!(
                     "│      │          │              │ {:<11} │             │ {:<18} │               │",
                     task_entry, call_entry

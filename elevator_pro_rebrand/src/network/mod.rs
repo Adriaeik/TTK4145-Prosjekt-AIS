@@ -47,7 +47,8 @@ pub static SELF_ID: OnceLock<AtomicU8> = OnceLock::new();
 
 /// Struct for wrapping network connection information
 #[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct ConnectionStatus {
+pub struct ConnectionStatus 
+{
     /// true if we have network on the subnet, regardless of the packet loss
     pub on_internett: bool,
 
@@ -58,10 +59,13 @@ pub struct ConnectionStatus {
     pub packet_loss: u8,
 }
 
-impl ConnectionStatus {
+impl ConnectionStatus 
+{
     /// Creates a new instance of `Self`
-    pub fn new() -> Self {
-        Self {
+    pub fn new() -> Self 
+    {
+        Self 
+        {
             on_internett: false,
             connected_on_elevator_network: false,
             packet_loss: 0,
@@ -69,7 +73,8 @@ impl ConnectionStatus {
     }
 
     /// Sets packetloss field based on packetloss as a float between 0 and 1
-    fn set_packet_loss(&mut self, loss: f32) {
+    fn set_packet_loss(&mut self, loss: f32) 
+    {
         self.packet_loss = (loss * 100.0) as u8;
     }
 }
@@ -99,7 +104,8 @@ pub async fn watch_ethernet(
     wv_watch_rx: watch::Receiver<WorldView>, 
     network_watch_tx: watch::Sender<ConnectionStatus>, 
     new_wv_after_offline_tx: mpsc::Sender<WorldView>
-) {
+) 
+{
     let mut last_net_status = false;
     // TODO:: legge på hystesrese
     let network_quality_rx = start_packet_loss_monitor(
@@ -138,8 +144,10 @@ pub async fn watch_ethernet(
                 let _ = network_watch_tx.send(connection_status.clone());
             }
         }
-        if last_net_status != net_status {
-            if net_status {
+        if last_net_status != net_status 
+        {
+            if net_status 
+            {
                 // Went from offline -> online
                 let mut wv = world_view::get_wv(wv_watch_rx.clone());
                 let self_elev = world_view::extract_self_elevator_container(&wv);
@@ -147,7 +155,8 @@ pub async fn watch_ethernet(
                 let _ = new_wv_after_offline_tx.send(wv).await;
 
                 print::ok("System is online".to_string());
-            } else {
+            } else 
+            {
                 print::warn("System is offline".to_string());
             }
             set_network_status(net_status);
@@ -171,7 +180,8 @@ pub async fn watch_ethernet(
 /// # Note
 /// - The initial value is `false` until explicitly changed. 
 /// - The returned value is only a clone of the atomic boolean's value at read-time. The function should be called every time you need to check the online-status
-pub fn read_network_status() -> bool {
+pub fn read_network_status() -> bool 
+{
     ONLINE.get_or_init(|| AtomicBool::new(false)).load(Ordering::SeqCst)
 }
 
@@ -184,7 +194,8 @@ pub fn read_network_status() -> bool {
 /// 
 /// # Note
 /// - The value is [config::ERROR_ID] if [watch_ethernet] is not running.
-pub fn read_self_id() -> u8 {
+pub fn read_self_id() -> u8 
+{
     SELF_ID.get_or_init(|| AtomicU8::new(config::ERROR_ID)).load(Ordering::SeqCst)
 }
 
@@ -192,7 +203,8 @@ pub fn read_self_id() -> u8 {
 /// 
 /// # Note
 /// This function should not be used, as network ID is assigned automatically under initialisation
-pub fn set_self_id(id: u8) {
+pub fn set_self_id(id: u8) 
+{
     SELF_ID.get_or_init(|| AtomicU8::new(config::ERROR_ID)).store(id, Ordering::SeqCst);
 }
 

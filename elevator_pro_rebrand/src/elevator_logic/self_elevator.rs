@@ -134,7 +134,8 @@ async fn start_elevator_server()
 /// This function loops over a tokio::yield_now(). This is added in case further implementation is added which makes the function permanently-blocking, forcing the user to spawn this function in a tokio task. In theroy, this could be removed, but for now: call this function asynchronously
 pub async fn init(
     local_elev_tx: mpsc::Sender<elevio::ElevMessage>
-) -> e::Elevator {
+) -> e::Elevator 
+{
     // Start elevator-serveren. 
     start_elevator_server().await;
     let local_elev_channels: LocalElevChannels = LocalElevChannels::new();
@@ -181,10 +182,17 @@ pub async fn init(
 }
 
 /// Send forth messages from local elevator to worldview updater
-async fn read_from_local_elevator(rxs: LocalElevRxs, local_elev_tx: mpsc::Sender<elevio::ElevMessage>) -> std::io::Result<()> {
-    loop {
-        if let Ok(call_button) = rxs.call_button.try_recv() {
-            let msg = elevio::ElevMessage {
+async fn read_from_local_elevator(
+    rxs: LocalElevRxs, 
+    local_elev_tx: mpsc::Sender<elevio::ElevMessage>
+) -> std::io::Result<()> 
+{
+    loop 
+    {
+        if let Ok(call_button) = rxs.call_button.try_recv() 
+        {
+            let msg = elevio::ElevMessage 
+            {
                 msg_type: elevio::ElevMsgType::CALLBTN,
                 call_button: Some(call_button),
                 floor_sensor: None,
@@ -194,8 +202,10 @@ async fn read_from_local_elevator(rxs: LocalElevRxs, local_elev_tx: mpsc::Sender
             let _ = local_elev_tx.send(msg).await;
         }
 
-        if let Ok(floor) = rxs.floor_sensor.try_recv() {
-            let msg = elevio::ElevMessage {
+        if let Ok(floor) = rxs.floor_sensor.try_recv() 
+        {
+            let msg = elevio::ElevMessage 
+            {
                 msg_type: elevio::ElevMsgType::FLOORSENS,
                 call_button: None,
                 floor_sensor: Some(floor),
@@ -205,8 +215,10 @@ async fn read_from_local_elevator(rxs: LocalElevRxs, local_elev_tx: mpsc::Sender
             let _ = local_elev_tx.send(msg).await;
         }
 
-        if let Ok(stop) = rxs.stop_button.try_recv() {
-            let msg = elevio::ElevMessage {
+        if let Ok(stop) = rxs.stop_button.try_recv() 
+        {
+            let msg = elevio::ElevMessage 
+            {
                 msg_type: elevio::ElevMsgType::STOPBTN,
                 call_button: None,
                 floor_sensor: None,
@@ -216,8 +228,10 @@ async fn read_from_local_elevator(rxs: LocalElevRxs, local_elev_tx: mpsc::Sender
             let _ = local_elev_tx.send(msg).await;
         }
 
-        if let Ok(obstr) = rxs.obstruction.try_recv() {
-            let msg = elevio::ElevMessage {
+        if let Ok(obstr) = rxs.obstruction.try_recv() 
+        {
+            let msg = elevio::ElevMessage 
+            {
                 msg_type: elevio::ElevMsgType::OBSTRX,
                 call_button: None,
                 floor_sensor: None,
@@ -249,24 +263,40 @@ async fn read_from_local_elevator(rxs: LocalElevRxs, local_elev_tx: mpsc::Sender
 /// - **Stop button (`SBTN`)**: A placeholder for future functionality to handle stop button messages.
 /// - **Obstruction (`OBSTRX`)**: Sets the `obstruction` field in the elevator container to the 
 ///   received value.
-pub async fn update_elev_container_from_msgs(local_elev_rx: &mut mpsc::Receiver<elevio::ElevMessage>, container: &mut ElevatorContainer, cab_priority_timer: &mut Timer, error_timer: &mut Timer) {
-    loop{
-        match local_elev_rx.try_recv() {
-            Ok(msg) => {
-                match msg.msg_type {
-                    elevio::ElevMsgType::CALLBTN => {
-                        if let Some(call_btn) = msg.call_button {
+pub async fn update_elev_container_from_msgs(
+    local_elev_rx: &mut mpsc::Receiver<elevio::ElevMessage>, 
+    container: &mut ElevatorContainer, 
+    cab_priority_timer: &mut Timer, 
+    error_timer: &mut Timer
+) 
+{
+    loop
+    {
+        match local_elev_rx.try_recv() 
+        {
+            Ok(msg) => 
+            {
+                match msg.msg_type 
+                {
+                    elevio::ElevMsgType::CALLBTN => 
+                    {
+                        if let Some(call_btn) = msg.call_button 
+                        {
                             print::info(format!("Callbutton: {:?}", call_btn));
                             
-                            match call_btn.call_type {
-                                elevio::CallType::INSIDE => {
+                            match call_btn.call_type 
+                            {
+                                elevio::CallType::INSIDE => 
+                                {
                                     cab_priority_timer.release_timer();
                                     container.cab_requests[call_btn.floor as usize] = true;
                                 }
-                                elevio::CallType::UP => {
+                                elevio::CallType::UP => 
+                                {
                                     container.unsent_hall_request[call_btn.floor as usize][0] = true;
                                 }
-                                elevio::CallType::DOWN => {
+                                elevio::CallType::DOWN => 
+                                {
                                     container.unsent_hall_request[call_btn.floor as usize][1] = true;
                                 }
                                 elevio::CallType::COSMIC_ERROR => {},
@@ -274,36 +304,41 @@ pub async fn update_elev_container_from_msgs(local_elev_rx: &mut mpsc::Receiver<
                         }
                     }
             
-                    elevio::ElevMsgType::FLOORSENS => {
+                    elevio::ElevMsgType::FLOORSENS => 
+                    {
                         print::info(format!("Floor: {:?}", msg.floor_sensor));
-                        if let Some(floor) = msg.floor_sensor {
+                        if let Some(floor) = msg.floor_sensor 
+                        {
                             container.last_floor_sensor = floor;
                         }
                         
                     }
             
-                    elevio::ElevMsgType::STOPBTN => {
+                    elevio::ElevMsgType::STOPBTN => 
+                    {
                         print::info(format!("Stop button: {:?}", msg.stop_button));
-                        if let Some(stop) = msg.stop_button {
+                        if let Some(stop) = msg.stop_button 
+                        {
                             container.stop = stop;
                         }
                     }
             
-                    elevio::ElevMsgType::OBSTRX => {
+                    elevio::ElevMsgType::OBSTRX => 
+                    {
                         print::info(format!("Obstruction: {:?}", msg.obstruction));
-                        if let Some(obs) = msg.obstruction {
+                        if let Some(obs) = msg.obstruction 
+                        {
                             container.obstruction = obs;
-                            if !obs && error_timer.timer_timeouted() {
+                            if !obs && error_timer.timer_timeouted() 
+                            {
                                 error_timer.timer_start();
-                                container.behaviour = ElevatorBehaviour::Idle; //må vekk
+                                container.behaviour = ElevatorBehaviour::Idle;
                             }
                         }
                     }
                 }
             },
-            Err(_) => {
-                break;
-            }
+            Err(_) => {break}
         }
     }
 

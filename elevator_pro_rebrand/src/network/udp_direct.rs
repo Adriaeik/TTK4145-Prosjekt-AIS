@@ -63,7 +63,8 @@ const CLEANUP_INTERVAL: Duration = Duration::from_secs(1);
 
 /// Holds information about a "connected" slave
 #[derive(Debug, Clone)]
-struct ReceiverState {
+struct ReceiverState 
+{
     last_seq: u16,
     last_seen: Instant,
 }
@@ -104,7 +105,8 @@ pub async fn start_direct_udp_broadcast(
 ) 
 {
     while !network::read_network_status() {}
-    let socket = match Socket::new(Domain::IPV4, Type::DGRAM, Some(Protocol::UDP)) {
+    let socket = match Socket::new(Domain::IPV4, Type::DGRAM, Some(Protocol::UDP)) 
+    {
         Ok(sock) => sock,
         Err(e) => {panic!("Failed to create socket: {}", e)}
     }; 
@@ -118,14 +120,16 @@ pub async fn start_direct_udp_broadcast(
 
     while socket.set_nonblocking(true).is_err() {}
     
-    let socket = match UdpSocket::from_std(socket.into()) {
+    let socket = match UdpSocket::from_std(socket.into()) 
+    {
         Ok(sock) => sock,
         Err(e) => {panic!("Failed to convert socket to tokio's UdpSocket: {}", e)}
     }; 
 
 
     let mut wv = world_view::get_wv(wv_watch_rx.clone());
-    loop {
+    loop 
+    {
         receive_udp_master(
             &socket,
             &mut wv,
@@ -187,13 +191,14 @@ async fn receive_udp_master(
     container_tx: mpsc::Sender<ElevatorContainer>,
     packetloss_rx: watch::Receiver<network::ConnectionStatus>,
     remove_container_tx: mpsc::Sender<u8>,
-) {    
+) 
+{    
     world_view::update_wv(wv_watch_rx.clone(), wv).await;
-    println!("Server listening on port {}", config::UDP_CONTAINER_PORT);
+    print::master(format!("Server listening on port {}", config::UDP_CONTAINER_PORT));
 
     let state = Arc::new(Mutex::new(HashMap::<SocketAddr, ReceiverState>::new()));
     
-    // Cleanup-task: Fjerner inaktive klienter
+    // Cleanup-task: Remove inactive slaves
     let state_cleanup = state.clone();
     {
         let wv_watch_rx = wv_watch_rx.clone();
@@ -207,25 +212,28 @@ async fn receive_udp_master(
     }
 
     let mut buf = [0; 65535];
-    while wv.master_id == network::read_self_id() {
-        // println!("min id: {}, master ID: {}", network::read_self_id(), wv.master_id);
-        // Mottar data
-        let (len, slave_addr) = match socket.try_recv_from(&mut buf) {
+    while wv.master_id == network::read_self_id() 
+    {
+        let (len, slave_addr) = match socket.try_recv_from(&mut buf) 
+        {
             Ok(res) => res,
-            Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => {
+            Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => 
+            {
                 // Egen case for når bufferet er tomt
                 sleep(config::POLL_PERIOD).await;
                 world_view::update_wv(wv_watch_rx.clone(), wv).await;
                 continue;
             }
-            Err(e) => {
-                eprintln!("Error receiving UDP packet: {}", e);
+            Err(e) => 
+            {
+                print::err(format!("Error receiving UDP packet: {}", e));
                 world_view::update_wv(wv_watch_rx.clone(), wv).await;
                 continue;
             }
         };
 
-        let mut new_state = ReceiverState {
+        let mut new_state = ReceiverState 
+        {
             last_seq: 0,
             last_seen: Instant::now(),
         };
@@ -237,13 +245,18 @@ async fn receive_udp_master(
         
         let msg = parse_message(&buf[..len], last_seq);
         
-        match msg {
-            (Some(container), code) => {
-                match code {
-                    RecieveCode::Accept | RecieveCode::Rejoin=> {
+        match msg 
+        {
+            (Some(container), code) => 
+            {
+                match code 
+                {
+                    RecieveCode::Accept | RecieveCode::Rejoin=> 
+                    {
                         let _ = container_tx.send(container.clone()).await;
                         new_state.last_seq = last_seq.wrapping_add(1);
-                        if code == RecieveCode::Rejoin {
+                        if code == RecieveCode::Rejoin 
+                        {
                             new_state.last_seq = 0;
                         }
                         new_state.last_seen = Instant::now();
@@ -254,25 +267,20 @@ async fn receive_udp_master(
                     RecieveCode::Ignore => {},
                 }
 
-                if code != RecieveCode::Ignore {
+                if code != RecieveCode::Ignore 
+                {
                     let packetloss = packetloss_rx.borrow().clone();
-                        let redundancy = get_redundancy(packetloss.packet_loss, last_seen).await;
-                        print::warn(format!(
-                            "Sending {} ACKs to {} (loss: {}%, time since last: {:.2}s)",
-                            redundancy,
-                            slave_addr,
-                            packetloss.packet_loss,
-                            Instant::now().duration_since(last_seen).as_secs_f64()
-                        ));
-                        send_acks(
-                            &socket,
-                            last_seq,
-                            &slave_addr,
-                            redundancy
-                        ).await;
+                    let redundancy = get_redundancy(packetloss.packet_loss, last_seen).await;
+                    send_acks(
+                        &socket,
+                        last_seq,
+                        &slave_addr,
+                        redundancy
+                    ).await;
                 }
             },
-            (None, _) => {
+            (None, _) => 
+            {
                 // Seq nummer doesnt match, or data has been corrupted.
                 // Treat it as if nothing was read.
             }
@@ -312,7 +320,8 @@ async fn monitor_slave_activity(
 )
 {
     tokio::spawn(async move {
-        while wv.master_id == network::read_self_id() {
+        while wv.master_id == network::read_self_id() 
+        {
             sleep(CLEANUP_INTERVAL).await;
             {
                 let mut state = state_cleanup.lock().await;
@@ -347,8 +356,10 @@ async fn send_acks(
     seq_num: u16, 
     addr: &SocketAddr, 
     redundancy: usize
-) {
-    for _ in 0..redundancy {
+) 
+{
+    for _ in 0..redundancy 
+    {
         let data = seq_num.to_le_bytes();
         let _ = socket.send_to(&data, addr).await;
     }
@@ -385,12 +396,17 @@ async fn send_udp_slave(
     packetloss_rx: watch::Receiver<network::ConnectionStatus>,
     connection_to_master_failed_tx: mpsc::Sender<bool>,
     sent_container_tx: mpsc::Sender<ElevatorContainer>,
-) {
+) 
+{
     world_view::update_wv(wv_watch_rx.clone(), wv).await;
     let mut seq = 0;
-    while wv.master_id != network::read_self_id() {
+    while wv.master_id != network::read_self_id() 
+    {
         world_view::update_wv(wv_watch_rx.clone(), wv).await;
-        while send_udp(socket, wv, packetloss_rx.clone(), 50, seq, 20, sent_container_tx.clone()).await.is_err() {
+        let send = send_udp(socket, wv, packetloss_rx.clone(), 50, seq, 20, sent_container_tx.clone()).await;
+        if send.is_err() 
+        {
+            print::err(format!("Failed to send to master: {:?}", send));
             let _ = connection_to_master_failed_tx.send(true).await;
             sleep(config::SLAVE_TIMEOUT).await;
             world_view::update_wv(wv_watch_rx.clone(), wv).await;
@@ -439,7 +455,8 @@ async fn send_udp(
     seq_num: u16,
     retries: u16,
     sent_container_tx: mpsc::Sender<ElevatorContainer>,
-)  -> std::io::Result<()> {
+)  -> std::io::Result<()> 
+{
 
     let server_addr: SocketAddr = format!("{}.{}:{}", config::NETWORK_PREFIX, wv.master_id, 50000).parse().unwrap();
     let mut buf = [0; 65535];
@@ -450,9 +467,11 @@ async fn send_udp(
     let mut backoff_timeout_ms = timeout_ms;
 
     let mut should_send: bool = true;
-    let sent_cont = match world_view::extract_self_elevator_container(wv) {
+    let sent_cont = match world_view::extract_self_elevator_container(wv) 
+    {
         Some(cont) => cont.clone(),
-        None => {
+        None => 
+        {
             return Err(std::io::Error::new(std::io::ErrorKind::InvalidData, "Self container not found in worldview"))
         }
     };
@@ -481,23 +500,26 @@ async fn send_udp(
         // In Sanntidslabben: Packetloss is software, slow ACKs is packetloss, not congestion or long travel links. 
         // The only reason this is added here is because the new script (which doesnt work) has an option for latency.
         // backoff_timeout_ms += 5;
-        tokio::select! {
-            _ = timeout => {
+        tokio::select! 
+        {
+            _ = timeout => 
+            {
                 fails += 1;
-                println!(
-                    "Timeout (seq: {}, dest: {}). Retransmitting attempt {}/{}...",
-                    seq_num, server_addr, fails, retries
-                );
-                if fails > retries {
+                if fails > retries 
+                {
                     return Err(std::io::Error::new(std::io::ErrorKind::TimedOut, format!("No Ack from master in {} retries!", retries)));
                 }
                 should_send = true;
             },
-            result = socket.recv_from(&mut buf) => {
-                if let Ok((len, _)) = result {
+            result = socket.recv_from(&mut buf) => 
+            {
+                if let Ok((len, _)) = result 
+                {
                     let seq_opt: Option<[u8; 2]> = buf[..len].try_into().ok();
-                    if let Some(seq) = seq_opt {
-                        if seq_num == u16::from_le_bytes(seq) {
+                    if let Some(seq) = seq_opt 
+                    {
+                        if seq_num == u16::from_le_bytes(seq) 
+                        {
                             let _ = sent_container_tx.send(sent_cont).await;
                             return Ok(())
                         }
@@ -538,14 +560,18 @@ async fn send_packet(
     addr: &SocketAddr, 
     redundancy: usize, 
     wv: &WorldView
-) -> std::io::Result<()> {
+) -> std::io::Result<()> 
+{
     let data_opt = build_message(wv, &seq_num);
-    if let Some(data) =  data_opt {
-        for _ in 0..redundancy {
+    if let Some(data) =  data_opt 
+    {
+        for _ in 0..redundancy 
+        {
             let _ = socket.send_to(&data, addr).await;
         }
         return Ok(())
-    } else {
+    } else 
+    {
         return Err(std::io::Error::new(std::io::ErrorKind::Other, "Failed to build UDP message to master"));
     }
 }
@@ -557,7 +583,8 @@ async fn send_packet(
 fn build_message(
     wv: &WorldView,
     seq_num: &u16,
-) -> Option<Vec<u8>> {
+) -> Option<Vec<u8>> 
+{
     let mut buf = Vec::new();
 
     let seq = seq_num.to_le_bytes();
@@ -578,13 +605,16 @@ fn build_message(
 fn parse_message(
     buf: &[u8],
     expected_seq: u16,
-) -> (Option<ElevatorContainer>, RecieveCode) {
-    if buf.len() < 2 {
+) -> (Option<ElevatorContainer>, RecieveCode) 
+{
+    if buf.len() < 2 
+    {
         return (None, RecieveCode::Ignore);
     }
 
 
-    let seq: [u8; 2] = match buf[0..2].try_into().ok() {
+    let seq: [u8; 2] = match buf[0..2].try_into().ok() 
+    {
         Some(number) => number,
         None => return (None, RecieveCode::Ignore),
     };
@@ -603,7 +633,8 @@ fn parse_message(
 
 
 #[derive(Debug, Clone, PartialEq)]
-enum RecieveCode {
+enum RecieveCode 
+{
     Accept,
     AckOnly,
     Ignore,
@@ -639,7 +670,8 @@ enum RecieveCode {
 /// - `prev_error`: Previous error value used for derivative computation
 /// - `integral`: Accumulated error used in integral computation (clamped)
 /// - `last_time`: Timestamp of the previous update, used to compute `dt`
-struct PID {
+struct PID 
+{
     kp: f64,
     ki: f64,
     kd: f64,
@@ -648,10 +680,17 @@ struct PID {
     last_time: Option<Instant>,
 }
 
-impl PID {
+impl PID 
+{
     /// Constructs a new PID controller with the given gain parameters.
-    fn new(kp: f64, ki: f64, kd: f64) -> Self {
-        Self {
+    fn new(
+        kp: f64, 
+        ki: f64, 
+        kd: f64
+    ) -> Self 
+    {
+        Self 
+        {
             kp,
             ki,
             kd,
@@ -672,7 +711,12 @@ impl PID {
     /// - `now`: The current timestamp used to compute time delta
     ///
     /// Returns the new controller outpu
-    fn update(&mut self, setpoint: f64, measurement: f64, now: Instant) -> f64 {
+    fn update(&mut self, 
+        setpoint: f64, 
+        measurement: f64, 
+        now: Instant
+    ) -> f64 
+    {
         let error = -(setpoint - measurement);
         let dt = self.last_time.map_or(0.1, |last| {
             let secs = now.duration_since(last).as_secs_f64();
@@ -691,13 +735,17 @@ impl PID {
     /// This is used to monitor how the PID responds to network conditions
     /// in real-time, useful during tuning or system debugging.
     #[allow(dead_code)]
-    fn monitor(&self, setpoint: f64, measurement: f64, output: f64) {
-        println!(
+    fn monitor(&self, 
+        setpoint: f64, 
+        measurement: f64, 
+        output: f64) 
+        {
+        print::info(format!(
             "[PID] Last seen: {:.3}s | Error: {:.3} | Redundancy: {:.1}",
             measurement,
             setpoint - measurement,
             output
-        );
+        ));
     }
 }
 
@@ -718,7 +766,12 @@ static REDUNDANCY_PID: Lazy<Mutex<PID>> = Lazy::new(|| {
 });
 
 /// Utility function to constrain a floating-point value between a minimum and maximum bound.
-fn clamp(val: f64, min: f64, max: f64) -> f64 {
+fn clamp(
+    val: f64, 
+    min: f64, 
+    max: f64
+) -> f64 
+{
     val.max(min).min(max)
 }
 
@@ -744,14 +797,19 @@ fn clamp(val: f64, min: f64, max: f64) -> f64 {
 /// A rounded redundancy value in the range `[1, 300]`. 
 ///
 /// PID constants and clamping thresholds are defined in `config.rs` for easy tuning.
-async fn get_redundancy(packetloss: u8, last_seen: Instant) -> usize {
+async fn get_redundancy(
+    packetloss: u8, 
+    last_seen: Instant
+) -> usize 
+{
     let now = Instant::now();
     let time_since_last = now.duration_since(last_seen).as_secs_f64(); // in seconds
 
     let setpoint = 0.1; // 100 ms between new messages
     let measurement = time_since_last;
 
-    let output = {
+    let output = 
+    {
         let mut pid = REDUNDANCY_PID.lock().await;
         pid.update(setpoint, measurement, now)
     };

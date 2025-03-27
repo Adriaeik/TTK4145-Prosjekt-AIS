@@ -62,7 +62,8 @@ pub struct DirnBehaviourPair
 /// `true` if there is a cab call in the current direction of travel, otherwise `false`.
 pub fn moving_towards_cab_call(
     elevator: &ElevatorContainer
-) -> bool {
+) -> bool 
+{
     if elevator.last_floor_sensor == elevator.num_floors-1 || elevator.last_floor_sensor == 0 
     {
         return true;
@@ -96,7 +97,8 @@ pub fn moving_towards_cab_call(
 /// A `DirnBehaviourPair` representing the chosen direction and behaviour state.
 pub fn choose_direction(
     elevator: &ElevatorContainer
-) -> DirnBehaviourPair {
+) -> DirnBehaviourPair 
+{
 
     match elevator.dirn 
     {
@@ -151,7 +153,8 @@ pub fn choose_direction(
 /// `true` if the elevator should stop, otherwise `false`.
 pub fn should_stop(
     elevator: &ElevatorContainer
-) -> bool {
+) -> bool 
+{
     let floor = elevator.last_floor_sensor as usize;
     
     if elevator.cab_requests[floor] {return true}
@@ -177,7 +180,8 @@ pub fn should_stop(
 /// - `elevator`: Reference to the elevator's internal state.
 pub fn was_outside(
     elevator: &ElevatorContainer
-) -> bool {
+) -> bool 
+{
     let floor = elevator.last_floor_sensor as usize;
     
     match elevator.dirn 
@@ -203,7 +207,8 @@ pub fn was_outside(
 /// - `elevator`: Mutable reference to the elevator's internal state.
 pub fn clear_at_current_floor(
     elevator: &mut ElevatorContainer
-) {
+) 
+{
     elevator.cab_requests[elevator.last_floor_sensor as usize] = false;
 }
 
@@ -225,7 +230,8 @@ pub fn clear_at_current_floor(
 /// - `elevator`: Reference to the elevator's internal state.
 fn above(
     elevator: &ElevatorContainer
-) -> bool {
+) -> bool 
+{
     for floor in (elevator.last_floor_sensor as usize + 1)..elevator.tasks.len() 
     {
         for btn in 0..2 
@@ -246,7 +252,8 @@ fn above(
 /// - `elevator`: Reference to the elevator's internal state.
 fn inside_above(
     elevator: &ElevatorContainer
-) -> bool {
+) -> bool 
+{
     for floor in (elevator.last_floor_sensor as usize + 1)..elevator.tasks.len() 
     {
         if elevator.cab_requests[floor] {return true}
@@ -262,7 +269,8 @@ fn inside_above(
 /// - `elevator`: Reference to the elevator's internal state.
 fn below(
     elevator: &ElevatorContainer
-) -> bool {
+) -> bool 
+{
     for floor in 0..elevator.last_floor_sensor as usize 
     {
         for btn in 0..2 
@@ -284,7 +292,8 @@ fn below(
 /// - `elevator`: Reference to the elevator's internal state.
 fn insie_below(
     elevator: &ElevatorContainer
-) -> bool {
+) -> bool 
+{
     for floor in 0..elevator.last_floor_sensor as usize 
     {
         if elevator.cab_requests[floor] {return true}
@@ -300,7 +309,8 @@ fn insie_below(
 /// - `elevator`: Reference to the elevator's internal state.
 fn here(
     elevator: &ElevatorContainer
-) -> bool {
+) -> bool 
+{
     for btn in 0..2 
     {
         if elevator.tasks[elevator.last_floor_sensor as usize][btn] {return true}
@@ -321,7 +331,8 @@ fn here(
 /// - `elevator`: Reference to the elevator's internal state.
 fn get_here_dirn(
     elevator: &ElevatorContainer
-) -> Dirn {
+) -> Dirn 
+{
     if elevator.tasks[elevator.last_floor_sensor as usize][0] {return Dirn::Up} 
     else if elevator.tasks[elevator.last_floor_sensor as usize][1] {return Dirn::Down} 
     else {return Dirn::Stop}

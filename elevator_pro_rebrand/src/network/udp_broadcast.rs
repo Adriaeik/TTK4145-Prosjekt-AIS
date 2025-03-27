@@ -52,10 +52,10 @@ use tokio::sync::watch;
 /// This function is permanently blocking, and should be called asynchronously
 pub async fn start_udp_broadcaster(
     wv_watch_rx: watch::Receiver<WorldView>
-) -> tokio::io::Result<()> {
-    while !network::read_network_status() {
-        
-    }
+) -> tokio::io::Result<()> 
+{
+    while !network::read_network_status() {}
+
     let mut prev_network_status = network::read_network_status();
 
     // Set up sockets
@@ -73,32 +73,33 @@ pub async fn start_udp_broadcaster(
     let udp_socket = UdpSocket::from_std(socket.into())?;
 
     let mut wv = world_view::get_wv(wv_watch_rx.clone());
-    loop{
+    loop
+    {
         let wv_watch_rx_clone = wv_watch_rx.clone();
         world_view::update_wv(wv_watch_rx_clone, &mut wv).await;
         // If you currently are master on the network
-        if network::read_self_id() == wv.master_id {
+        if network::read_self_id() == wv.master_id 
+        {
             sleep(config::UDP_PERIOD);
             let message_bytes = build_message(&wv);
 
             // If you are connected to internet
-            if network::read_network_status() {
+            if network::read_network_status() 
+            {
                 // If you were not connected to internet last time you ran this
-                if !prev_network_status {
+                if !prev_network_status 
+                {
                     sleep(Duration::from_millis(500));
                     prev_network_status = true;
                 }
                 // Send your worldview on UDP broadcast
-                match udp_socket.send_to(&message_bytes, &broadcast_addr).await {
-                    Ok(_) => {
-                        // print::ok(format!("Sent udp broadcast!"));
-                    },
-                    Err(_) => {
-                        // print::err(format!("Error while sending UDP: {}", e));
-                    }
+                match udp_socket.send_to(&message_bytes, &broadcast_addr).await 
+                {
+                    Ok(_) => {},
+                    Err(_) => {},
                 }
-
-            }else {
+            }else 
+            {
                 prev_network_status = false;
             }
         }
@@ -124,9 +125,8 @@ pub async fn start_udp_listener(
     udp_wv_tx: mpsc::Sender<WorldView>
 ) -> tokio::io::Result<()> 
 {
-    while !network::read_network_status() {
-        
-    }
+    while !network::read_network_status() {}
+
     //Set up sockets
     let self_id = network::read_self_id();
     let broadcast_listen_addr = format!("{}:{}", config::BC_LISTEN_ADDR, config::BROADCAST_PORT);
@@ -143,19 +143,25 @@ pub async fn start_udp_listener(
     let mut read_wv: Option<WorldView>;
     let mut my_wv = world_view::get_wv(wv_watch_rx.clone());
 
-    loop {
+    loop 
+    {
         // Read message on UDP-broadcast address
-        match socket.recv_from(&mut buf).await {
-            Ok((len, _)) => {
+        match socket.recv_from(&mut buf).await 
+        {
+            Ok((len, _)) => 
+            {
                 read_wv = parse_message(&buf[..len]);
             }
-            Err(e) => {
+            Err(e) => 
+            {
                 return Err(e);
             }
         }
         
-        match read_wv {
-            Some(read_wv) => {
+        match read_wv
+        {
+            Some(read_wv) => 
+            {
                 world_view::update_wv(wv_watch_rx.clone(), &mut my_wv).await;
                 // Pass the recieved WorldView if the message came from the 
                 // master or a node with a lower ID than current master, 
@@ -194,7 +200,8 @@ pub async fn start_udp_listener(
 /// and appends the serialized data of the worldview.
 fn build_message(
     wv: &WorldView
-) -> Vec<u8> {
+) -> Vec<u8> 
+{
     let mut buf = Vec::new();
 
     // Add the serialized key
@@ -222,22 +229,17 @@ fn build_message(
 /// If it is found, the function tries to deserialize a [WorldView] from the rest of the message, returning it wrapped in an `Option` if it succeeded, returning `None` if it failed. 
 pub fn parse_message(
     buf: &[u8]
-) -> Option<WorldView> {
-    // 1. Prøv å deserialisere nøkkelen
+) -> Option<WorldView> 
+{
     let key_len = bincode::serialized_size(config::KEY_STR).unwrap() as usize;
 
-    if buf.len() <= key_len {
-        return None;
-    }
+    if buf.len() <= key_len {return None}
 
     let (key_part, wv_part) = buf.split_at(key_len);
-
     let key: String = bincode::deserialize(key_part).ok()?;
-    if key != config::KEY_STR {
-        return None; // feil nøkkel
-    }
 
-    // 2. Deserialize resten til WorldView
+    if key != config::KEY_STR {return None}
+
     world_view::deserialize(wv_part)
 }
 

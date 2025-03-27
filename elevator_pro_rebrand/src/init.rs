@@ -60,12 +60,17 @@ use local_ip_address::local_ip;
 /// let worldview_data: Vec<u8> = initialize_worldview().await;
 /// let worldview: worldview::WorldView = worldview::deserialize(&worldview_data);
 /// ```
-pub async fn initialize_worldview(self_container : Option<&world_view::ElevatorContainer>) -> WorldView {
+pub async fn initialize_worldview(
+    self_container : Option<&world_view::ElevatorContainer>
+) -> WorldView 
+{
     let mut worldview = WorldView::default();
     
-    let elev_container: &mut ElevatorContainer = if let Some(container) = self_container {
+    let elev_container: &mut ElevatorContainer = if let Some(container) = self_container 
+    {
         &mut container.to_owned()
-    } else {
+    } else 
+    {
         // Opprett ein standard ElevatorContainer med ein initial placeholder-task
         let container = ElevatorContainer::default();
         &mut container.clone()
@@ -73,9 +78,11 @@ pub async fn initialize_worldview(self_container : Option<&world_view::ElevatorC
 
 
     // Retrieve local IP address
-    let ip = match local_ip() {
+    let ip = match local_ip() 
+    {
         Ok(ip) => ip,
-        Err(e) => {
+        Err(e) => 
+        {
             print::err(format!("Failed to get local IP at startup: {}", e));
             panic!();
         }
@@ -88,9 +95,11 @@ pub async fn initialize_worldview(self_container : Option<&world_view::ElevatorC
     worldview.add_elev(elev_container.clone());
 
     // Listen for UDP messages for a short time to detect other elevators
-    let mut wv_from_udp = match check_for_udp().await {
+    let mut wv_from_udp = match check_for_udp().await 
+    {
         Some(wv) => wv,
-        None => {
+        None => 
+        {
             print::info("No other elevators detected on the network.".to_string());
             return worldview
         },
@@ -98,14 +107,16 @@ pub async fn initialize_worldview(self_container : Option<&world_view::ElevatorC
     
     // Check if the network has backed up any cab_requests from you, save them if that is the case
     let saved_cab_requests: std::collections::HashMap<u8, Vec<bool>> = wv_from_udp.cab_requests_backup.clone();
-    if let Some(saved_requests) = saved_cab_requests.get(&elev_container.elevator_id) {
+    if let Some(saved_requests) = saved_cab_requests.get(&elev_container.elevator_id) 
+    {
         elev_container.cab_requests = saved_requests.clone();
     }
     // Add your elevator to the worldview
     wv_from_udp.add_elev(elev_container.clone());
 
     // Set self as master if the current master has a higher ID
-    if wv_from_udp.master_id > network::read_self_id() {
+    if wv_from_udp.master_id > network::read_self_id() 
+    {
         wv_from_udp.master_id = network::read_self_id();
     }
 
@@ -142,7 +153,8 @@ pub async fn initialize_worldview(self_container : Option<&world_view::ElevatorC
 ///     println!("No UDP message received within 1 second.");
 /// }
 /// ```
-async fn check_for_udp() -> Option<WorldView> {
+async fn check_for_udp() -> Option<WorldView> 
+{
     // Construct the UDP broadcast listening address
     let broadcast_listen_addr = format!("{}:{}", config::BC_LISTEN_ADDR, config::BROADCAST_PORT);
     let socket_addr: SocketAddr = broadcast_listen_addr.parse().expect("Invalid address");
@@ -169,32 +181,40 @@ async fn check_for_udp() -> Option<WorldView> {
     let time_start = Instant::now();
     let duration = Duration::from_secs(1);
 
-    while Instant::now().duration_since(time_start) < duration {
+    while Instant::now().duration_since(time_start) < duration 
+    {
         // Attempt to receive a UDP packet within the timeout duration
         let recv_result = timeout(duration, socket.recv_from(&mut buf)).await;
 
-        match recv_result {
-            Ok(Ok((len, _))) => {
+        match recv_result 
+        {
+            Ok(Ok((len, _))) => 
+            {
                 // Convert the received bytes into a string
                 read_wv = network::udp_broadcast::parse_message(&buf[..len]);
             }
-            Ok(Err(e)) => {
+            Ok(Err(e)) => 
+            {
                 // Log errors if receiving fails
                 print::err(format!("init.rs, udp_listener(): {}", e));
                 continue;
             }
-            Err(_) => {
+            Err(_) => 
+            {
                 // Timeout occurred – no data received within 1 second
                 print::warn("Timeout - no data received within 1 second.".to_string());
                 break;
             }
         }
 
-        match read_wv {
-            Some(wv) => {
+        match read_wv 
+        {
+            Some(wv) => 
+            {
                 return Some(wv);
             },
-            None => {
+            None => 
+            {
                 continue;
             }
         }
@@ -226,23 +246,25 @@ async fn check_for_udp() -> Option<WorldView> {
 /// Secret options:  
 /// `backup` &rarr; Starts the program in backup-mode.
 /// 
-pub fn parse_args() -> bool {
+pub fn parse_args() -> bool 
+{
     let args: Vec<String> = env::args().collect();
 
     // Hvis det ikke finnes argumenter, returner false
-    if args.len() <= 0 {
-        return false;
-    }
+    if args.len() <= 0 {return false}
 
-    for arg in &args[1..] {
+    for arg in &args[1..] 
+    {
         let parts: Vec<&str> = arg.split("::").collect();
-        if parts.len() == 2 {
+        if parts.len() == 2 
+        {
             let key = parts[0].to_lowercase();
             let value = parts[1].to_lowercase();
             let is_true = value == "true";
 
            
-            match key.as_str() {
+            match key.as_str() 
+            {
                 "print_wv" => *config::PRINT_WV_ON.lock().unwrap() = is_true,
                 "print_err" => *config::PRINT_ERR_ON.lock().unwrap() = is_true,
                 "print_warn" => *config::PRINT_WARN_ON.lock().unwrap() = is_true,
@@ -259,7 +281,8 @@ pub fn parse_args() -> bool {
                 _ => {}
             }
             
-        } else if arg.to_lowercase() == "help" {
+        } else if arg.to_lowercase() == "help" 
+        {
             println!("Tilgjengelige argument:");
             println!("  print_wv::true/false");
             println!("  print_err::true/false");
@@ -270,7 +293,8 @@ pub fn parse_args() -> bool {
             println!("  debug (kun error-meldingar vises)");
             println!("  backup (starter backup-prosess)");
             std::process::exit(0);
-        } else if arg.to_lowercase() == "backup" {
+        } else if arg.to_lowercase() == "backup" 
+        {
             return true;
         }
     }
@@ -296,10 +320,13 @@ pub fn parse_args() -> bool {
 ///     assert_eq!(args, vec!["--"]);
 /// }
 /// ```
-pub fn get_terminal_command() -> (String, Vec<String>) {
-    if cfg!(target_os = "windows") {
+pub fn get_terminal_command() -> (String, Vec<String>) 
+{
+    if cfg!(target_os = "windows") 
+    {
         ("cmd".to_string(), vec!["/C".to_string(), "start".to_string()])
-    } else {
+    } else 
+    {
         ("gnome-terminal".to_string(), vec!["--".to_string()])
     }
 }
@@ -319,8 +346,8 @@ pub fn get_terminal_command() -> (String, Vec<String>) {
 /// # Panics
 /// Panics if the script fails to execute or if it exits with a non-zero status code.
 /// This ensures the caller is alerted early to any build issues.
-pub async fn build_cost_fn() {
-
+pub async fn build_cost_fn() 
+{
     let output = Command::new("bash")
         .arg("build.sh")
         .current_dir("libs/Project_resources/cost_fns/hall_request_assigner")
@@ -331,9 +358,11 @@ pub async fn build_cost_fn() {
     println!("stdout: {}", String::from_utf8_lossy(&output.stdout));
     eprintln!("stderr: {}", String::from_utf8_lossy(&output.stderr));
 
-    if output.status.success() {
+    if output.status.success() 
+    {
         println!("build.sh completed successfully.");
-    } else {
+    } else 
+    {
         eprintln!("build.sh failed. Please try building manually in a new terminal:");
         eprintln!("1. cd libs/Project_resources/cost_fns/hall_request_assigner");
         eprintln!("2. bash build.sh");
