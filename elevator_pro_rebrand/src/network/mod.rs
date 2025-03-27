@@ -149,7 +149,6 @@ pub async fn watch_ethernet(
             }
             _ => {
                 // Mistet IP eller feil subnet → nullstill status
-                println!("FALSE");
                 connection_status.on_internett = false;
                 connection_status.connected_on_elevator_network = false;
                 connection_status.packet_loss = 100;

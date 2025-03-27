@@ -194,12 +194,13 @@ pub async fn join_wv_from_tcp_container(wv: &mut WorldView, container: &Elevator
                 };
 
                 if wv.elevator_containers[i].last_behaviour != ElevatorBehaviour::DoorOpen {
-                    update_hall_instants(floor, dirn);
+                    update_hall_instants(floor, Some(0));
+                    update_hall_instants(floor, Some(1));
                 }
 
-                if wv.elevator_containers[i].dirn == Dirn::Up && time_since_hall_instants(floor, dirn) > Duration::from_secs(2) {
+                if wv.elevator_containers[i].dirn == Dirn::Up && time_since_hall_instants(floor, dirn) > Duration::from_secs(3) {
                     *up = false;
-                } else if wv.elevator_containers[i].dirn == Dirn::Down && time_since_hall_instants(floor, dirn) > Duration::from_secs(2) {
+                } else if wv.elevator_containers[i].dirn == Dirn::Down && time_since_hall_instants(floor, dirn) > Duration::from_secs(3) {
                     *down = false;
                 }
             }

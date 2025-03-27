@@ -157,7 +157,6 @@ async fn handle_elevator(
             &mut timers.cab_priority , 
             &mut timers.error 
         ).await;
-        
         /*======================================================================*/
         /*                           START: FSM Events                          */
         /*======================================================================*/
@@ -166,58 +165,49 @@ async fn handle_elevator(
             e.clone(), 
             &mut timers.door
         );
-
         fsm::handle_floor_sensor_update(
             &mut self_container,
             e.clone(),
             &mut prev_floor,
             &mut timers,
         ).await;        
-        
         fsm::handle_door_timeout(
             &mut self_container,
             e.clone(),
             &timers.door,
             &mut timers.cab_priority,
         ).await;
-
         fsm::handle_stop_button(
             &mut self_container, 
             e.clone(), 
             &mut prev_stop_btn
         ).await;
-        
         fsm::handle_error_timeout(
             &self_container,
             &timers.cab_priority,
             &mut timers.error,
             timers.prev_cab_priority_timeout,
         );
-        
         /*======================================================================*/
         /*                           END: FSM Events                            */
         /*======================================================================*/
-
+        
         /*============================================================================================================================================*/
+        sleep(config::POLL_PERIOD).await;
         
         update_motor_direction_if_needed(&self_container, &e);
-
         update_error_state(&mut self_container, &timers.error, &mut timers.prev_cab_priority_timeout, &prev_behavior);
-
         let last_behavior: ElevatorBehaviour = track_behavior_change(&self_container, &mut prev_behavior);
         stop_motor_on_dooropen_to_error(&mut self_container, last_behavior, prev_behavior);
-
         self_container.last_behaviour = last_behavior;
-
-        //Send til update_wv -> nye self_container
-        let _ = elevator_states_tx.send(self_container.clone()).await;    
         
         //Hent nyeste worldview
         if world_view::update_wv(wv_watch_rx.clone(), &mut wv).await{
             update_tasks_and_hall_requests(&mut self_container, &wv).await;
         }
+        //Send til update_wv -> nye self_container
+        let _ = elevator_states_tx.send(self_container.clone()).await; 
         yield_now().await;
-        sleep(config::POLL_PERIOD).await;
 
         
         
@@ -250,6 +240,7 @@ async fn update_tasks_and_hall_requests(
 ){
     if let Some(task_container) = world_view::extract_self_elevator_container(wv) {
         self_container.tasks = task_container.tasks.clone();
+        self_container.cab_requests = task_container.cab_requests.clone();
         self_container.unsent_hall_request = task_container.unsent_hall_request.clone();
     } else {
         print::warn(format!("Failed to extract self elevator container – keeping previous value"));
