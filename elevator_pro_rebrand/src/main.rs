@@ -1,3 +1,22 @@
+//! Entry point for the distributed elevator system.
+//!
+//! This async function initializes and launches all major tasks for controlling,
+//! synchronizing, and communicating between elevators in the system.
+//!
+//! Key responsibilities:
+//! - Starts in either master or backup mode based on CLI arguments
+//! - Initializes a shared `WorldView` containing elevator states and requests
+//! - Spawns background tasks for:
+//!   - Monitoring internet connection
+//!   - Updating and broadcasting the worldview over UDP
+//!   - Running the local elevator logic
+//!   - Managing task delegation
+//!   - Synchronizing state with other nodes via UDP
+//! - Sets up watch and mpsc channels for internal communication between components
+//!
+//! Note:
+//! - TCP-based communication is deprecated and currently inactive
+//! - This function never returns; it enters an infinite loop after initializing all tasks
 use tokio::sync::mpsc;
 use tokio::net::TcpStream;
 use std::net::SocketAddr;
@@ -9,27 +28,6 @@ use elevatorpro::print;
 
 
 
-
-
-/// Entry point for the distributed elevator system.
-///
-/// This async function initializes and launches all major tasks for controlling,
-/// synchronizing, and communicating between elevators in the system.
-///
-/// Key responsibilities:
-/// - Starts in either master or backup mode based on CLI arguments
-/// - Initializes a shared `WorldView` containing elevator states and requests
-/// - Spawns background tasks for:
-///   - Monitoring internet connection
-///   - Updating and broadcasting the worldview over UDP
-///   - Running the local elevator logic
-///   - Managing task delegation
-///   - Synchronizing state with other nodes via UDP
-/// - Sets up watch and mpsc channels for internal communication between components
-///
-/// Note:
-/// - TCP-based communication is deprecated and currently inactive
-/// - This function never returns; it enters an infinite loop after initializing all tasks
 #[tokio::main]
 async fn main() {
     // Determine if this instance should run in backup mode (via CLI argument)
@@ -50,6 +48,12 @@ async fn main() {
     /* Initialize a worldview */
     // Initializes the global shared elevator state (`WorldView`).
     // If started as backup, uses data from the previous master if available
+
+    // ⚠️ Note:
+    // This restoration behavior is only relevant when starting the node offline (in backup mode).
+    // In all other cases, the active network of elevators maintains and synchronizes your state.
+    // If you crash and restart normally, your previous tasks will be remembered and reassigned by others.
+
     let mut worldview = init::initialize_worldview(self_container.as_ref()).await;
     print::worldview(&worldview, Some(network::ConnectionStatus::new()));
     
@@ -205,7 +209,7 @@ async fn main() {
         let wv_watch_rx = wv_watch_rx.clone();
         tokio::spawn(async move {
             print::info("Starting UDP direct network".to_string());
-            let _ = network::udp_net::start_direct_udp_network(
+            let _ = network::udp_net::start_udp_network(
                 wv_watch_rx,
                 container_tx,
                 packetloss_rx,
@@ -241,7 +245,7 @@ async fn main() {
     //         let _ = udp_network::udp_watchdog(connection_to_master_failed_tx_clone).await;
     //     });
     // }
-    /* START ----------- Network related tasks ---------------------- */
+    /* END ----------- Network related tasks ---------------------- */
 
 
     // Prevents the main task from exiting by yielding continuously.
