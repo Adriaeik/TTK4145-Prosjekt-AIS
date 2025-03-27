@@ -45,7 +45,7 @@ pub static OFFLINE_IP: Ipv4Addr = Ipv4Addr::new(69, 69, 69, 69);
 pub static LOCAL_ELEV_IP: &str = "localhost:15657";
 
 /// Broadcast key used to filter out invalid worldview messages
-pub const KEY_STR: &str = "Gruppe 25";
+pub const KEY_STR: &str = "Secret Key";
 
 //
 // ──────────────────────────────────────────────────────────────
