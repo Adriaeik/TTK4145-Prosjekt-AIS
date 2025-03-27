@@ -3,10 +3,11 @@
 //! This module is onle here to make logging in the terminal easier to read. 
 //! It allows to print in appropriate colors depening on the situation.
 //! It also provides a nice print-format for the WorldView. 
-use crate::{config, network, world_view::{Dirn, ElevatorBehaviour, WorldView}};
-use ansi_term::Colour::{self, Green, Red, Yellow, Purple, White};
 
-use prettytable::color::BLUE;
+use crate::config;
+use crate::network;
+use crate::world_view::{Dirn, ElevatorBehaviour, WorldView};
+use ansi_term::Colour::{self, Green, Red, Yellow, Purple, White};
 use unicode_width::UnicodeWidthStr;
 
 /// Prints a message in a specified color to the terminal.

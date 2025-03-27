@@ -265,15 +265,10 @@ pub fn should_stop(elevator: &ElevatorContainer) -> bool {
 }
 
 
-/// Evaluates whether the elevator was previously outside its designated service range.
-///
-/// This function mirrors `should_stop()` logic and may be used for debugging or fallback decisions.
+/// Finds out if the call on the floor is a hall request matching the elevators direction, without any other calls in that direction
 ///
 /// # Parameters
 /// - `elevator`: Reference to the elevator's internal state.
-///
-/// # Returns
-/// `true` if considered outside or should stop, otherwise `false`.
 pub fn was_outside(elevator: &ElevatorContainer) -> bool {
     let floor = elevator.last_floor_sensor as usize;
     
@@ -296,17 +291,5 @@ pub fn was_outside(elevator: &ElevatorContainer) -> bool {
 /// # Parameters
 /// - `elevator`: Mutable reference to the elevator's internal state.
 pub fn clear_at_current_floor(elevator: &mut ElevatorContainer) {
-    match elevator.dirn {
-        Dirn::Up => {
-            elevator.cab_requests[elevator.last_floor_sensor as usize] = false;
-            // Master clearer hall_request
-        },
-        Dirn::Down => {
-            elevator.cab_requests[elevator.last_floor_sensor as usize] = false;
-            // Master clearer hall_request
-        },
-        Dirn::Stop => {
-            elevator.cab_requests[elevator.last_floor_sensor as usize] = false;
-        },        
-    }
+    elevator.cab_requests[elevator.last_floor_sensor as usize] = false;
 }

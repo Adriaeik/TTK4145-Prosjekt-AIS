@@ -19,12 +19,20 @@
 //! - `get_terminal_command` – Returns the appropriate terminal command for different operating systems.
 //! - `build_cost_fn` – Executes a build script for the hall request assigner cost function.
 
-use std::{borrow::Cow, env, net::SocketAddr, time::Duration};
-use tokio::{net::UdpSocket, time::{sleep, timeout, Instant}};
+use crate::config; 
+use crate::ip_help_functions::ip2id;
+use crate::network;
+use crate::print; 
+use crate::world_view::{self, ElevatorContainer, WorldView};
+
+use std::env;
+use std::net::SocketAddr;
+use std::time::Duration;
+use tokio::net::UdpSocket; 
+use tokio::time::{sleep, timeout, Instant};
+use tokio::process::Command;
 use socket2::{Domain, Socket, Type};
 use local_ip_address::local_ip;
-use crate::{config, ip_help_functions::ip2id, network, print, world_view::{self, ElevatorContainer, WorldView}};
-use tokio::process::Command;
 
 /// ### Initializes the worldview on startup
 ///
@@ -334,5 +342,4 @@ pub async fn build_cost_fn() {
     sleep(Duration::from_millis(2000)).await;
 }
 
-pub async fn build_netimpair_fn() {}
 

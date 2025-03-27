@@ -135,7 +135,6 @@ pub fn abort_network(wv: &mut WorldView) -> bool {
     wv.elevator_containers.retain(|elevator| elevator.elevator_id == network::read_self_id());
     wv.set_num_elev(wv.elevator_containers.len() as u8);
     wv.master_id = network::read_self_id();
-    //TODO hent ut self index istedenfor 0 indeks
     wv.hall_request = merge_hall_requests(&wv.hall_request, &wv.elevator_containers[0].tasks);
     true
 }
