@@ -28,10 +28,6 @@
 //! It ensures that the shared state remains up to date and consistent across elevator roles (master/slave).
 
 mod update_wv;
-
-use crate::print;
-use crate::world_view::{ElevatorContainer, WorldView};
-
 use update_wv::{ 
     join_wv_from_udp, 
     abort_network, 
@@ -42,6 +38,9 @@ use update_wv::{
     update_elev_states,
     merge_wv_after_offline,
 };
+
+use crate::print;
+use crate::world_view::{ElevatorContainer, WorldView};
 use crate::world_view::{self};
 
 use tokio::sync::{mpsc, watch};

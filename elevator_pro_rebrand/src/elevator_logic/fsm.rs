@@ -94,86 +94,6 @@ pub async fn on_init(
     ).await;
 }
 
-/// Handles elevator behavior upon arrival at a new floor.
-///
-/// If the elevator is currently moving or in an error state, this function checks
-/// whether it should stop at the current floor (e.g., due to a hall or cab request).
-/// If a stop is needed, it performs the following actions:
-/// - Stops the motor
-/// - Clears cab requests at the current floor
-/// - Starts both the door timer and the cab call priority timer
-/// - Sets the elevator's behavior to `DoorOpen`
-///
-///
-/// # Parameters
-/// - `elevator`: Mutable reference to the elevator's internal state.
-/// - `e`: Elevator hardware interface, used to control motor and lights.
-/// - `door_timer`: Timer tracking how long the door should stay open.
-/// - `cab_priority_timer`: Timer giving priority to inside cab requests after door opens.
-async fn on_floor_arrival(
-    elevator: &mut ElevatorContainer,
-    e: Elevator,
-    door_timer: &mut Timer,
-    cab_priority_timer: &mut Timer,
-) {
-    // Fix startup case: sensor value is 255 when between floors → set to top floor
-    if elevator.last_floor_sensor > elevator.num_floors {
-        elevator.last_floor_sensor = elevator.num_floors - 1;
-    }
-
-    // Turn on light for active cab request (if any)
-    lights::set_cab_light(e.clone(), elevator.last_floor_sensor);
-
-    match elevator.behaviour {
-        ElevatorBehaviour::Moving | ElevatorBehaviour::ObstructionError | ElevatorBehaviour::TravelError => {
-            if request::should_stop(&elevator.clone()) {
-                e.motor_direction(Dirn::Stop as u8);
-                request::clear_at_current_floor(elevator);
-                door_timer.timer_start();
-                cab_priority_timer.timer_start();
-                elevator.behaviour = ElevatorBehaviour::DoorOpen;
-            }
-        }
-        _ => {}
-    }
-}
-
-/// Handles the event when the door timeout has expired.
-///
-/// This function is called after the door has been open for a certain time.
-/// It decides what the elevator should do next by:
-/// - Choosing a new direction and behaviour using the request logic
-/// - Updating the elevator's direction and behaviour accordingly
-///
-/// If the elevator decides to stay in `DoorOpen`, it means there is still
-/// a request at the current floor and the door should remain open.
-/// Otherwise, the elevator starts moving in the chosen direction.
-///
-/// # Parameters
-/// - `elevator`: Mutable reference to the elevator's internal state.
-/// - `e`: Elevator hardware interface, used to control lights and motor.
-async fn on_door_timeout(elevator: &mut ElevatorContainer, e: Elevator) {
-    match elevator.behaviour {
-        ElevatorBehaviour::DoorOpen => {
-            let state_pair = request::choose_direction(&elevator.clone());
-
-            
-            elevator.behaviour = state_pair.behaviour;
-            elevator.dirn = state_pair.dirn;
-
-            match elevator.behaviour {
-                ElevatorBehaviour::DoorOpen => {
-                    request::clear_at_current_floor(elevator);
-                }
-                _ => {
-                    e.motor_direction(elevator.dirn as u8);
-                }
-            }
-        },
-        _ => {},
-    }
-}
-
 /// Handles floor arrival updates when a new floor sensor reading is detected.
 ///
 /// If the current floor (`last_floor_sensor`) is different from the previously known floor,
@@ -329,5 +249,95 @@ pub fn handle_idle_state(
         }
     }
 }
+
+
+
+
+
+
+
+
+
+/// Handles elevator behavior upon arrival at a new floor.
+///
+/// If the elevator is currently moving or in an error state, this function checks
+/// whether it should stop at the current floor (e.g., due to a hall or cab request).
+/// If a stop is needed, it performs the following actions:
+/// - Stops the motor
+/// - Clears cab requests at the current floor
+/// - Starts both the door timer and the cab call priority timer
+/// - Sets the elevator's behavior to `DoorOpen`
+///
+///
+/// # Parameters
+/// - `elevator`: Mutable reference to the elevator's internal state.
+/// - `e`: Elevator hardware interface, used to control motor and lights.
+/// - `door_timer`: Timer tracking how long the door should stay open.
+/// - `cab_priority_timer`: Timer giving priority to inside cab requests after door opens.
+async fn on_floor_arrival(
+    elevator: &mut ElevatorContainer,
+    e: Elevator,
+    door_timer: &mut Timer,
+    cab_priority_timer: &mut Timer,
+) {
+    // Fix startup case: sensor value is 255 when between floors → set to top floor
+    if elevator.last_floor_sensor > elevator.num_floors {
+        elevator.last_floor_sensor = elevator.num_floors - 1;
+    }
+
+    // Turn on light for active cab request (if any)
+    lights::set_cab_light(e.clone(), elevator.last_floor_sensor);
+
+    match elevator.behaviour {
+        ElevatorBehaviour::Moving | ElevatorBehaviour::ObstructionError | ElevatorBehaviour::TravelError => {
+            if request::should_stop(&elevator.clone()) {
+                e.motor_direction(Dirn::Stop as u8);
+                request::clear_at_current_floor(elevator);
+                door_timer.timer_start();
+                cab_priority_timer.timer_start();
+                elevator.behaviour = ElevatorBehaviour::DoorOpen;
+            }
+        }
+        _ => {}
+    }
+}
+
+/// Handles the event when the door timeout has expired.
+///
+/// This function is called after the door has been open for a certain time.
+/// It decides what the elevator should do next by:
+/// - Choosing a new direction and behaviour using the request logic
+/// - Updating the elevator's direction and behaviour accordingly
+///
+/// If the elevator decides to stay in `DoorOpen`, it means there is still
+/// a request at the current floor and the door should remain open.
+/// Otherwise, the elevator starts moving in the chosen direction.
+///
+/// # Parameters
+/// - `elevator`: Mutable reference to the elevator's internal state.
+/// - `e`: Elevator hardware interface, used to control lights and motor.
+async fn on_door_timeout(elevator: &mut ElevatorContainer, e: Elevator) {
+    match elevator.behaviour {
+        ElevatorBehaviour::DoorOpen => {
+            let state_pair = request::choose_direction(&elevator.clone());
+
+            
+            elevator.behaviour = state_pair.behaviour;
+            elevator.dirn = state_pair.dirn;
+
+            match elevator.behaviour {
+                ElevatorBehaviour::DoorOpen => {
+                    request::clear_at_current_floor(elevator);
+                }
+                _ => {
+                    e.motor_direction(elevator.dirn as u8);
+                }
+            }
+        },
+        _ => {},
+    }
+}
+
+
 
 

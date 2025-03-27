@@ -13,12 +13,6 @@ pub mod timer;
 mod lights;
 mod self_elevator;
 
-use std::time::Duration;
-
-use tokio::task::yield_now;
-use tokio::sync::mpsc;
-use tokio::sync::watch;
-use tokio::time::sleep;
 use crate::config;
 use crate::elevio;
 use crate::elevio::elev::Elevator;
@@ -29,6 +23,12 @@ use crate::world_view::Dirn;
 use crate::world_view::ElevatorBehaviour;
 use crate::world_view::ElevatorContainer;
 use crate::world_view::WorldView;
+
+use std::time::Duration;
+use tokio::task::yield_now;
+use tokio::sync::mpsc;
+use tokio::sync::watch;
+use tokio::time::sleep;
 
 /// Initializes and runs the local elevator logic as a set of async tasks.
 ///

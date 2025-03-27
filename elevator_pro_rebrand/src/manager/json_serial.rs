@@ -1,11 +1,17 @@
-// Library that allows us to use environment variables or command-line arguments to pass variables from terminal to the program directly
-use std::{collections::HashMap, env};
-use serde::{Serialize, Deserialize};
+
+
+
+use crate::config;
+use crate::world_view::{ElevatorBehaviour, WorldView};
+
+use std::collections::HashMap; 
+use std::env;
 use std::fs::File;
 use std::io::Write;
-// Library for executing terminal commands
+use serde::{Serialize, Deserialize};
 use tokio::process::Command;
-use crate::{config, world_view::{ElevatorBehaviour, WorldView}};
+
+
 
 #[allow(non_snake_case)]
 #[derive(Debug, Clone, Serialize, Deserialize)]

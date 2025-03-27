@@ -18,12 +18,16 @@
 //! - TCP-based communication is deprecated and currently inactive
 //! - This function never returns; it enters an infinite loop after initializing all tasks
 
-use tokio::sync::watch;
 
-use elevatorpro::{backup, elevator_logic, manager, network::{self, local_network, udp_broadcast}, world_view};
+use elevatorpro::network::{self, local_network, udp_broadcast};
+use elevatorpro::backup;
+use elevatorpro::elevator_logic;
+use elevatorpro::manager;
+use elevatorpro::world_view;
 use elevatorpro::init;
 use elevatorpro::print;
 
+use tokio::sync::watch;
 
 
 #[tokio::main]

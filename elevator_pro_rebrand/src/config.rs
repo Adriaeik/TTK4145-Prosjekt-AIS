@@ -7,9 +7,9 @@
 //! Some of these constants may no longer be used. Consider cleaning up unused values.
 
 use std::net::Ipv4Addr;
+use std::sync::Mutex;
 use std::time::Duration;
 use once_cell::sync::Lazy;
-use std::sync::Mutex;
 
 //
 // ──────────────────────────────────────────────────────────────
