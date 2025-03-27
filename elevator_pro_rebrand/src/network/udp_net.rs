@@ -473,7 +473,7 @@ impl PID {
 use once_cell::sync::Lazy;
 
 static REDUNDANCY_PID: Lazy<Mutex<PID>> = Lazy::new(|| {
-    Mutex::new(PID::new(100.0, 10.05, 1.01)) // Tuning-verdiar: test gjerne!
+    Mutex::new(PID::new(100.0, 14.05, 1.01)) // Tuning-verdiar: test gjerne!
 });
 
 fn clamp(val: f64, min: f64, max: f64) -> f64 {
@@ -493,7 +493,7 @@ pub async fn get_redundancy(packetloss: u8, last_seen: Instant) -> usize {
     };
 
     let base = 1.0;
-    let redundans = clamp(base + output, 1.0, 600.0);
+    let redundans = clamp(base + output, 1.0, 300.0);
 
     println!(
         "[PID] Last seen: {:.3}s | Error: {:.3} | Redundancy: {:.1}",
