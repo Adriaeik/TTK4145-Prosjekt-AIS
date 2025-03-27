@@ -16,7 +16,6 @@ use std::{
     sync::Arc,
     time::{Duration, Instant},
 };
-use std::sync::atomic::{AtomicBool, Ordering};
 use once_cell::sync::Lazy;
 
 
@@ -24,13 +23,35 @@ const INACTIVITY_TIMEOUT: Duration = Duration::from_secs(5); // Tidsgrense for i
 const CLEANUP_INTERVAL: Duration = Duration::from_secs(1); // Hvor ofte inaktive sendere fjernes
 
 
+/// Initializes and manages a direct UDP network "connection" for communication between master and slave nodes.
+/// 
+/// This function sets up the UDP socket, configures necessary network parameters, and starts listening and sending
+/// UDP packets for communication. It handles both sending/receiving data from the master and sending/recieving data from slaves, based on the systems current role.
+/// 
+/// # Arguments
+/// - `wv_watch_rx` - Receiver for world view updates.
+/// - `container_tx` - Channel for sending received elevator containers to other parts of the system.
+/// - `packetloss_rx` - Receiver for tracking packet loss information.
+/// - `connection_to_master_failed_tx` - Sender to notify if the connection to the master failed.
+/// - `remove_container_tx` - Channel to notify when a slave becomes inactive.
+/// - `sent_container_tx` - Channel to notify worldview updater about what data has been sent and acked by the master.
+/// 
+/// # Behaviour
+/// - Initializes a non-blocking UDP socket and configures its parameters.
+/// - Continuously listens for incoming UDP messages from slaves and processes them while the system is the network master.
+/// - Sends periodic UDP packets to the master with the current state of the local elevator while the system is the network slave.
+/// 
+/// # Notes
+/// - The function blocks until the network is ready and the socket is successfully configured.
+/// - After socket setup, it enters a loop where it listens and sends UDP packets for slave-master communication.
+/// - The loop continues indefinitely, processing messages and sending responses as needed.
 pub async fn start_direct_udp_network(
     wv_watch_rx: watch::Receiver<WorldView>,
     container_tx: mpsc::Sender<ElevatorContainer>,
     packetloss_rx: watch::Receiver<network::ConnectionStatus>,
     connection_to_master_failed_tx: mpsc::Sender<bool>,
     remove_container_tx: mpsc::Sender<u8>,
-    sent_tcp_container_tx: mpsc::Sender<ElevatorContainer>,
+    sent_container_tx: mpsc::Sender<ElevatorContainer>,
 ) 
 {
     while !network::read_network_status() {}
@@ -71,7 +92,7 @@ pub async fn start_direct_udp_network(
             wv_watch_rx.clone(),
             packetloss_rx.clone(),  
             connection_to_master_failed_tx.clone(),
-            sent_tcp_container_tx.clone(),
+            sent_container_tx.clone(),
         ).await;
     }
 }
@@ -86,7 +107,27 @@ struct ReceiverState
     last_seen: Instant,
 }
 
-/// Starter en UDP-mottaker som håndterer flere samtidige sendere og sender redundante ACKs
+/// Listens for incoming UDP messages from slave nodes and processes them accordingly.
+/// 
+/// # Arguments
+/// - `socket` - The UDP socket used for communication.
+/// - `wv` - Mutable reference to the world view state.
+/// - `wv_watch_rx` - A [watch] receiver for world view updates.
+/// - `container_tx` - Channel for sending received elevator containers.
+/// - `packetloss_rx` - A [watch] receiver for tracking packet loss.
+/// - `remove_container_tx` - [mpsc] sender for notifying when a slave becomes inactive.
+/// 
+/// # Behaviour
+/// - If a message is received with the expected sequence number, it is processed and acknowledged.
+/// - If a message is out of order or corrupted, it is ignored.
+/// - Inactive slaves are periodically detected and removed.
+/// - The function runs continuously while the local node is the master.
+/// 
+/// # Notes
+/// - The function relies on `parse_message` to extract data and determine the appropriate response.
+/// - `monitor_slave_activity` is spawned as a separate task to handle inactive slave removal.
+/// - If packet loss is high, the redundancy factor for ACK messages increases.
+/// - This function should be run inside a Tokio task to prevent blocking.
 async fn receive_udp_master(
     socket: &UdpSocket,
     wv: &mut WorldView,
@@ -105,13 +146,13 @@ async fn receive_udp_master(
         // Start task detecting inctive slaves
         let state_cleanup = state.clone();
         let wv_watch_rx = wv_watch_rx.clone();
-        let mut wv = wv.clone();
+        let wv = wv.clone();
         monitor_slave_activity(
             wv_watch_rx,
-            &mut wv,
+            wv,
             state_cleanup,
             remove_container_tx,
-        );
+        ).await;
     }
 
     let mut buf = [0; 65535];
@@ -145,9 +186,6 @@ async fn receive_udp_master(
         
         match msg {
             (Some(container), code) => {
-                // println!("Received valid packet from {}: seq {}", slave_addr, last_seq);
-                //Meldinga er en forventet melding -> oppdater hashmappets state
-                // println!("Ack? {:?}", code);
                 match code {
                     RecieveCode::Accept | RecieveCode::Rejoin=> {
                         let _ = container_tx.send(container.clone()).await;
@@ -190,7 +228,7 @@ async fn receive_udp_master(
 ///
 /// # Arguments
 /// * `wv_watch_rx` - A [watch] reciever to observe worldview updates.
-/// * `wv` - A mutable reference to a [`WorldView`] struct.
+/// * `wv` - A mutable [`WorldView`] struct.
 /// * `state_cleanup` - A shared [HashMap] tracking the last known state of each slave,
 ///   protected by a [Mutex] for concurrent access.
 /// * `remove_container_tx` - An [mpsc] sender used to notify the worldview updater
@@ -206,7 +244,7 @@ async fn receive_udp_master(
 /// This function is essential for maintaining an up-to-date list of active nodes in the system.
 async fn monitor_slave_activity(
     wv_watch_rx: watch::Receiver<WorldView>,
-    wv: &mut WorldView,
+    mut wv: WorldView,
     state_cleanup:  Arc<Mutex<HashMap<SocketAddr, ReceiverState>>>,
     remove_container_tx: mpsc::Sender<u8>,
 )
@@ -361,7 +399,7 @@ async fn send_udp(
             return Err(std::io::Error::new(std::io::ErrorKind::InvalidData, "Self container not found in worldview"))
         }
     };
-    let mut timeout = sleep(Duration::from_millis(backoff_timeout_ms));
+
     loop 
     {
         if should_send 
@@ -379,7 +417,7 @@ async fn send_udp(
             should_send = false;
         }
 
-        timeout = sleep(Duration::from_millis(backoff_timeout_ms));
+        let timeout = sleep(Duration::from_millis(backoff_timeout_ms));
     
         tokio::select! 
         {
@@ -401,7 +439,8 @@ async fn send_udp(
                         if seq_num == u16::from_le_bytes(seq) 
                         {
                             last_seen_from_master = Instant::now();
-                            sent_container_tx.send(sent_cont).await?;
+                            let _ = sent_container_tx.send(sent_cont).await;
+                            return Ok(())
                         }
                     }
                     // Hvis pakken ikke var riktig ACK, fortsett til neste forsøk.
@@ -413,7 +452,27 @@ async fn send_udp(
 }
 
 
-
+/// Sends a UDP packet to the specified address with redundancy.
+/// 
+/// This function constructs a message based on the `WorldView` and transmits it multiple times  
+/// to improve reliability in high packet loss environments.
+/// 
+/// # Arguments
+/// * `socket` - A reference to the `UdpSocket` used for sending data.
+/// * `seq_num` - The sequence number of the packet, used for tracking.
+/// * `addr` - The destination `SocketAddr` (typically the master node).
+/// * `redundancy` - The number of times the packet should be sent for reliability.
+/// * `wv` - A reference to the `WorldView`, containing system state and data to be transmitted.
+/// 
+/// # Behavior
+/// - Calls `build_message()` to construct the UDP packet payload.
+/// - If message construction succeeds, it sends the packet `redundancy` times.
+/// - If message construction fails, it returns an error.
+/// - Ignores send errors (e.g., packet drops) and continues sending the remaining redundant packets.
+/// 
+/// # Notes
+/// - The redundancy factor should be chosen based on network conditions.
+/// - This function does not wait for an acknowledgment; it only transmits packets.
 async fn send_packet(
     socket: &UdpSocket, 
     seq_num: u16, 
@@ -437,6 +496,9 @@ async fn send_packet(
 }
 
 
+/// Builds a UDP message containing the sequence number and serialized elevator container.
+/// 
+/// Returns `None` if extracting the elevator container fails.
 fn build_message(
     wv: &WorldView,
     seq_num: &u16,
@@ -456,6 +518,9 @@ fn build_message(
     Some(buf)
 }
 
+/// Parses a received UDP message and determines its validity.
+/// 
+/// Returns an `ElevatorContainer` if valid, along with a `RecieveCode` indicating the action to take.
 fn parse_message(
     buf: &[u8],
     expected_seq: u16,
@@ -475,7 +540,7 @@ fn parse_message(
 
     if key == expected_seq {
         return (world_view::deserialize(&buf[2..]), RecieveCode::Accept);
-    } else if key == 0 && expected_seq != 0 {
+    } else if key == 0 && expected_seq != 1 {
         return (world_view::deserialize(&buf[2..]), RecieveCode::Rejoin);
     } else if key == expected_seq.wrapping_rem(1) {
         return (world_view::deserialize(&buf[2..]), RecieveCode::AckOnly);
