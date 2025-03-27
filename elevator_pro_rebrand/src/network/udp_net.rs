@@ -290,13 +290,14 @@ async fn send_udp(
         if should_send {
             let packetloss = packetloss_rx.borrow().clone();
             let redundancy = get_redundancy(packetloss.packet_loss, last_seen_from_master).await;
-            println!(
-                "Sending packet {} with redundancy {} (loss: {}%, time since last ACK: {:.2}s)",
-                seq_num,
-                redundancy,
-                packetloss.packet_loss,
-                Instant::now().duration_since(last_seen_from_master).as_secs_f64()
-            );
+            // println!(
+            //     "Sending packet {} with redundancy {} (loss: {}%, time since last ACK: {:.2}s)",
+            //     seq_num,
+            //     redundancy,
+            //     packetloss.packet_loss,
+            //     Instant::now().duration_since(last_seen_from_master).as_secs_f64()
+            // );
+            println!("Sending with redundancy: {}", redundancy);
             // println!("Sending packet nr. {} with {} copies (estimated loss: {}%)", seq_num, redundancy, packetloss.packet_loss);
             send_packet(
                 &socket, 
@@ -495,12 +496,12 @@ pub async fn get_redundancy(packetloss: u8, last_seen: Instant) -> usize {
     let base = 1.0;
     let redundans = clamp(base + output, 1.0, 600.0);
 
-    println!(
-        "[PID] Last seen: {:.3}s | Error: {:.3} | Redundancy: {:.1}",
-        time_since_last,
-        setpoint - measurement,
-        redundans
-    );
+    // println!(
+    //     "[PID] Last seen: {:.3}s | Error: {:.3} | Redundancy: {:.1}",
+    //     time_since_last,
+    //     setpoint - measurement,
+    //     redundans
+    // );
 
     redundans.round() as usize
 }
