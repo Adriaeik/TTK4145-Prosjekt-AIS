@@ -494,7 +494,7 @@ pub async fn get_redundancy(packetloss: u8, last_seen: Instant) -> usize {
     };
 
     let base = 1.0;
-    let redundans = clamp(base + output, 1.0, 300.0);
+    let redundans = clamp((base + output)*(packetloss as f64+1.0)/100.0, 1.0, 300.0);
 
     // println!(
     //     "[PID] Last seen: {:.3}s | Error: {:.3} | Redundancy: {:.1}",
