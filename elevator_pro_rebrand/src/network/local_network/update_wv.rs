@@ -25,23 +25,17 @@
 //! - [`merge_wv_after_offline`] - Handles reintegration after being offline.
 //!
 //! ### 2. Handling Disconnections & Role Transitions
-//! - [`abort_network`] - Used when becoming offline.
+//! - [`abort_network`] - Used when becoming offline, or connection to master fails.
 //! - [`remove_container`] - Removes a disconnected elevator from the worldview.
 //!
 //! ### 3. Cleaning Up After Message Sending
-//! - [`clear_from_sent_data`] - Clears sent call requests from the worldview after an ACK on sent message send.
+//! - [`clear_from_sent_data`] - Clears sent call requests from the worldview after an ACK on sent message.
 //!
 //! ### 4. Utility and Support Functions
 //! - [`distribute_tasks`] - Distributes task maps to elevators.
 //! - [`update_elev_states`] - Updates a container's state fields.
 //! - [`update_cab_request_backup`] - Updates backup for cab requests.
 //! - [`merge_hall_requests`] - Safely merges two hall request vectors.
-//!
-//! ## Example Usage Flow
-//! 1. UDP broadcast is received → `join_wv_from_udp` updates local `WorldView`.
-//! 2. packet from slave arrives → `join_wv_from_container` updates the global state.
-//! 3. Elevator goes offline → `abort_network` strips remote elevators.
-//! 4. WorldView is rejoined to network → `merge_wv_after_offline` handles merging safely.
 //!
 //! ---
 
@@ -59,7 +53,21 @@ use crate::network;
 use std::collections::HashMap;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
+use std::sync::LazyLock;
 
+
+
+
+
+static HALL_INSTANTS: LazyLock<Mutex<[[Instant; 2]; 4]>> = LazyLock::new(|| {
+    Mutex::new(std::array::from_fn(|_| {
+        std::array::from_fn(|_| Instant::now())
+    }))
+});
+
+
+
+/* _______________ START PUB FUNCTIONS _______________ */
 
 
 
@@ -90,9 +98,7 @@ pub fn join_wv_from_udp(my_wv: &mut WorldView, master_wv: &mut WorldView) -> boo
     if let (Some(i_org), Some(i_new)) = (my_self_index, master_self_index) {
         let my_view = &my_wv.elevator_containers[i_org];
         let master_view = &mut master_wv.elevator_containers[i_new];
-        
-        
-        
+
         // Synchronize elevator status
         master_view.dirn = my_view.dirn;
         master_view.behaviour = my_view.behaviour;
@@ -170,18 +176,16 @@ pub fn abort_network(wv: &mut WorldView) -> bool {
 /// assert!(ok);
 /// ```
 pub async fn join_wv_from_container(wv: &mut WorldView, container: &ElevatorContainer) -> bool {
-
     // If the slave does not exist, add it as-is
     if None == wv.elevator_containers.iter().position(|x| x.elevator_id == container.elevator_id) {
         wv.add_elev(container.clone());
     }
 
     let self_idx = world_view::get_index_to_container(container.elevator_id, &wv);
-    
     if let Some(i) = self_idx {
         // Add the slave's sent hall_requests to worldview's hall_requests
         for (row1, row2) in wv.hall_request.iter_mut().zip(container.unsent_hall_request.iter()) {
-            for (i, (val1, (j, val2))) in row1.iter_mut().zip(row2.iter().enumerate()).enumerate() {
+            for (val1, val2) in row1.iter_mut().zip(row2.iter()) {
                 if !*val1 && *val2 {
                     *val1 = true;
                     
@@ -189,13 +193,12 @@ pub async fn join_wv_from_container(wv: &mut WorldView, container: &ElevatorCont
             }
         }
 
-
-        
         // Add slaves unfinished tasks to hall_requests
         if wv.elevator_containers[i].behaviour != ElevatorBehaviour::ObstructionError || wv.elevator_containers[i].behaviour != ElevatorBehaviour::TravelError {
             wv.hall_request = merge_hall_requests(&wv.hall_request, &wv.elevator_containers[i].tasks);
         }
         
+        // If you are master, this is your own container. You can then safely mark all hall_requests as sent and recieved by the master
         if world_view::is_master(wv) {
             wv.elevator_containers[i].unsent_hall_request = vec![[false; 2]; wv.elevator_containers[i].num_floors as usize];
         }
@@ -210,8 +213,6 @@ pub async fn join_wv_from_container(wv: &mut WorldView, container: &ElevatorCont
         wv.elevator_containers[i].behaviour = container.behaviour;
         wv.elevator_containers[i].last_behaviour = container.last_behaviour;
         
-    
-
         //Remove taken hall_requests
         for (idx, [up, down]) in wv.hall_request.iter_mut().enumerate() {
             if (wv.elevator_containers[i].behaviour == ElevatorBehaviour::DoorOpen) && (wv.elevator_containers[i].last_floor_sensor == (idx as u8)) {
@@ -246,29 +247,6 @@ pub async fn join_wv_from_container(wv: &mut WorldView, container: &ElevatorCont
     }
 }
 
-use std::sync::LazyLock;
-static HALL_INSTANTS: LazyLock<Mutex<[[Instant; 2]; 4]>> = LazyLock::new(|| {
-    Mutex::new(std::array::from_fn(|_| {
-        std::array::from_fn(|_| Instant::now())
-    }))
-});
-
-fn update_hall_instants(floor: usize, direction: Option<usize>) {
-    if let Some(dirn) = direction {
-        let mut lock = HALL_INSTANTS.lock().unwrap();
-        lock[floor][dirn] = Instant::now();
-    }
-}
-
-fn time_since_hall_instants(floor: usize, direction: Option<usize>) -> std::time::Duration {
-    if let Some(dirn) = direction {
-        let lock = HALL_INSTANTS.lock().unwrap();
-        return lock[floor][dirn].elapsed()
-    }
-    return Instant::now().elapsed();
-}
-
-
 /// ### Removes a slave based on its ID
 /// 
 /// This function removes an elevator (slave) from the worldview by its ID. 
@@ -296,8 +274,6 @@ pub fn remove_container(wv: &mut WorldView, id: u8) -> bool {
     true
 }
 
-
-
 /// ### Updates local call buttons and task statuses after they are sent over TCP to the master
 /// 
 /// This function processes the tasks and call buttons that have been sent to the master over TCP. 
@@ -324,7 +300,6 @@ pub fn clear_from_sent_data(wv: &mut WorldView, tcp_container: ElevatorContainer
     
     if let Some(i) = self_idx {
         /*_____ Remove sent Hall request _____ */
-   
         for (row1, row2) in wv.elevator_containers[i].unsent_hall_request
                                                         .iter_mut().zip(tcp_container.unsent_hall_request.iter()) {
             for (val1, val2) in row1.iter_mut().zip(row2.iter()) {
@@ -359,7 +334,6 @@ pub fn distribute_tasks(wv: &mut WorldView, map: HashMap<u8, Vec<[bool; 2]>>) ->
             elev.tasks = tasks.clone();
         }
     }
-
     true
 }
 
@@ -379,22 +353,6 @@ pub fn update_elev_states(wv: &mut WorldView, container: ElevatorContainer) -> b
     }
     true
 }
-
-/// Updates the backup hashmap for cab_requests, så they are remembered on the network in the case of power loss on a node
-/// 
-/// ## Parameters
-/// `backup`: A mutable reference to the backup hashmap in the worldview
-/// `container`: The new ElevatorContainer recieved
-/// 
-/// ## Behaviour
-/// Insert the container's cab_requests in key: container.elevator_id. If no old keys matches the id, a new entry is added. 
-fn update_cab_request_backup(backup: &mut HashMap<u8, Vec<bool>>, container: ElevatorContainer) {
-    backup.insert(container.elevator_id, container.cab_requests);
-}
-
-
-
-
 
 /// Merges local worldview with networks worldview after being offline
 /// 
@@ -428,6 +386,49 @@ pub fn merge_wv_after_offline(my_wv: &mut WorldView, read_wv: &mut WorldView) {
 
     *my_wv = read_wv.clone();
 }
+
+
+
+/* _______________ END PUB FUNCTIONS _______________ */
+
+
+
+
+
+
+
+
+
+/* _______________ START PRIVATE FUNCTIONS _______________ */
+
+fn update_hall_instants(floor: usize, direction: Option<usize>) {
+    if let Some(dirn) = direction {
+        let mut lock = HALL_INSTANTS.lock().unwrap();
+        lock[floor][dirn] = Instant::now();
+    }
+}
+
+fn time_since_hall_instants(floor: usize, direction: Option<usize>) -> std::time::Duration {
+    if let Some(dirn) = direction {
+        let lock = HALL_INSTANTS.lock().unwrap();
+        return lock[floor][dirn].elapsed()
+    }
+    return Instant::now().elapsed();
+}
+
+
+/// Updates the backup hashmap for cab_requests, så they are remembered on the network in the case of power loss on a node
+/// 
+/// ## Parameters
+/// `backup`: A mutable reference to the backup hashmap in the worldview
+/// `container`: The new ElevatorContainer recieved
+/// 
+/// ## Behaviour
+/// Insert the container's cab_requests in key: container.elevator_id. If no old keys matches the id, a new entry is added. 
+fn update_cab_request_backup(backup: &mut HashMap<u8, Vec<bool>>, container: ElevatorContainer) {
+    backup.insert(container.elevator_id, container.cab_requests);
+}
+
 
 /// Function to merge hall requests
 /// 
@@ -477,3 +478,9 @@ fn merge_hall_requests(hall_req_1: &Vec<[bool; 2]>, hall_req_2: &Vec<[bool; 2]>)
 
     merged_hall_req
 }
+
+
+
+/* _______________ END PRIVATE FUNCTIONS _______________ */
+
+

@@ -7,6 +7,7 @@
 use crate::config;
 use crate::network;
 use crate::world_view::{Dirn, ElevatorBehaviour, WorldView};
+
 use ansi_term::Colour::{self, Green, Red, Yellow, Purple, White};
 use unicode_width::UnicodeWidthStr;
 

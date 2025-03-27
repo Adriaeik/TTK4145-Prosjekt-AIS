@@ -61,6 +61,17 @@ const INACTIVITY_TIMEOUT: Duration = Duration::from_secs(5);
 /// Interval between cleanup checks for inactive slave nodes.
 const CLEANUP_INTERVAL: Duration = Duration::from_secs(1);
 
+/// Holds information about a "connected" slave
+#[derive(Debug, Clone)]
+struct ReceiverState {
+    last_seq: u16,
+    last_seen: Instant,
+}
+
+
+
+/* _______________ START PUB FUNCTIONS _______________ */
+
 /// Initializes and manages a direct UDP network "connection" for communication between master and slave nodes.
 /// 
 /// This function sets up the UDP socket, configures necessary network parameters, and starts listening and sending
@@ -95,7 +106,7 @@ pub async fn start_direct_udp_broadcast(
     while !network::read_network_status() {}
     let socket = match Socket::new(Domain::IPV4, Type::DGRAM, Some(Protocol::UDP)) {
         Ok(sock) => sock,
-        Err(e) => {panic!("Klarte ikke lage udp socket");}
+        Err(e) => {panic!("Failed to create socket: {}", e)}
     }; 
     while socket.set_reuse_address(true).is_err() {}
     while socket.set_send_buffer_size(16_000_000).is_err() {}
@@ -109,7 +120,7 @@ pub async fn start_direct_udp_broadcast(
     
     let socket = match UdpSocket::from_std(socket.into()) {
         Ok(sock) => sock,
-        Err(e) => {panic!("Klarte ikke lage tokio udp socket");}
+        Err(e) => {panic!("Failed to convert socket to tokio's UdpSocket: {}", e)}
     }; 
 
 
@@ -136,13 +147,17 @@ pub async fn start_direct_udp_broadcast(
 }
 
 
+/* _______________ END PUB FUNCTIONS _______________ */
 
-/// Holder informasjon om en aktiv sender
-#[derive(Debug, Clone)]
-struct ReceiverState {
-    last_seq: u16,
-    last_seen: Instant,
-}
+
+
+
+
+
+
+
+
+/* _______________ START PRIVATE FUNCTIONS _______________ */
 
 /// Listens for incoming UDP messages from slave nodes and processes them accordingly.
 /// 
@@ -258,15 +273,14 @@ async fn receive_udp_master(
                 }
             },
             (None, _) => {
-                // println!("Ignoring out-of-order packet from {}", slave_addr);
                 // Seq nummer doesnt match, or data has been corrupted.
                 // Treat it as if nothing was read.
-                //TODO: Should update last instant? maybe not in case seq number gets unsynced?
             }
         }
         world_view::update_wv(wv_watch_rx.clone(), wv).await;
     }
 }
+
 
 /// Periodically monitors slave (client) activity and removes inactive ones based on a timeout as long as the current node is master on the system.
 ///
@@ -430,7 +444,7 @@ async fn send_udp(
     let server_addr: SocketAddr = format!("{}.{}:{}", config::NETWORK_PREFIX, wv.master_id, 50000).parse().unwrap();
     let mut buf = [0; 65535];
     
-    let mut last_seen_from_master = Instant::now();
+    let last_seen_from_master = Instant::now();
 
     let mut fails = 0;
     let mut backoff_timeout_ms = timeout_ms;
@@ -484,7 +498,6 @@ async fn send_udp(
                     let seq_opt: Option<[u8; 2]> = buf[..len].try_into().ok();
                     if let Some(seq) = seq_opt {
                         if seq_num == u16::from_le_bytes(seq) {
-                            last_seen_from_master = Instant::now();
                             let _ = sent_container_tx.send(sent_cont).await;
                             return Ok(())
                         }
@@ -597,6 +610,22 @@ enum RecieveCode {
     Rejoin
 }
 
+
+
+/* _______________ END PRIVATE FUNCTIONS _______________ */
+
+
+
+
+
+
+
+
+
+
+/* Bellow is the experimental PID controller used to control amount of suplicate packets sent each transmission. This is all private and could be put in a submodule */
+
+
 /// Struct representing a PID (Proportional–Integral–Derivative) controller.
 /// 
 /// This controller is used to compute dynamic output adjustments based on the
@@ -661,6 +690,7 @@ impl PID {
     ///
     /// This is used to monitor how the PID responds to network conditions
     /// in real-time, useful during tuning or system debugging.
+    #[allow(dead_code)]
     fn monitor(&self, setpoint: f64, measurement: f64, output: f64) {
         println!(
             "[PID] Last seen: {:.3}s | Error: {:.3} | Redundancy: {:.1}",
@@ -714,11 +744,11 @@ fn clamp(val: f64, min: f64, max: f64) -> f64 {
 /// A rounded redundancy value in the range `[1, 300]`. 
 ///
 /// PID constants and clamping thresholds are defined in `config.rs` for easy tuning.
-pub async fn get_redundancy(packetloss: u8, last_seen: Instant) -> usize {
+async fn get_redundancy(packetloss: u8, last_seen: Instant) -> usize {
     let now = Instant::now();
-    let time_since_last = now.duration_since(last_seen).as_secs_f64(); // i sekund
+    let time_since_last = now.duration_since(last_seen).as_secs_f64(); // in seconds
 
-    let setpoint = 0.1; // 10 ms ønsket tid mellom mottak
+    let setpoint = 0.1; // 100 ms between new messages
     let measurement = time_since_last;
 
     let output = {

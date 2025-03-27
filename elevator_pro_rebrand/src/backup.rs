@@ -1,4 +1,4 @@
-//! # ⚠️ NOT part of the final solution – Legacy backup module
+//! # NOT part of the final solution – Legacy backup module
 //!
 //! **This module is NOT part of the final distributed system solution.**
 //!
@@ -13,7 +13,7 @@
 //!   even without reconnecting to the network.
 //! - To eventually **rejoin the network** and synchronize with the system if a connection was restored.
 //!
-//! ## ❌ Why is it not part of our solution?
+//! ## Why is it not part of our solution?
 //! After discussions with course assistants and a better understanding of the assignment,
 //! it became clear that:
 //! - The project aims to implement **a distributed system**, not local persistence or replication.
@@ -28,11 +28,11 @@
 //! - Receives `WorldView` updates
 //! - Visualizes elevator state and network status using a colorized print
 //!
-//! ## 📌 Summary:
+//! ## Summary:
 //! - This is a **separate visualization tool**, _not part of the distributed control logic_.
 //! - It remains in the codebase as a helpful debug utility, but should not be considered a part of the system design.
 //! 
-//! ## 🧠 Note:
+//! ## Note:
 //! In industrial applications, local crash recovery _might_ be useful,
 //! especially to avoid reinitializing the elevator in a potentially unstable state.
 //! For example, if a bug caused a crash, restarting **at the same point** could lead to
@@ -43,21 +43,24 @@
 //! of this assignment, which emphasizes **distributed coordination and recovery**
 //! via the networked `WorldView`, not local persistence or reboot logic.
 
-use std::env;
-use std::net::ToSocketAddrs;
-use std::process::Command;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::io::{self, Write};
+use crate::network::ConnectionStatus;
+use crate::world_view::{self, WorldView, serialize};
+use crate::config;
+use crate::init;
+use crate::network;
+use crate::print;
+
+use serde::{Serialize, Deserialize};
 use socket2::{Socket, Domain, Type, Protocol};
+use std::env;
+use std::process::Command;
+use std::net::ToSocketAddrs;
+use std::io::{self, Write};
+use std::sync::atomic::{AtomicBool, Ordering};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::sync::watch;
 use tokio::time::{sleep, timeout};
-use serde::{Serialize, Deserialize};
-use crate::network::ConnectionStatus;
-use crate::world_view::{ WorldView, serialize};
-use crate::{config, init, network, world_view};
-use crate::print;
 
 
 /// Struct representing the data sent from the main process to the backup client.
@@ -81,105 +84,6 @@ struct BackupPayload {
 /// repeated calls to `start_backup_terminal()` will have no effec
 static BACKUP_STARTED: AtomicBool = AtomicBool::new(false);
 
-/// Creates a non-blocking TCP listener on the specified port, with address reuse enabled.
-///
-/// This helper sets up a low-level socket bound to `localhost:<port>`, configured
-/// for asynchronous operation and reuse of the address.
-///
-/// # Parameters
-/// - `port`: The TCP port number to bind to.
-///
-/// # Returns
-/// A `TcpListener` ready for accepting incoming connections.
-///
-/// # Panics
-/// This function will panic if:
-/// - The address cannot be resolved.
-/// - No valid IPv4 address is found.
-/// - Socket creation or binding fails.
-fn create_reusable_listener(
-    port: u16
-) -> TcpListener {
-    let addr_str = format!("localhost:{}", port);
-    let addr_iter = addr_str
-        .to_socket_addrs()
-        .expect("Klarte ikkje resolve 'localhost'");
-
-    let addr = addr_iter
-        .filter(|a| a.is_ipv4())
-        .next()
-        .expect("Fann ingen IPv4-adresse for localhost");
-    let socket = Socket::new(Domain::IPV4, Type::STREAM, Some(Protocol::TCP))
-        .expect("Couldnt create socket");
-    socket.set_nonblocking(true)
-        .expect("Couldnt set non blocking");
-    socket.set_reuse_address(true)
-        .expect("Couldnt set reuse_address");
-    socket.bind(&addr.into())
-        .expect("Couldnt bind the socket");
-    socket.listen(128)
-        .expect("Couldnt listen on the socket");
-    TcpListener::from_std(socket.into())
-        .expect("Couldnt create TcpListener")
-}
-
-/// Launches a new terminal window and starts the program in backup mode.
-///
-/// Uses the current binary path and appends the `backup` argument, causing
-/// the program to run as a backup client.
-///
-/// This function checks the `BACKUP_STARTED` flag to ensure only one
-/// backup process is started.
-///
-/// # Notes
-/// - Only supported on Unix-like systems using `gnome-terminal`.
-/// - Has no effect if backup is already running.
-fn start_backup_terminal() {
-    if !BACKUP_STARTED.load(Ordering::SeqCst) {
-        let current_exe = env::current_exe().expect("Couldnt extract the executable");
-        let _child = Command::new("gnome-terminal")
-            .arg("--geometry=400x24")
-            .arg("--")
-            .arg(current_exe.to_str().unwrap())
-            .arg("backup")
-            .spawn()
-            .expect("Feil ved å starte backupterminalen");
-        BACKUP_STARTED.store(true, Ordering::SeqCst);
-    }
-}
-
-/// Continuously sends serialized `BackupPayload` updates to a connected backup client.
-///
-/// This task runs on the backup-server side. It listens on a watch channel
-/// for updated payloads and transmits them to the connected client over TCP.
-///
-/// # Parameters
-/// - `stream`: The TCP connection to the backup client.
-/// - `rx`: A `watch::Receiver` for updated `BackupPayload` values.
-///
-/// # Behavior
-/// - If sending fails, a warning is printed and the backup terminal is relaunched after delay.
-/// - The loop exits after failure, assuming a new client will reconnect.
-async fn handle_backup_client(
-    mut stream: TcpStream, 
-    rx: watch::Receiver<BackupPayload>
-) {
-    loop {
-        let payload = rx.borrow().clone();
-        let serialized = serialize(&payload);
-
-        if let Err(e) = stream.write_all(&serialized).await {
-            print::err(format!("Backup send error: {}", e));
-            print::warn(format!("Prøver igjen om {:?}", config::BACKUP_TIMEOUT));
-            sleep(config::BACKUP_TIMEOUT).await;
-            BACKUP_STARTED.store(false, Ordering::SeqCst);
-            start_backup_terminal();
-            break;
-        }
-
-        sleep(config::BACKUP_SEND_INTERVAL).await;
-    }
-}
 
 
 /// Starts the backup server, listening for incoming backup clients and
@@ -332,3 +236,122 @@ pub async fn run_as_backup() -> Option<world_view::ElevatorContainer> {
         sleep(config::BACKUP_RETRY_DELAY).await;
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/// Creates a non-blocking TCP listener on the specified port, with address reuse enabled.
+///
+/// This helper sets up a low-level socket bound to `localhost:<port>`, configured
+/// for asynchronous operation and reuse of the address.
+///
+/// # Parameters
+/// - `port`: The TCP port number to bind to.
+///
+/// # Returns
+/// A `TcpListener` ready for accepting incoming connections.
+///
+/// # Panics
+/// This function will panic if:
+/// - The address cannot be resolved.
+/// - No valid IPv4 address is found.
+/// - Socket creation or binding fails.
+fn create_reusable_listener(
+    port: u16
+) -> TcpListener {
+    let addr_str = format!("localhost:{}", port);
+    let addr_iter = addr_str
+        .to_socket_addrs()
+        .expect("Klarte ikkje resolve 'localhost'");
+
+    let addr = addr_iter
+        .filter(|a| a.is_ipv4())
+        .next()
+        .expect("Fann ingen IPv4-adresse for localhost");
+    let socket = Socket::new(Domain::IPV4, Type::STREAM, Some(Protocol::TCP))
+        .expect("Couldnt create socket");
+    socket.set_nonblocking(true)
+        .expect("Couldnt set non blocking");
+    socket.set_reuse_address(true)
+        .expect("Couldnt set reuse_address");
+    socket.bind(&addr.into())
+        .expect("Couldnt bind the socket");
+    socket.listen(128)
+        .expect("Couldnt listen on the socket");
+    TcpListener::from_std(socket.into())
+        .expect("Couldnt create TcpListener")
+}
+
+/// Launches a new terminal window and starts the program in backup mode.
+///
+/// Uses the current binary path and appends the `backup` argument, causing
+/// the program to run as a backup client.
+///
+/// This function checks the `BACKUP_STARTED` flag to ensure only one
+/// backup process is started.
+///
+/// # Notes
+/// - Only supported on Unix-like systems using `gnome-terminal`.
+/// - Has no effect if backup is already running.
+fn start_backup_terminal() {
+    if !BACKUP_STARTED.load(Ordering::SeqCst) {
+        let current_exe = env::current_exe().expect("Couldnt extract the executable");
+        let _child = Command::new("gnome-terminal")
+            .arg("--geometry=400x24")
+            .arg("--")
+            .arg(current_exe.to_str().unwrap())
+            .arg("backup")
+            .spawn()
+            .expect("Feil ved å starte backupterminalen");
+        BACKUP_STARTED.store(true, Ordering::SeqCst);
+    }
+}
+
+/// Continuously sends serialized `BackupPayload` updates to a connected backup client.
+///
+/// This task runs on the backup-server side. It listens on a watch channel
+/// for updated payloads and transmits them to the connected client over TCP.
+///
+/// # Parameters
+/// - `stream`: The TCP connection to the backup client.
+/// - `rx`: A `watch::Receiver` for updated `BackupPayload` values.
+///
+/// # Behavior
+/// - If sending fails, a warning is printed and the backup terminal is relaunched after delay.
+/// - The loop exits after failure, assuming a new client will reconnect.
+async fn handle_backup_client(
+    mut stream: TcpStream, 
+    rx: watch::Receiver<BackupPayload>
+) {
+    loop {
+        let payload = rx.borrow().clone();
+        let serialized = serialize(&payload);
+
+        if let Err(e) = stream.write_all(&serialized).await {
+            print::err(format!("Backup send error: {}", e));
+            print::warn(format!("Prøver igjen om {:?}", config::BACKUP_TIMEOUT));
+            sleep(config::BACKUP_TIMEOUT).await;
+            BACKUP_STARTED.store(false, Ordering::SeqCst);
+            start_backup_terminal();
+            break;
+        }
+
+        sleep(config::BACKUP_SEND_INTERVAL).await;
+    }
+}
+
+
+

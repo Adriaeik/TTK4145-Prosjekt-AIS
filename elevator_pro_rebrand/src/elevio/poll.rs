@@ -1,11 +1,14 @@
 //! Listens for events from the elevator.
 
+
+
+use crate::network;
+use crate::elevio::{CallButton, CallType, elev};
+
 use crossbeam_channel as cbc;
 use std::thread;
 use std::time;
 
-use crate::network;
-use crate::elevio::{CallButton, CallType, elev};
 
 
 #[doc(hidden)]

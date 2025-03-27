@@ -49,117 +49,6 @@ pub struct DirnBehaviourPair {
     pub behaviour: ElevatorBehaviour,
 }
 
-/// Checks if there are any hall or cab requests above the elevator's current floor.
-///
-/// Returns `true` if any requests exist on floors higher than the current one, otherwise `false`.
-///
-/// # Parameters
-/// - `elevator`: Reference to the elevator's internal state.
-fn above(elevator: &ElevatorContainer) -> bool {
-    for floor in (elevator.last_floor_sensor as usize + 1)..elevator.tasks.len() {
-        for btn in 0..2 {
-            if elevator.tasks[floor][btn] {
-                return true;
-            }
-        }
-        if elevator.cab_requests[floor] {
-            return true;
-        }
-    }
-    false
-}
-
-/// Checks if there are any **cab requests** (inside elevator) above the current floor.
-///
-/// Returns `true` if any cab calls exist above, otherwise `false`.
-///
-/// # Parameters
-/// - `elevator`: Reference to the elevator's internal state.
-fn inside_above(elevator: &ElevatorContainer) -> bool {
-    for floor in (elevator.last_floor_sensor as usize + 1)..elevator.tasks.len() {
-        if elevator.cab_requests[floor] {
-            return true;
-        }
-    }
-    false
-}
-
-/// Checks if there are any hall or cab requests below the elevator's current floor.
-///
-/// Returns `true` if any requests exist on floors lower than the current one, otherwise `false`.
-///
-/// # Parameters
-/// - `elevator`: Reference to the elevator's internal state.
-fn below(elevator: &ElevatorContainer) -> bool {
-    for floor in 0..elevator.last_floor_sensor as usize {
-        for btn in 0..2 {
-            if elevator.tasks[floor][btn] {
-                return true;
-            }
-        }
-        if elevator.cab_requests[floor] {
-            return true;
-        }
-    }
-    false
-}
-
-
-/// Checks if there are any **cab requests** (inside elevator) below the current floor.
-///
-/// Returns `true` if any cab calls exist below, otherwise `false`.
-///
-/// # Parameters
-/// - `elevator`: Reference to the elevator's internal state.
-fn insie_below(elevator: &ElevatorContainer) -> bool {
-    for floor in 0..elevator.last_floor_sensor as usize {
-        if elevator.cab_requests[floor] {
-            return true;
-        }
-    }
-    false
-}
-
-/// Checks for any pending tasks or cab requests at the elevator's current floor.
-///
-/// Returns `true` if there is a request at the current floor, otherwise `false`.
-///
-/// # Parameters
-/// - `elevator`: Reference to the elevator's internal state.
-fn here(elevator: &ElevatorContainer) -> bool {
-    // if elevator.last_floor_sensor >= elevator.num_floors{
-    //     return false; // retuner ved feil 
-    // }
-    for btn in 0..2 {
-        if elevator.tasks[elevator.last_floor_sensor as usize][btn] {
-            return true;
-        }
-    }
-    if elevator.cab_requests[elevator.last_floor_sensor as usize] {
-        return true;
-    }
-    false
-}
-
-/// Determines the intended direction of travel based on current tasks at the elevator's floor.
-///
-/// Returns:
-/// - `Dirn::Up` if there's an up request
-/// - `Dirn::Down` if there's a down request
-/// - `Dirn::Stop` if no direction is requested
-///
-/// # Parameters
-/// - `elevator`: Reference to the elevator's internal state.
-fn get_here_dirn(elevator: &ElevatorContainer) -> Dirn {
-    if elevator.tasks[elevator.last_floor_sensor as usize][0] {
-        return Dirn::Up;
-    } else if elevator.tasks[elevator.last_floor_sensor as usize][1] {
-        return Dirn::Down;
-    } else {
-        return Dirn::Stop;
-    }
-
-}
 
 /// Determines whether the elevator is moving towards any cab request (inside call).
 ///
@@ -293,3 +182,127 @@ pub fn was_outside(elevator: &ElevatorContainer) -> bool {
 pub fn clear_at_current_floor(elevator: &mut ElevatorContainer) {
     elevator.cab_requests[elevator.last_floor_sensor as usize] = false;
 }
+
+
+
+
+
+
+
+
+
+
+
+/// Checks if there are any hall or cab requests above the elevator's current floor.
+///
+/// Returns `true` if any requests exist on floors higher than the current one, otherwise `false`.
+///
+/// # Parameters
+/// - `elevator`: Reference to the elevator's internal state.
+fn above(elevator: &ElevatorContainer) -> bool {
+    for floor in (elevator.last_floor_sensor as usize + 1)..elevator.tasks.len() {
+        for btn in 0..2 {
+            if elevator.tasks[floor][btn] {
+                return true;
+            }
+        }
+        if elevator.cab_requests[floor] {
+            return true;
+        }
+    }
+    false
+}
+
+/// Checks if there are any **cab requests** (inside elevator) above the current floor.
+///
+/// Returns `true` if any cab calls exist above, otherwise `false`.
+///
+/// # Parameters
+/// - `elevator`: Reference to the elevator's internal state.
+fn inside_above(elevator: &ElevatorContainer) -> bool {
+    for floor in (elevator.last_floor_sensor as usize + 1)..elevator.tasks.len() {
+        if elevator.cab_requests[floor] {
+            return true;
+        }
+    }
+    false
+}
+
+/// Checks if there are any hall or cab requests below the elevator's current floor.
+///
+/// Returns `true` if any requests exist on floors lower than the current one, otherwise `false`.
+///
+/// # Parameters
+/// - `elevator`: Reference to the elevator's internal state.
+fn below(elevator: &ElevatorContainer) -> bool {
+    for floor in 0..elevator.last_floor_sensor as usize {
+        for btn in 0..2 {
+            if elevator.tasks[floor][btn] {
+                return true;
+            }
+        }
+        if elevator.cab_requests[floor] {
+            return true;
+        }
+    }
+    false
+}
+
+
+/// Checks if there are any **cab requests** (inside elevator) below the current floor.
+///
+/// Returns `true` if any cab calls exist below, otherwise `false`.
+///
+/// # Parameters
+/// - `elevator`: Reference to the elevator's internal state.
+fn insie_below(elevator: &ElevatorContainer) -> bool {
+    for floor in 0..elevator.last_floor_sensor as usize {
+        if elevator.cab_requests[floor] {
+            return true;
+        }
+    }
+    false
+}
+
+/// Checks for any pending tasks or cab requests at the elevator's current floor.
+///
+/// Returns `true` if there is a request at the current floor, otherwise `false`.
+///
+/// # Parameters
+/// - `elevator`: Reference to the elevator's internal state.
+fn here(elevator: &ElevatorContainer) -> bool {
+    // if elevator.last_floor_sensor >= elevator.num_floors{
+    //     return false; // retuner ved feil 
+    // }
+    for btn in 0..2 {
+        if elevator.tasks[elevator.last_floor_sensor as usize][btn] {
+            return true;
+        }
+    }
+    if elevator.cab_requests[elevator.last_floor_sensor as usize] {
+        return true;
+    }
+    false
+}
+
+/// Determines the intended direction of travel based on current tasks at the elevator's floor.
+///
+/// Returns:
+/// - `Dirn::Up` if there's an up request
+/// - `Dirn::Down` if there's a down request
+/// - `Dirn::Stop` if no direction is requested
+///
+/// # Parameters
+/// - `elevator`: Reference to the elevator's internal state.
+fn get_here_dirn(elevator: &ElevatorContainer) -> Dirn {
+    if elevator.tasks[elevator.last_floor_sensor as usize][0] {
+        return Dirn::Up;
+    } else if elevator.tasks[elevator.last_floor_sensor as usize][1] {
+        return Dirn::Down;
+    } else {
+        return Dirn::Stop;
+    }
+
+}
+
+
