@@ -20,7 +20,7 @@
 
 use tokio::sync::watch;
 
-use elevatorpro::{backup, elevator_logic, manager, network::{self, local_network, udp_network}, world_view};
+use elevatorpro::{backup, elevator_logic, manager, network::{self, local_network, udp_broadcast}, world_view};
 use elevatorpro::init;
 use elevatorpro::print;
 
@@ -172,7 +172,7 @@ async fn main() {
         let wv_watch_rx = wv_watch_rx.clone();
         let _listen_task = tokio::spawn(async move {
             print::info("Starting to listen for UDP-broadcast".to_string());
-            let _ = udp_network::start_udp_listener(wv_watch_rx, udp_wv_tx).await;
+            let _ = udp_broadcast::start_udp_listener(wv_watch_rx, udp_wv_tx).await;
         });
     }
 
@@ -181,7 +181,7 @@ async fn main() {
         let wv_watch_rx = wv_watch_rx.clone();
         let _broadcast_task = tokio::spawn(async move {
             print::info("Starting UDP-broadcaster".to_string());
-            let _ = udp_network::start_udp_broadcaster(wv_watch_rx).await;
+            let _ = udp_broadcast::start_udp_broadcaster(wv_watch_rx).await;
         });
     }
 
@@ -197,7 +197,7 @@ async fn main() {
         let wv_watch_rx = wv_watch_rx.clone();
         tokio::spawn(async move {
             print::info("Starting UDP direct network".to_string());
-            let _ = network::udp_net::start_direct_udp_network(
+            let _ = network::udp_direct::start_direct_udp_broadcast(
                 wv_watch_rx,
                 container_tx,
                 packetloss_rx,

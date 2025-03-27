@@ -168,7 +168,7 @@ async fn check_for_udp() -> Option<WorldView> {
         match recv_result {
             Ok(Ok((len, _))) => {
                 // Convert the received bytes into a string
-                read_wv = network::udp_network::parse_message(&buf[..len]);
+                read_wv = network::udp_broadcast::parse_message(&buf[..len]);
             }
             Ok(Err(e)) => {
                 // Log errors if receiving fails

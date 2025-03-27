@@ -44,7 +44,7 @@ const CLEANUP_INTERVAL: Duration = Duration::from_secs(1); // Hvor ofte inaktive
 /// - The function blocks until the network is ready and the socket is successfully configured.
 /// - After socket setup, it enters a loop where it listens and sends UDP packets for slave-master communication.
 /// - The loop continues indefinitely, processing messages and sending responses as needed.
-pub async fn start_direct_udp_network(
+pub async fn start_direct_udp_broadcast(
     wv_watch_rx: watch::Receiver<WorldView>,
     container_tx: mpsc::Sender<ElevatorContainer>,
     packetloss_rx: watch::Receiver<network::ConnectionStatus>,

@@ -4,7 +4,7 @@
 //! The module has a lot of responsibilities, and is therefore splittet into a few sub-modules.
 //! 
 //! ## Sub-modules
-//! - [udp_network]
+//! - [udp_broadcast]
 //! - [local_network]
 //! 
 //! ## Key Features
@@ -17,9 +17,9 @@
 //! - `watch_ethernet`: Updates the network status, making sure the program detects connection loss and high packet loss
 //! - `read_network_status`: Gives a boolean indicating if your network connection is operatable.
 
-pub mod udp_network;
+pub mod udp_broadcast;
 pub mod local_network;
-pub mod udp_net;
+pub mod udp_direct;
 
 
 use crate::world_view::WorldView;
