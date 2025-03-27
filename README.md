@@ -47,3 +47,13 @@ The master-node listens for incoming UDP messages from the slave-nodes , contain
 To ensure reliable communication even with extreme packet loss, the system employs a dynamic redundancy mechanism. Before sending a packet, the sender calculates a redundancy factor, determining how many copies of the packet to send. This redundancy is controlled via a PID controller to adapt to varying network conditions, ensuring that enough messages are sent and acknowledged, even under high packet loss.
 
 
+### Recommended Development Setup
+
+To get the most out of this codebase, we highly recommend using **[rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer)** in **Visual Studio Code**.
+
+With `rust-analyzer`, you can:
+- Hover over functions, types, and modules to view inline documentation.
+- Navigate the codebase more effectively with go-to definition and symbol search.
+- Access auto-completion, type hints, and other helpful language features.
+
+We've invested effort in writing thorough in-code documentation. Using a tool like `rust-analyzer` ensures you benefit from it while exploring or modifying the code.
