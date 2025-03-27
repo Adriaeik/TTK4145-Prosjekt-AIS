@@ -462,7 +462,7 @@ impl PID {
             if secs < 0.001 { 0.001 } else { secs }
         });
 
-        self.integral += clamp(error * dt, -30.0, 30.0);
+        self.integral += clamp(error * dt, -20.0, 20.0);
         let derivative = (error - self.prev_error) / dt;
         self.prev_error = error;
         self.last_time = Some(now);
@@ -474,7 +474,7 @@ impl PID {
 use once_cell::sync::Lazy;
 
 static REDUNDANCY_PID: Lazy<Mutex<PID>> = Lazy::new(|| {
-    Mutex::new(PID::new(100.0, 14.05, 1.01)) // Tuning-verdiar: test gjerne!
+    Mutex::new(PID::new(60.0, 14.05, 1.01)) // Tuning-verdiar: test gjerne!
 });
 
 fn clamp(val: f64, min: f64, max: f64) -> f64 {

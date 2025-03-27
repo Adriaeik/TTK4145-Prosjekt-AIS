@@ -165,7 +165,9 @@ pub async fn join_wv_from_tcp_container(wv: &mut WorldView, container: &Elevator
 
         
         // Add slaves unfinished tasks to hall_requests
-        wv.hall_request = merge_hall_requests(&wv.hall_request, &wv.elevator_containers[i].tasks);
+        if wv.elevator_containers[i].behaviour != ElevatorBehaviour::ObstructionError || wv.elevator_containers[i].behaviour != ElevatorBehaviour::TravelError {
+            wv.hall_request = merge_hall_requests(&wv.hall_request, &wv.elevator_containers[i].tasks);
+        }
         
         if world_view::is_master(wv) {
             wv.elevator_containers[i].unsent_hall_request = vec![[false; 2]; wv.elevator_containers[i].num_floors as usize];
@@ -198,7 +200,7 @@ pub async fn join_wv_from_tcp_container(wv: &mut WorldView, container: &Elevator
                     update_hall_instants(floor, Some(1));
                 }
 
-                if wv.elevator_containers[i].dirn == Dirn::Up && time_since_hall_instants(floor, dirn) > Duration::from_secs(3) {
+                if wv.elevator_containers[i].dirn == Dirn::Up  && time_since_hall_instants(floor, dirn) > Duration::from_secs(3) {
                     *up = false;
                 } else if wv.elevator_containers[i].dirn == Dirn::Down && time_since_hall_instants(floor, dirn) > Duration::from_secs(3) {
                     *down = false;
