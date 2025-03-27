@@ -48,7 +48,7 @@ pub async fn create_hall_request_json(wv: &WorldView) -> Option<String> {
     let mut states = HashMap::new();
     for elev in wv.elevator_containers.iter() {
         let key = elev.elevator_id.to_string();
-        if elev.behaviour != ElevatorBehaviour::Error {
+        if elev.behaviour != ElevatorBehaviour::TravelError && elev.behaviour != ElevatorBehaviour::ObstructionError && elev.behaviour != ElevatorBehaviour::CosmicError {
             states.insert(
             key,
             ElevatorState {

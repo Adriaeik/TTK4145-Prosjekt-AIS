@@ -171,6 +171,9 @@ fn get_here_dirn(elevator: &ElevatorContainer) -> Dirn {
 /// # Returns
 /// `true` if there is a cab call in the current direction of travel, otherwise `false`.
 pub fn moving_towards_cab_call(elevator: &ElevatorContainer) -> bool {
+    if elevator.last_floor_sensor == elevator.num_floors-1 || elevator.last_floor_sensor == 0 {
+        return true;
+    }
     match elevator.dirn {
         Dirn::Up => {
             return inside_above(&elevator.clone());
@@ -195,6 +198,7 @@ pub fn moving_towards_cab_call(elevator: &ElevatorContainer) -> bool {
 /// # Returns
 /// A `DirnBehaviourPair` representing the chosen direction and behaviour state.
 pub fn choose_direction(elevator: &ElevatorContainer) -> DirnBehaviourPair {
+
     match elevator.dirn {
         Dirn::Up => {
             if above(elevator) {

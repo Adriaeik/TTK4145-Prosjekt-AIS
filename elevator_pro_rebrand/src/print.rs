@@ -459,7 +459,7 @@ pub fn worldview(worldview: &WorldView, connection: Option<network::ConnectionSt
 
     for elev in &worldview.elevator_containers {
         let id_text = pad_text(&format!("{}", elev.elevator_id), 4);
-        let door_text = if elev.behaviour == ElevatorBehaviour::DoorOpen {
+        let door_text = if elev.behaviour == ElevatorBehaviour::DoorOpen || elev.behaviour == ElevatorBehaviour::ObstructionError {
             pad_text(&Yellow.paint("Open").to_string(), 17)
         } else {
             pad_text(&Green.paint("Lukka").to_string(), 17)
@@ -499,7 +499,9 @@ pub fn worldview(worldview: &WorldView, connection: Option<network::ConnectionSt
             (Dirn::Down, ElevatorBehaviour::Moving) => pad_text(&Yellow.paint("⬇️   Moving").to_string(), 23),
             (Dirn::Stop, ElevatorBehaviour::Moving) => pad_text(&Yellow.paint("Not Moving").to_string(), 22),
             (_, ElevatorBehaviour::DoorOpen) => pad_text(&Purple.paint("Door Open").to_string(), 22),
-            (_, ElevatorBehaviour::Error) => pad_text(&Red.paint("Error").to_string(), 22),
+            (_, ElevatorBehaviour::ObstructionError) => pad_text(&Red.paint("Obstruction Error").to_string(), 22),
+            (_, ElevatorBehaviour::TravelError) => pad_text(&Red.paint("Travel Error").to_string(), 22),
+            (_, ElevatorBehaviour::CosmicError) => pad_text(&Red.paint("Cosmic Error?").to_string(), 22),
         };
 
         let max_rows = std::cmp::max(tasks_emoji.len(), call_list_emoji.len());

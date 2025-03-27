@@ -79,6 +79,7 @@ pub async fn run_local_elevator(
                 match world_view::extract_self_elevator_container(&wv) {
                     Some(cont) => {
                         lights::set_hall_lights(&wv, e.clone(), &cont);
+                        
                     }
                     None => {
                         print::warn(format!("Failed to extract self elevator container"));
@@ -156,67 +157,57 @@ async fn handle_elevator(
             &mut timers.cab_priority , 
             &mut timers.error 
         ).await;
-        
         /*======================================================================*/
         /*                           START: FSM Events                          */
         /*======================================================================*/
+        fsm::handle_idle_state(
+            &mut self_container, 
+            e.clone(), 
+            &mut timers.door
+        );
         fsm::handle_floor_sensor_update(
             &mut self_container,
             e.clone(),
             &mut prev_floor,
             &mut timers,
         ).await;        
-
-        
-        fsm::handle_door_timeout_and_lights(
+        fsm::handle_door_timeout(
             &mut self_container,
             e.clone(),
             &timers.door,
             &mut timers.cab_priority,
         ).await;
-
         fsm::handle_stop_button(
             &mut self_container, 
             e.clone(), 
             &mut prev_stop_btn
         ).await;
-        
         fsm::handle_error_timeout(
             &self_container,
             &timers.cab_priority,
             &mut timers.error,
             timers.prev_cab_priority_timeout,
         );
-        
-        fsm::handle_idle_state(
-            &mut self_container, 
-            e.clone(), 
-            &mut timers.door
-        );
         /*======================================================================*/
         /*                           END: FSM Events                            */
         /*======================================================================*/
-
+        
         /*============================================================================================================================================*/
+        sleep(config::POLL_PERIOD).await;
         
         update_motor_direction_if_needed(&self_container, &e);
-
-        update_error_state(&mut self_container, &timers.error, &mut timers.prev_cab_priority_timeout);
-
+        update_error_state(&mut self_container, &timers.error, &mut timers.prev_cab_priority_timeout, &prev_behavior);
         let last_behavior: ElevatorBehaviour = track_behavior_change(&self_container, &mut prev_behavior);
         stop_motor_on_dooropen_to_error(&mut self_container, last_behavior, prev_behavior);
-
-        
-        
-        //Send til update_wv -> nye self_container
-        let _ = elevator_states_tx.send(self_container.clone()).await;    
+        self_container.last_behaviour = last_behavior;
         
         //Hent nyeste worldview
         if world_view::update_wv(wv_watch_rx.clone(), &mut wv).await{
             update_tasks_and_hall_requests(&mut self_container, &wv).await;
         }
+        //Send til update_wv -> nye self_container
+        let _ = elevator_states_tx.send(self_container.clone()).await; 
         yield_now().await;
-        sleep(config::POLL_PERIOD).await;
 
         
         
@@ -249,6 +240,7 @@ async fn update_tasks_and_hall_requests(
 ){
     if let Some(task_container) = world_view::extract_self_elevator_container(wv) {
         self_container.tasks = task_container.tasks.clone();
+        self_container.cab_requests = task_container.cab_requests.clone();
         self_container.unsent_hall_request = task_container.unsent_hall_request.clone();
     } else {
         print::warn(format!("Failed to extract self elevator container – keeping previous value"));
@@ -325,13 +317,28 @@ fn update_error_state(
     self_container: &mut ElevatorContainer,
     error_timer: &timer::Timer,
     prev_cab_priority_timer_stat: &mut bool,
+    prev_behavior: &ElevatorBehaviour,
 ) {
     if error_timer.timer_timeouted() {
+        if was_prew_state_error(prev_behavior){ return;}
         *prev_cab_priority_timer_stat = true;
-        self_container.behaviour = ElevatorBehaviour::Error;
+        if *prev_behavior == ElevatorBehaviour::DoorOpen {
+            self_container.behaviour = ElevatorBehaviour::ObstructionError;
+            
+        } else if *prev_behavior == ElevatorBehaviour::Moving {
+            self_container.behaviour = ElevatorBehaviour::TravelError;
+        } else {
+            self_container.behaviour = ElevatorBehaviour::CosmicError;
+        }
     } else {
         *prev_cab_priority_timer_stat = false;
     }
+}
+
+fn was_prew_state_error(prev_behavior:  &ElevatorBehaviour) -> bool{
+    *prev_behavior == ElevatorBehaviour::ObstructionError || 
+    *prev_behavior == ElevatorBehaviour::TravelError || 
+    *prev_behavior == ElevatorBehaviour::CosmicError 
 }
 
 /// Tracks and logs changes to the elevator's behavior state.
@@ -379,7 +386,7 @@ fn stop_motor_on_dooropen_to_error(
     last_behavior: ElevatorBehaviour,
     current_behavior: ElevatorBehaviour,
 ) {
-    if last_behavior == ElevatorBehaviour::DoorOpen && current_behavior == ElevatorBehaviour::Error {
+    if last_behavior == ElevatorBehaviour::DoorOpen && current_behavior == ElevatorBehaviour::ObstructionError {
         self_container.dirn = Dirn::Stop;
     }
 }

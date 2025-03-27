@@ -14,7 +14,7 @@ pub static NETWORK_PREFIX: &str = "10.50.49";
 /// Port for TCP between nodes
 pub static PN_PORT: u16 = u16::MAX;
 /// Port for TCP between node and local backup
-pub static BCU_PORT: u16 = 50000; 
+pub static BCU_PORT: u16 = 50001; 
 /// Dummy port. Used for sending/recieving of UDP broadcasts
 pub static DUMMY_PORT: u16 = 42069;
 
@@ -45,7 +45,7 @@ pub const TCP_TIMEOUT: u64 = 5000; // i millisekunder
 /// Probably unneccasary
 pub const TCP_PER_U64: u64 = 10; // i millisekunder
 /// Period between sending of UDP broadcasts 
-pub const UDP_PERIOD: Duration = Duration::from_millis(TCP_PER_U64*2);
+pub const UDP_PERIOD: Duration = Duration::from_millis(5);
 /// Period between sending of TCP messages to master-node
 pub const TCP_PERIOD: Duration = Duration::from_millis(TCP_PER_U64);
 /// General period at 10 ms

@@ -30,10 +30,12 @@
 //! system consistency.
 
 use crate::world_view::{self, Dirn, ElevatorBehaviour, ElevatorContainer, WorldView};
-use crate::print;
+use crate::{config, print};
 use crate::network;
 
 use std::collections::HashMap;
+use std::sync::Mutex;
+use std::time::{Duration, Instant};
 
 
 
@@ -152,15 +154,20 @@ pub async fn join_wv_from_tcp_container(wv: &mut WorldView, container: &Elevator
     if let Some(i) = self_idx {
         // Add the slave's sent hall_requests to worldview's hall_requests
         for (row1, row2) in wv.hall_request.iter_mut().zip(container.unsent_hall_request.iter()) {
-            for (val1, val2) in row1.iter_mut().zip(row2.iter()) {
+            for (i, (val1, (j, val2))) in row1.iter_mut().zip(row2.iter().enumerate()).enumerate() {
                 if !*val1 && *val2 {
                     *val1 = true;
+                    
                 }
             }
         }
 
+
+        
         // Add slaves unfinished tasks to hall_requests
-        wv.hall_request = merge_hall_requests(&wv.hall_request, &wv.elevator_containers[i].tasks);
+        if wv.elevator_containers[i].behaviour != ElevatorBehaviour::ObstructionError || wv.elevator_containers[i].behaviour != ElevatorBehaviour::TravelError {
+            wv.hall_request = merge_hall_requests(&wv.hall_request, &wv.elevator_containers[i].tasks);
+        }
         
         if world_view::is_master(wv) {
             wv.elevator_containers[i].unsent_hall_request = vec![[false; 2]; wv.elevator_containers[i].num_floors as usize];
@@ -174,13 +181,28 @@ pub async fn join_wv_from_tcp_container(wv: &mut WorldView, container: &Elevator
         wv.elevator_containers[i].obstruction = container.obstruction;
         wv.elevator_containers[i].dirn = container.dirn;
         wv.elevator_containers[i].behaviour = container.behaviour;
+        wv.elevator_containers[i].last_behaviour = container.last_behaviour;
+        
+    
 
         //Remove taken hall_requests
         for (idx, [up, down]) in wv.hall_request.iter_mut().enumerate() {
             if (wv.elevator_containers[i].behaviour == ElevatorBehaviour::DoorOpen) && (wv.elevator_containers[i].last_floor_sensor == (idx as u8)) {
-                if wv.elevator_containers[i].dirn == Dirn::Up {
+                let floor = wv.elevator_containers[i].last_floor_sensor as usize;
+                let dirn = match wv.elevator_containers[i].dirn {
+                    Dirn::Down => Some(1),
+                    Dirn::Up => Some(0),
+                    Dirn::Stop => None,
+                };
+
+                if wv.elevator_containers[i].last_behaviour != ElevatorBehaviour::DoorOpen {
+                    update_hall_instants(floor, Some(0));
+                    update_hall_instants(floor, Some(1));
+                }
+
+                if wv.elevator_containers[i].dirn == Dirn::Up  && time_since_hall_instants(floor, dirn) > Duration::from_secs(3) {
                     *up = false;
-                } else if wv.elevator_containers[i].dirn == Dirn::Down {
+                } else if wv.elevator_containers[i].dirn == Dirn::Down && time_since_hall_instants(floor, dirn) > Duration::from_secs(3) {
                     *down = false;
                 }
             }
@@ -196,6 +218,29 @@ pub async fn join_wv_from_tcp_container(wv: &mut WorldView, container: &Elevator
         return false;
     }
 }
+
+use std::sync::LazyLock;
+static HALL_INSTANTS: LazyLock<Mutex<[[Instant; 2]; 4]>> = LazyLock::new(|| {
+    Mutex::new(std::array::from_fn(|_| {
+        std::array::from_fn(|_| Instant::now())
+    }))
+});
+
+fn update_hall_instants(floor: usize, direction: Option<usize>) {
+    if let Some(dirn) = direction {
+        let mut lock = HALL_INSTANTS.lock().unwrap();
+        lock[floor][dirn] = Instant::now();
+    }
+}
+
+fn time_since_hall_instants(floor: usize, direction: Option<usize>) -> std::time::Duration {
+    if let Some(dirn) = direction {
+        let lock = HALL_INSTANTS.lock().unwrap();
+        return lock[floor][dirn].elapsed()
+    }
+    return Instant::now().elapsed();
+}
+
 
 /// ### Removes a slave based on its ID
 /// 
@@ -301,6 +346,7 @@ pub fn update_elev_states(wv: &mut WorldView, container: ElevatorContainer) -> b
         wv.elevator_containers[i].dirn = container.dirn;
         wv.elevator_containers[i].obstruction = container.obstruction;
         wv.elevator_containers[i].behaviour = container.behaviour;
+        wv.elevator_containers[i].last_behaviour = container.last_behaviour;
         wv.elevator_containers[i].last_floor_sensor = container.last_floor_sensor;
         wv.elevator_containers[i].unsent_hall_request = container.unsent_hall_request;
     }
