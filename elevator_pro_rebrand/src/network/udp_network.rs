@@ -29,9 +29,6 @@ use crate::world_view;
 use crate::world_view::WorldView;
 
 use std::net::SocketAddr;
-use std::sync::atomic::Ordering;
-use std::sync::OnceLock;
-use std::sync::atomic::AtomicBool;
 use std::thread::sleep;
 use std::time::Duration;
 use tokio::net::UdpSocket;
@@ -39,8 +36,6 @@ use socket2::{Domain, Socket, Type};
 use tokio::sync::mpsc;
 use tokio::sync::watch;
 
-
-static UDP_TIMEOUT: OnceLock<AtomicBool> = OnceLock::new();
 
 
 /* __________ START PUBLIC FUNCTIONS __________ */

@@ -125,6 +125,7 @@ async fn main() {
         // Task handling the elevator
         let wv_watch_rx = wv_watch_rx.clone();
         let _local_elev_task = tokio::spawn(async move {
+            print::info("Starting to run local elevator".to_string());
             let _ = elevator_logic::run_local_elevator(wv_watch_rx, elevator_states_tx).await;
         });
     }
