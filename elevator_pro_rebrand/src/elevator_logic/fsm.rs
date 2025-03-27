@@ -40,14 +40,18 @@
 //! All function names follow snake_case naming for consistency.
 
 
+use super::self_elevator;
+use super::request;
+use super::lights;
+use super::timer::{ElevatorTimers, Timer};
+
+use crate::print;
+use crate::config;
+use crate::elevio::{self, elev::Elevator}; 
+use crate::world_view::{Dirn, ElevatorBehaviour, ElevatorContainer};
+
 use tokio::time::sleep;
 use tokio::sync::mpsc;
-use crate::{elevio::{self, elev::Elevator}, print};
-use crate::world_view::{Dirn, ElevatorBehaviour, ElevatorContainer};
-use crate::elevator_logic::self_elevator;
-use crate::elevator_logic::request;
-use crate::config;
-use super::{lights, request::should_stop, timer::{ElevatorTimers, Timer}};
 
 
 /// Initializes the elevator by moving downward until a valid floor is reached.
@@ -96,12 +100,10 @@ pub async fn on_init(
 /// whether it should stop at the current floor (e.g., due to a hall or cab request).
 /// If a stop is needed, it performs the following actions:
 /// - Stops the motor
-/// - Clears any requests at the current floor
-/// - Opens the door and turns on the door light
+/// - Clears cab requests at the current floor
 /// - Starts both the door timer and the cab call priority timer
 /// - Sets the elevator's behavior to `DoorOpen`
 ///
-/// This function is typically called from the main FSM loop or after initialization.
 ///
 /// # Parameters
 /// - `elevator`: Mutable reference to the elevator's internal state.
@@ -145,7 +147,7 @@ async fn on_floor_arrival(
 ///
 /// If the elevator decides to stay in `DoorOpen`, it means there is still
 /// a request at the current floor and the door should remain open.
-/// Otherwise, the door light is cleared and the elevator starts moving in the chosen direction.
+/// Otherwise, the elevator starts moving in the chosen direction.
 ///
 /// # Parameters
 /// - `elevator`: Mutable reference to the elevator's internal state.
@@ -207,7 +209,10 @@ pub async fn handle_floor_sensor_update(
     }
 }
 
-
+/// Function to handle stop button event
+/// 
+/// # Note
+/// Stop button is not properly implemented. Pressing stop button will only put the elevator in `CosmicError`-state
 pub async fn handle_stop_button(
     self_container: &mut ElevatorContainer,
     e: Elevator,
@@ -215,9 +220,11 @@ pub async fn handle_stop_button(
 ) {
     if *prev_stop_btn != self_container.stop {
         if self_container.stop {
+            lights::set_stop_button_light(e.clone());
             self_container.behaviour = ElevatorBehaviour::CosmicError; 
             e.motor_direction(Dirn::Stop as u8);
         } else {
+            lights::clear_stop_button_light(e.clone());
             self_container.behaviour = ElevatorBehaviour::Idle;
         }
         *prev_stop_btn = self_container.stop;

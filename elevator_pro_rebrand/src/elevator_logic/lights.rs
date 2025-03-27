@@ -28,7 +28,7 @@ use crate::world_view::ElevatorContainer;
 use crate::world_view::WorldView;
 
 
-/// Sets all hall lights
+/// Sets all hall lights (this includes the door light)
 /// 
 /// ## Parameters
 /// `wv`: Serialized worldview
@@ -37,9 +37,10 @@ use crate::world_view::WorldView;
 /// ## Behavior:
 /// The function goes through all hall requests in the worldview, and sets hall lights if the corresponding lights on/off based on the boolean value in the worldview.   
 /// The function skips any hall lights on floors grater than the elevators num_floors, as well as down on floor nr. 0 and up on floor nr. e.num_floors 
+/// The function sets/clears the doorlight based on the elevators behaviour
 /// 
 /// ## Note
-/// The function only sets the lights once per call, and needs to be recalled every time the lights needs to be updated
+/// The function only sets the lights once per call, and should therefore be called continiously
 pub fn set_hall_lights(wv: &WorldView, e: Elevator, self_container: &ElevatorContainer) {
     for (i, [up, down]) in wv.hall_request.iter().enumerate() {
         let floor = i as u8;
@@ -56,7 +57,6 @@ pub fn set_hall_lights(wv: &WorldView, e: Elevator, self_container: &ElevatorCon
         }
     }
 
-    // Door light
     if self_container.behaviour == ElevatorBehaviour::DoorOpen || self_container.behaviour == ElevatorBehaviour::ObstructionError {
         set_door_open_light(e.clone());
     } else {
