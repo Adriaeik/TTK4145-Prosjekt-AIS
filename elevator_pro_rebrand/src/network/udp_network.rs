@@ -17,8 +17,7 @@
 //! 
 //! - [`start_udp_broadcaster`]: Sends worldview data over UDP if this node is the master.
 //! - [`start_udp_listener`]: Listens for worldview broadcasts from the master and updates state.
-//! - [`udp_watchdog`]: Detects connection loss to the master by monitoring broadcast activity.
-//! - Private helper functions: [`get_udp_timeout`], [`build_message`], [`parse_message`].
+//! - Private helper functions: [`build_message`], [`parse_message`].
 //! 
 //! ## Usage
 //! These functions should be called asynchronously in a Tokio runtime.
@@ -165,7 +164,8 @@ pub async fn start_udp_listener(
         match read_wv {
             Some(mut read_wv) => {
                 world_view::update_wv(wv_watch_rx.clone(), &mut my_wv).await;
-                // Pass the recieved WorldView if the message came from the master or a node with a lower ID than current master, 
+                // Pass the recieved WorldView if the message came from the 
+                // master or a node with a lower ID than current master, 
                 // and this node is not the master
                 if my_wv.master_id >= read_wv.master_id
                     && self_id != read_wv.master_id
