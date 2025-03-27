@@ -40,7 +40,6 @@ use socket2::{Domain, Socket, Type};
 use tokio::sync::mpsc;
 use tokio::sync::watch;
 
-use super::local_network;
 
 static UDP_TIMEOUT: OnceLock<AtomicBool> = OnceLock::new();
 
@@ -166,14 +165,6 @@ pub async fn start_udp_listener(
         match read_wv {
             Some(mut read_wv) => {
                 world_view::update_wv(wv_watch_rx.clone(), &mut my_wv).await;
-
-                if read_wv.master_id != my_wv.master_id {
-                    // Ignore
-                } else {
-                    // The message came from the current master -> reset the watchdog
-                    get_udp_timeout().store(false, Ordering::SeqCst);
-                }
-
                 // Pass the recieved WorldView if the message came from the master or a node with a lower ID than current master, 
                 // and this node is not the master
                 if my_wv.master_id >= read_wv.master_id
@@ -189,32 +180,6 @@ pub async fn start_udp_listener(
 }
 
 
-/// Simple watchdog
-/// 
-/// # Parameters
-/// `connection_to_master_failed_tx`: mpsc Sender that signals to the worldview updater that connection to the master has failed
-/// 
-/// # Behavior
-/// The function stores true in an atomic bool, and sleeps for 1 second.
-/// If the atomic bool is true when it wakes up, the watchdog has detected a timeout, as it is set false each time a UDP broadcast is recieved from the master.
-/// If a timeout is detected, it signals that connection to master has failed.
-pub async fn udp_watchdog(connection_to_master_failed_tx: mpsc::Sender<bool>) {
-    while !network::read_network_status() {
-        
-    }
-    loop {
-        if get_udp_timeout().load(Ordering::SeqCst) == false || !network::read_network_status(){
-            get_udp_timeout().store(true, Ordering::SeqCst);
-            tokio::time::sleep(Duration::from_millis(5000)).await;
-        }
-        else {
-            get_udp_timeout().store(false, Ordering::SeqCst);
-            print::warn("UDP-watchdog: Timeout".to_string());
-            let _ = connection_to_master_failed_tx.send(true).await;
-        }
-    }
-}
-
 /* __________ END PUBLIC FUNCTIONS __________ */
 
 
@@ -222,12 +187,6 @@ pub async fn udp_watchdog(connection_to_master_failed_tx: mpsc::Sender<bool>) {
 
 /* __________ START PRIVATE FUNCTIONS __________ */
 
-/// Returns AtomicBool indicating if UDP has timeout'd. 
-/// 
-/// Initialized as false.
-fn get_udp_timeout() -> &'static AtomicBool {
-    UDP_TIMEOUT.get_or_init(|| AtomicBool::new(false))
-}
 
 /// Builds the UDP-broadcast message from the worldview
 /// 
