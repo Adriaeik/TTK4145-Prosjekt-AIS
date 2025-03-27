@@ -461,7 +461,7 @@ impl PID {
             if secs < 0.001 { 0.001 } else { secs }
         });
 
-        self.integral += error * dt;
+        self.integral += clamp(error * dt, -30.0, 30.0);
         let derivative = (error - self.prev_error) / dt;
         self.prev_error = error;
         self.last_time = Some(now);
