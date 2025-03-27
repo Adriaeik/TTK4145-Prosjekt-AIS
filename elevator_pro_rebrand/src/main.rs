@@ -113,16 +113,6 @@ async fn main() {
         });
     }
     /* END ----------- Task to watch over the internet connection ---------------------- */
-    
-    
-
-
-
-    /* START ----------- Init of channel to send sockets from new TCP-connections on ---------------------- */ 
-    let (socket_tx, socket_rx) = mpsc::channel::<(TcpStream, SocketAddr)>(100); //TODO>>REMOVE
-    /* START ----------- Init of channel to send sockets from new TCP-connections on ---------------------- */
-
-
 
 
 
