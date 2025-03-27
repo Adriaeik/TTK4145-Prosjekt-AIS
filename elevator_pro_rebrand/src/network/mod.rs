@@ -21,7 +21,6 @@
 pub mod tcp_network;
 pub mod udp_network;
 pub mod local_network;
-pub mod udp_net;
 
 
 use crate::world_view::WorldView;
