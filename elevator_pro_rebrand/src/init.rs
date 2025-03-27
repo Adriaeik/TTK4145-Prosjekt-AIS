@@ -136,7 +136,7 @@ pub async fn initialize_worldview(self_container : Option<&world_view::ElevatorC
 /// ```
 async fn check_for_udp() -> Option<WorldView> {
     // Construct the UDP broadcast listening address
-    let broadcast_listen_addr = format!("{}:{}", config::BC_LISTEN_ADDR, config::DUMMY_PORT);
+    let broadcast_listen_addr = format!("{}:{}", config::BC_LISTEN_ADDR, config::BROADCAST_PORT);
     let socket_addr: SocketAddr = broadcast_listen_addr.parse().expect("Invalid address");
 
     // Create a new UDP socket

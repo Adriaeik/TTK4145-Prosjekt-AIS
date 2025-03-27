@@ -10,10 +10,9 @@ use tokio::time::sleep;
 use tokio::net::UdpSocket;
 use socket2::{Domain, Socket, Type, Protocol};
 use tokio::sync::{watch, mpsc, Mutex};
-use std::net;
 use std::{
     collections::HashMap,
-    net::{SocketAddr, Ipv4Addr},
+    net::SocketAddr,
     sync::Arc,
     time::{Duration, Instant},
 };
@@ -63,7 +62,7 @@ pub async fn start_direct_udp_network(
     while socket.set_send_buffer_size(16_000_000).is_err() {}
     while socket.set_recv_buffer_size(16_000_000).is_err() {}
     
-    let addr: SocketAddr = format!("{}.{}:{}", config::NETWORK_PREFIX, network::read_self_id(), 50000).parse().unwrap();
+    let addr: SocketAddr = format!("{}.{}:{}", config::NETWORK_PREFIX, network::read_self_id(), config::UDP_CONTAINER_PORT).parse().unwrap();
 
     while socket.bind(&addr.into()).is_err() {}
 
@@ -136,7 +135,7 @@ async fn receive_udp_master(
     remove_container_tx: mpsc::Sender<u8>,
 ) {    
     world_view::update_wv(wv_watch_rx.clone(), wv).await;
-    println!("Server listening on port {}", 50000);
+    println!("Server listening on port {}", config::UDP_CONTAINER_PORT);
 
     let state = Arc::new(Mutex::new(HashMap::<SocketAddr, ReceiverState>::new()));
     
@@ -442,7 +441,7 @@ async fn send_udp(
                 should_send = true;
             },
             result = socket.recv_from(&mut buf) => {
-                if let Ok((len, addr)) = result {
+                if let Ok((len, _)) = result {
                     let seq_opt: Option<[u8; 2]> = buf[..len].try_into().ok();
                     if let Some(seq) = seq_opt {
                         if seq_num == u16::from_le_bytes(seq) {
@@ -559,7 +558,19 @@ enum RecieveCode {
     Rejoin
 }
 
-
+/// Struct representing a PID (Proportional–Integral–Derivative) controller.
+/// 
+/// This controller is used to compute dynamic output adjustments based on the
+/// time since the last received message and the observed packet loss.
+/// It is currently used in the redundancy control logic for UDP retransmissions.
+///
+/// Fields:
+/// - `kp`: Proportional gain
+/// - `ki`: Integral gain
+/// - `kd`: Derivative gain
+/// - `prev_error`: Previous error value used for derivative computation
+/// - `integral`: Accumulated error used in integral computation (clamped)
+/// - `last_time`: Timestamp of the previous update, used to compute `dt`
 struct PID {
     kp: f64,
     ki: f64,
@@ -570,6 +581,7 @@ struct PID {
 }
 
 impl PID {
+    /// Constructs a new PID controller with the given gain parameters.
     fn new(kp: f64, ki: f64, kd: f64) -> Self {
         Self {
             kp,
@@ -581,6 +593,17 @@ impl PID {
         }
     }
 
+    /// Updates the PID controller based on a new measurement.
+    ///
+    /// This is a basic PID controller implementation. 
+    /// Anti-windup is implemented by clamping the integral term.
+    ///
+    /// Arguments:
+    /// - `setpoint`: The target value (desired time between packets)
+    /// - `measurement`: The actual measured value (time since last packet)
+    /// - `now`: The current timestamp used to compute time delta
+    ///
+    /// Returns the new controller outpu
     fn update(&mut self, setpoint: f64, measurement: f64, now: Instant) -> f64 {
         let error = -(setpoint - measurement);
         let dt = self.last_time.map_or(0.1, |last| {
@@ -588,23 +611,70 @@ impl PID {
             if secs < 0.001 { 0.001 } else { secs }
         });
 
-        self.integral += clamp(error * dt, -20.0, 20.0);
+        self.integral += clamp(error * dt, config::PID_INTEGRAL_MIN, config::PID_INTEGRAL_MAX);
         let derivative = (error - self.prev_error) / dt;
         self.prev_error = error;
         self.last_time = Some(now);
 
         self.kp * error + self.ki * self.integral + self.kd * derivative
     }
+    /// Prints a debug-friendly summary of the controller state and last computation.
+    ///
+    /// This is used to monitor how the PID responds to network conditions
+    /// in real-time, useful during tuning or system debugging.
+    fn monitor(&self, setpoint: f64, measurement: f64, output: f64) {
+        println!(
+            "[PID] Last seen: {:.3}s | Error: {:.3} | Redundancy: {:.1}",
+            measurement,
+            setpoint - measurement,
+            output
+        );
+    }
 }
 
+/// PID-based controller instance used for computing redundancy level
+/// based on recent network conditions (packet loss and ACK delay).
+///
+/// This instance is defined as a `static` to preserve its internal state
+/// (e.g., accumulated error and last timestamp) across the entire program runtime.
+/// This ensures the controller maintains context between iterations, avoiding resets
+/// during high packet loss, temporary disconnects, or reconnections.
+///
+/// All parameters — including gain values, saturation limits, and default timing —
+/// are configurable via `config.rs` for full control during tuning and experimentation.
 static REDUNDANCY_PID: Lazy<Mutex<PID>> = Lazy::new(|| {
-    Mutex::new(PID::new(60.0, 14.05, 1.01)) // Tuning-verdiar: test gjerne!
+    Mutex::new(PID::new(config::REDUNDANCY_PID_KP, 
+                        config::REDUNDANCY_PID_KI, 
+                        config::REDUNDANCY_PID_KD)) 
 });
 
+/// Utility function to constrain a floating-point value between a minimum and maximum bound.
 fn clamp(val: f64, min: f64, max: f64) -> f64 {
     val.max(min).min(max)
 }
 
+/// Computes the redundancy level (number of packet copies to send) based on network feedback.
+///
+/// This function uses a PID controller to increase redundancy when ACKs are slow or
+/// packet loss is high. It attempts to maintain a desired interval between
+/// acknowledgements by dynamically adjusting how many packets are sent per message.
+///
+/// As control-engineering students, we simply couldn't let a project of this scale go
+/// by without injecting a little feedback control magic. While the use of a PID controller
+/// here might look unorthodox, it significantly improves performance under packet loss
+/// without flooding the network. All output values are saturated to prevent runaway behavior.
+///
+/// Tuning values were found through trial and error, aiming for a minimal packet overhead
+/// while still achieving the desired acknowledgement timing.
+///
+/// Arguments:
+/// - `packetloss`: Measured packet loss percentage (0–100)
+/// - `last_seen`: Timestamp of the last acknowledgment received from master
+///
+/// Returns:
+/// A rounded redundancy value in the range `[1, 300]`. 
+///
+/// PID constants and clamping thresholds are defined in `config.rs` for easy tuning.
 pub async fn get_redundancy(packetloss: u8, last_seen: Instant) -> usize {
     let now = Instant::now();
     let time_since_last = now.duration_since(last_seen).as_secs_f64(); // i sekund
@@ -617,15 +687,12 @@ pub async fn get_redundancy(packetloss: u8, last_seen: Instant) -> usize {
         pid.update(setpoint, measurement, now)
     };
 
-    let base = 1.0;
-    let redundans = clamp((base + output)*(packetloss as f64+1.0)/100.0, 1.0, 300.0);
-
-    // println!(
-    //     "[PID] Last seen: {:.3}s | Error: {:.3} | Redundancy: {:.1}",
-    //     time_since_last,
-    //     setpoint - measurement,
-    //     redundans
-    // );
+    let base = config::REDUNDANCY_MIN;
+    let redundans = clamp(
+        (base + output)*(packetloss as f64+1.0)/100.0, 
+            config::REDUNDANCY_MIN, 
+            config::REDUNDANCY_MAX
+        );
 
     redundans.round() as usize
 }

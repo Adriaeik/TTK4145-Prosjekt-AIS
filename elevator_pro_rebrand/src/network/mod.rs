@@ -209,7 +209,7 @@ pub async fn start_packet_loss_monitor(
     use tokio::sync::watch;
     use socket2::{Socket, Domain, Type};
     let (tx, rx) = watch::channel((true, 0.0)); // start som OK
-    let addr = format!("{}:{}", wait_for_ip().await, config::DUMMY_PORT);
+    let addr = format!("{}:{}", wait_for_ip().await, config::BROADCAST_PORT);
 
     
     tokio::spawn(async move {

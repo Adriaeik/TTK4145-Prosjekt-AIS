@@ -113,7 +113,7 @@ pub async fn initialize_worldview() -> Vec<u8> {
 /// ```
 pub async fn check_for_udp() -> Vec<u8> {
     // Construct the UDP broadcast listening address
-    let broadcast_listen_addr = format!("{}:{}", config::BC_LISTEN_ADDR, config::DUMMY_PORT);
+    let broadcast_listen_addr = format!("{}:{}", config::BC_LISTEN_ADDR, config::BROADCAST_PORT);
     let socket_addr: SocketAddr = broadcast_listen_addr.parse().expect("Invalid address");
 
     // Create a new UDP socket

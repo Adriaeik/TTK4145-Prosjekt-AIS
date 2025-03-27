@@ -23,7 +23,7 @@ pub fn get_udp_timeout() -> &'static AtomicBool {
 pub async fn start_udp_broadcaster(mut chs: local_network::LocalChannels) -> tokio::io::Result<()> {
     // Sett opp sockets
     chs.subscribe_broadcast();
-    let addr: &str = &format!("{}:{}", config::BC_ADDR, config::DUMMY_PORT);
+    let addr: &str = &format!("{}:{}", config::BC_ADDR, config::BROADCAST_PORT);
     let addr2: &str = &format!("{}:0", config::BC_LISTEN_ADDR);
 
     let broadcast_addr: SocketAddr = addr.parse().expect("ugyldig adresse"); // UDP-broadcast adresse
@@ -56,7 +56,7 @@ pub async fn start_udp_listener(mut chs: local_network::LocalChannels) -> tokio:
     //Sett opp sockets
     chs.subscribe_broadcast();
     let self_id = utils::SELF_ID.load(Ordering::SeqCst);
-    let broadcast_listen_addr = format!("{}:{}", config::BC_LISTEN_ADDR, config::DUMMY_PORT);
+    let broadcast_listen_addr = format!("{}:{}", config::BC_LISTEN_ADDR, config::BROADCAST_PORT);
     let socket_addr: SocketAddr = broadcast_listen_addr.parse().expect("Ugyldig adresse");
     let socket_temp = Socket::new(Domain::IPV4, Type::DGRAM, None)?;
     

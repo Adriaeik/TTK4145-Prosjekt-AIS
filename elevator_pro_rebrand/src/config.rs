@@ -16,7 +16,9 @@ pub static PN_PORT: u16 = u16::MAX;
 /// Port for TCP between node and local backup
 pub static BCU_PORT: u16 = 50001; 
 /// Dummy port. Used for sending/recieving of UDP broadcasts
-pub static DUMMY_PORT: u16 = 42069;
+pub static BROADCAST_PORT: u16 = 42069;
+/// Port used for UDP communication between nodes
+pub const UDP_CONTAINER_PORT: u16 = 50000;
 
 /// UDP broadcast listen address
 pub static BC_LISTEN_ADDR: &str = "0.0.0.0";
@@ -102,3 +104,24 @@ pub static PRINT_ELSE_ON: Lazy<Mutex<bool>> = Lazy::new(|| Mutex::new(true));
 pub const BUSY_PENALTY: u32 = 5;
 /// Penalty for going wrong direction
 pub const WRONG_DIRECTION_PENALTY: u32 = 10;
+
+/// Proportional gain for PID controller (impact of current error)
+pub const REDUNDANCY_PID_KP: f64 = 60.0;
+
+/// Integral gain for PID controller (impact of accumulated error)
+pub const REDUNDANCY_PID_KI: f64 = 14.05;
+
+/// Derivative gain for PID controller (impact of error rate of change)
+pub const REDUNDANCY_PID_KD: f64 = 1.01;
+
+/// Minimum clamp value for the integral term (anti-windup lower bound)
+pub const PID_INTEGRAL_MIN: f64 = -20.0;
+
+/// Maximum clamp value for the integral term (anti-windup upper bound)
+pub const PID_INTEGRAL_MAX: f64 = 20.0;
+
+/// Minimum allowed redundancy (ensures at least one packet is sent)
+pub const REDUNDANCY_MIN: f64 = 1.0;
+
+/// Maximum allowed redundancy (prevents flooding the network)
+pub const REDUNDANCY_MAX: f64 = 300.0;

@@ -10,7 +10,7 @@ pub static PN_PORT: u16 = u16::MAX;
 /// Port for TCP between node and local backup
 pub static BCU_PORT: u16 = 50000; 
 /// Dummy port. Used for sending/recieving of UDP broadcasts
-pub static DUMMY_PORT: u16 = 42069;
+pub static BROADCAST_PORT: u16 = 42069;
 
 /// UDP broadcast listen address
 pub static BC_LISTEN_ADDR: &str = "0.0.0.0";
