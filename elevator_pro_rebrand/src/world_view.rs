@@ -34,13 +34,14 @@
 //! This module is critical for ensuring a synchronized state across networked elevators.
 
 
-use serde::{Serialize, Deserialize, de::DeserializeOwned};
-use bincode;
-use tokio::sync::watch;
-use std::collections::HashMap;
 use crate::config;
-use crate::print;
 use crate::network;
+use crate::print;
+
+use bincode;
+use serde::{Serialize, Deserialize, de::DeserializeOwned};
+use std::collections::HashMap;
+use tokio::sync::watch;
 
 
 #[allow(missing_docs)]
