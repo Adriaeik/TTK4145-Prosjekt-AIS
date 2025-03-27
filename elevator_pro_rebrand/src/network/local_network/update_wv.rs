@@ -34,6 +34,8 @@ use crate::{config, print};
 use crate::network;
 
 use std::collections::HashMap;
+use std::sync::Mutex;
+use std::time::{Duration, Instant};
 
 
 
@@ -179,13 +181,25 @@ pub async fn join_wv_from_tcp_container(wv: &mut WorldView, container: &Elevator
         wv.elevator_containers[i].behaviour = container.behaviour;
         wv.elevator_containers[i].last_behaviour = container.last_behaviour;
         
+    
 
         //Remove taken hall_requests
         for (idx, [up, down]) in wv.hall_request.iter_mut().enumerate() {
-            if (wv.elevator_containers[i].behaviour != ElevatorBehaviour::DoorOpen) && (wv.elevator_containers[i].last_behaviour == ElevatorBehaviour::DoorOpen) && (wv.elevator_containers[i].last_floor_sensor == (idx as u8)) {
-                if wv.elevator_containers[i].dirn == Dirn::Up || wv.elevator_containers[i].dirn == Dirn::Stop {
+            if (wv.elevator_containers[i].behaviour == ElevatorBehaviour::DoorOpen) && (wv.elevator_containers[i].last_floor_sensor == (idx as u8)) {
+                let floor = wv.elevator_containers[i].last_floor_sensor as usize;
+                let dirn = match wv.elevator_containers[i].dirn {
+                    Dirn::Down => Some(1),
+                    Dirn::Up => Some(0),
+                    Dirn::Stop => None,
+                };
+
+                if wv.elevator_containers[i].last_behaviour != ElevatorBehaviour::DoorOpen {
+                    update_hall_instants(floor, dirn);
+                }
+
+                if wv.elevator_containers[i].dirn == Dirn::Up && time_since_hall_instants(floor, dirn) > Duration::from_secs(2) {
                     *up = false;
-                } else if wv.elevator_containers[i].dirn == Dirn::Down || wv.elevator_containers[i].dirn == Dirn::Stop {
+                } else if wv.elevator_containers[i].dirn == Dirn::Down && time_since_hall_instants(floor, dirn) > Duration::from_secs(2) {
                     *down = false;
                 }
             }
@@ -202,7 +216,27 @@ pub async fn join_wv_from_tcp_container(wv: &mut WorldView, container: &Elevator
     }
 }
 
+use std::sync::LazyLock;
+static HALL_INSTANTS: LazyLock<Mutex<[[Instant; 2]; 4]>> = LazyLock::new(|| {
+    Mutex::new(std::array::from_fn(|_| {
+        std::array::from_fn(|_| Instant::now())
+    }))
+});
 
+fn update_hall_instants(floor: usize, direction: Option<usize>) {
+    if let Some(dirn) = direction {
+        let mut lock = HALL_INSTANTS.lock().unwrap();
+        lock[floor][dirn] = Instant::now();
+    }
+}
+
+fn time_since_hall_instants(floor: usize, direction: Option<usize>) -> std::time::Duration {
+    if let Some(dirn) = direction {
+        let lock = HALL_INSTANTS.lock().unwrap();
+        return lock[floor][dirn].elapsed()
+    }
+    return Instant::now().elapsed();
+}
 
 
 /// ### Removes a slave based on its ID

@@ -207,8 +207,8 @@ async fn handle_elevator(
         let last_behavior: ElevatorBehaviour = track_behavior_change(&self_container, &mut prev_behavior);
         stop_motor_on_dooropen_to_error(&mut self_container, last_behavior, prev_behavior);
 
-        
         self_container.last_behaviour = last_behavior;
+
         //Send til update_wv -> nye self_container
         let _ = elevator_states_tx.send(self_container.clone()).await;    
         

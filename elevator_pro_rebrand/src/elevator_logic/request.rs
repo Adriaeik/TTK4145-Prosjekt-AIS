@@ -198,18 +198,6 @@ pub fn moving_towards_cab_call(elevator: &ElevatorContainer) -> bool {
 /// # Returns
 /// A `DirnBehaviourPair` representing the chosen direction and behaviour state.
 pub fn choose_direction(elevator: &ElevatorContainer) -> DirnBehaviourPair {
-    if elevator.behaviour == ElevatorBehaviour::DoorOpen && here(elevator) {
-        if elevator.tasks[elevator.last_floor_sensor as usize][0] {
-            if above(elevator) {
-                return DirnBehaviourPair { dirn: Dirn::Up, behaviour: ElevatorBehaviour::Moving }
-            }
-            return DirnBehaviourPair { dirn: Dirn::Stop, behaviour: ElevatorBehaviour::Idle };
-        }
-        if below(elevator) {
-            return DirnBehaviourPair { dirn: Dirn::Down, behaviour: ElevatorBehaviour::Moving }
-        }
-        return DirnBehaviourPair { dirn: Dirn::Stop, behaviour: ElevatorBehaviour::Idle }
-    }
 
     match elevator.dirn {
         Dirn::Up => {
