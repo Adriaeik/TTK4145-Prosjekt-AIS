@@ -24,7 +24,6 @@
 
 use crate::config;
 use crate::network;
-use crate::print;
 use crate::world_view;
 use crate::world_view::WorldView;
 
@@ -40,7 +39,6 @@ use tokio::sync::watch;
 
 /* __________ START PUBLIC FUNCTIONS __________ */
 
-// ### Starter og kjører udp-broadcaster
 /// This function starts and runs the UDP-broadcaster
 /// 
 /// ## Parameters
@@ -85,7 +83,7 @@ pub async fn start_udp_broadcaster(
 
             // If you are connected to internet
             if network::read_network_status() {
-                // If you also were connected to internet last time you ran this
+                // If you were not connected to internet last time you ran this
                 if !prev_network_status {
                     sleep(Duration::from_millis(500));
                     prev_network_status = true;
@@ -157,7 +155,7 @@ pub async fn start_udp_listener(
         }
         
         match read_wv {
-            Some(mut read_wv) => {
+            Some(read_wv) => {
                 world_view::update_wv(wv_watch_rx.clone(), &mut my_wv).await;
                 // Pass the recieved WorldView if the message came from the 
                 // master or a node with a lower ID than current master, 
