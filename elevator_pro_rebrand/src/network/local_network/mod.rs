@@ -35,9 +35,9 @@ use crate::world_view::{ElevatorContainer, WorldView};
 use update_wv::{ 
     join_wv_from_udp, 
     abort_network, 
-    join_wv_from_tcp_container, 
+    join_wv_from_container, 
     remove_container,
-    clear_from_sent_tcp,
+    clear_from_sent_data,
     distribute_tasks,
     update_elev_states,
     merge_wv_after_offline,
@@ -108,7 +108,7 @@ pub async fn update_wv_watch(mut mpsc_rxs: MpscRxs, worldview_watch_tx: watch::S
         /*_____Update worldview based on information send on TCP_____ */
         match mpsc_rxs.sent_container.try_recv() {
             Ok(msg) => {
-                wv_edited_I = clear_from_sent_tcp(&mut worldview, msg);
+                wv_edited_I = clear_from_sent_data(&mut worldview, msg);
             },
             Err(_) => {},
         }
@@ -132,14 +132,14 @@ pub async fn update_wv_watch(mut mpsc_rxs: MpscRxs, worldview_watch_tx: watch::S
         /*_____Update worldview based on message from master (simulated TCP message, so the master treats its own elevator as a slave)_____*/
         match master_container_rx.try_recv() {
             Ok(container) => {
-                wv_edited_I = join_wv_from_tcp_container(&mut worldview, &container).await;
+                wv_edited_I = join_wv_from_container(&mut worldview, &container).await;
             },
             Err(_) => {},
         }
         /*_____Update worldview based on message from slave_____*/
         match mpsc_rxs.container.try_recv() {
             Ok(container) => {
-                wv_edited_I = join_wv_from_tcp_container(&mut worldview, &container).await;
+                wv_edited_I = join_wv_from_container(&mut worldview, &container).await;
             },
             Err(_) => {},
         }

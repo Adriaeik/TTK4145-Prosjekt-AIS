@@ -1,36 +1,59 @@
-//! This private module provides helper functions for modifying and merging `WorldView` instances
-//! within the distributed elevator control system.
+//! # `update_wv` – Local WorldView Synchronization Module
 //!
-//! It is only accessible from the `local_network` module and is responsible for:
-//! - Merging local elevator state into the global worldview (via UDP, TCP, or reconnection).
-//! - Cleaning up after disconnections (e.g., removing other elevators from the view).
-//! - Updating hall/cab requests and elevator statuses after communication.
-//! - Resolving conflicts between competing `WorldView` instances during re-entry or master election.
+//! This private helper module is tightly integrated with `local_network` and provides
+//! functionality for modifying and synchronizing `WorldView` instances in the distributed
+//! elevator control system.
 //!
 //! ## Purpose
-//! In a distributed elevator network, each elevator must maintain an up-to-date view of all other
-//! elevators and tasks. This module supports that goal by:
-//! - Integrating state from slaves into the master's worldview.
-//! - Ensuring task handover and cleanup is handled consistently.
-//! - Managing elevator status transitions between connected and offline states.
+//! This module is responsible for maintaining an accurate and consistent local view
+//! of the system’s global elevator state by:
 //!
-//! ## Scope and Access
-//! This module is private by design and tightly coupled with `local_network`. It is not intended
-//! for external access or direct use by high-level logic such as elevator motion or button handling.
+//! - Integrating updates received from the network.
+//! - Cleaning up stale or disconnected nodes (if master).
+//! - Merging conflicting or outdated task assignments.
+//! - Providing safe fallback logic after disconnections.
 //!
-//! ## Common Usage Scenarios
-//! - Receiving a `WorldView` over UDP during initial network discovery.
-//! - Integrating a serialized `ElevatorContainer` received via TCP from a slave.
-//! - Cleaning the worldview when a node disconnects or goes offline.
-//! - Distributing or clearing tasks after successful transmission.
+//! ## Usage Context
+//! This module is **only used by** the `local_network` module and should not be invoked
+//! directly from elevator control, network, or logic layers.
 //!
-//! ## Design Notes
-//! The merging logic assumes known roles (e.g., master or slave) and behaves accordingly.
-//! For instance, a newly elected master may overwrite or discard conflicting data to maintain
-//! system consistency.
+//! ## Core Responsibilities
+//!
+//! ### 1. Receiving & Integrating External WorldViews
+//! - [`join_wv_from_udp`] - Merges local elevator state into a received master `WorldView`.
+//! - [`join_wv_from_container`] - Integrates a container received from a slave.
+//! - [`merge_wv_after_offline`] - Handles reintegration after being offline.
+//!
+//! ### 2. Handling Disconnections & Role Transitions
+//! - [`abort_network`] - Used when becoming offline.
+//! - [`remove_container`] - Removes a disconnected elevator from the worldview.
+//!
+//! ### 3. Cleaning Up After Message Sending
+//! - [`clear_from_sent_data`] - Clears sent call requests from the worldview after an ACK on sent message send.
+//!
+//! ### 4. Utility and Support Functions
+//! - [`distribute_tasks`] - Distributes task maps to elevators.
+//! - [`update_elev_states`] - Updates a container's state fields.
+//! - [`update_cab_request_backup`] - Updates backup for cab requests.
+//! - [`merge_hall_requests`] - Safely merges two hall request vectors.
+//!
+//! ## Example Usage Flow
+//! 1. UDP broadcast is received → `join_wv_from_udp` updates local `WorldView`.
+//! 2. packet from slave arrives → `join_wv_from_container` updates the global state.
+//! 3. Elevator goes offline → `abort_network` strips remote elevators.
+//! 4. WorldView is rejoined to network → `merge_wv_after_offline` handles merging safely.
+//!
+//! ---
 
-use crate::world_view::{self, Dirn, ElevatorBehaviour, ElevatorContainer, WorldView};
-use crate::{config, print};
+
+use crate::world_view::{
+    self, 
+    Dirn, 
+    ElevatorBehaviour, 
+    ElevatorContainer, 
+    WorldView
+};
+use crate::print;
 use crate::network;
 
 use std::collections::HashMap;
@@ -117,32 +140,37 @@ pub fn abort_network(wv: &mut WorldView) -> bool {
     true
 }
 
-/// ### Updates the worldview based on a TCP message from a slave
-/// 
-/// This function processes a TCP message from a slave elevator, updating the local
-/// worldview by adding the elevator if it doesn't already exist, or updating its
-/// status and call buttons if it does.
+/// ### Integrates a container message from another elevator into the local `WorldView`
 ///
-/// The function first deserializes the TCP container and the current worldview.
-/// It then checks if the elevator exists in the worldview and adds it if necessary.
-/// After that, it updates the elevator's status and call buttons by calling appropriate
-/// helper functions. Finally, it serializes the updated worldview and returns `true`.
-/// If the elevator cannot be found in the worldview, an error message is printed and `false` is returned.
+/// This function updates the local `WorldView` with information from a received `ElevatorContainer`
+/// (typically sent over UDP or TCP). It adds the elevator if it doesn’t exist,
+/// and updates its task and status fields if it does.
+///
+/// Used by the master node when receiving new state from other elevators in the system.
 ///
 /// ## Parameters
-/// - `wv`: A mutable reference to a `Vec<u8>` representing the worldview.
-/// - `container`: A `Vec<u8>` containing the serialized data of the elevator's state.
+/// - `wv`: A mutable reference to the current [`WorldView`] instance.
+/// - `container`: A reference to the [`ElevatorContainer`] received from another elevator.
 ///
-/// ## Return Value
-/// - Returns `true` if the update was successful, `false` if the elevator was not found in the worldview.
+/// ## Returns
+/// - Returns `true` if the worldview was successfully updated.
+/// - Returns `false` only if the elevator failed to be inserted (should be unreachable).
+///
+/// ## Behavior
+/// - Adds the elevator to the worldview if not already present.
+/// - Integrates unsent hall requests and cab requests into the global state.
+/// - Clears sent hall requests if the current node is the master.
+/// - If the elevator just served a request (based on floor + direction + timing), clears that request.
+/// - Backs up cab requests into the system-wide backup table for future recovery.
 ///
 /// ## Example
 /// ```
-/// let mut worldview = vec![/* some serialized data */];
-/// let container = vec![/* some serialized elevator data */];
-/// join_wv_from_tcp_container(&mut worldview, container).await;
+/// let mut wv = WorldView::default();
+/// let cont = ElevatorContainer::new(1);
+/// let ok = join_wv_from_container(&mut wv, &cont).await;
+/// assert!(ok);
 /// ```
-pub async fn join_wv_from_tcp_container(wv: &mut WorldView, container: &ElevatorContainer) -> bool {
+pub async fn join_wv_from_container(wv: &mut WorldView, container: &ElevatorContainer) -> bool {
 
     // If the slave does not exist, add it as-is
     if None == wv.elevator_containers.iter().position(|x| x.elevator_id == container.elevator_id) {
@@ -214,7 +242,7 @@ pub async fn join_wv_from_tcp_container(wv: &mut WorldView, container: &Elevator
         return true;
     } else {
         // If this is printed, the slave does not exist in the worldview. This is theoretically impossible, as the slave is added to the worldview just before this if it does not already exist.
-        print::cosmic_err("The elevator does not exist join_wv_from_tcp_conatiner()".to_string());
+        print::cosmic_err("The elevator does not exist join_wv_from_conatiner()".to_string());
         return false;
     }
 }
@@ -290,9 +318,9 @@ pub fn remove_container(wv: &mut WorldView, id: u8) -> bool {
 /// ```rust
 /// let mut worldview = vec![/* some serialized data */];
 /// let tcp_container = vec![/* some serialized container data */];
-/// clear_from_sent_tcp(&mut worldview, tcp_container);
+/// clear_from_sent_data(&mut worldview, tcp_container);
 /// ```
-pub fn clear_from_sent_tcp(wv: &mut WorldView, tcp_container: ElevatorContainer) -> bool {
+pub fn clear_from_sent_data(wv: &mut WorldView, tcp_container: ElevatorContainer) -> bool {
     let self_idx = world_view::get_index_to_container(network::read_self_id() , &wv);
     
     if let Some(i) = self_idx {

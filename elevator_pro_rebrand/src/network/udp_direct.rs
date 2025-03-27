@@ -1,3 +1,40 @@
+//! # `udp_direct` – Direct UDP Communication Module
+//!
+//! This module implements the core UDP-based transport layer for inter-elevator communication,
+//! forming the backbone of all networked elevator state synchronization in the system.
+//!
+//! It enables peer-to-peer communication between master and slave nodes using direct UDP messaging,
+//! and dynamically adjusts redundancy based on network conditions like packet loss and ACK delay.
+//!
+//! ## Purpose
+//! `udp_direct` replaces traditional TCP-based node communication with a leaner,
+//! packet-efficient UDP protocol tailored for real-time distributed control,
+//! particularly in constrained or unreliable network conditions.
+//!
+//! ## Key Responsibilities
+//! - Binds and initializes a reusable UDP socket on startup
+//! - Listens for state updates from slave elevators (when master)
+//! - Broadcasts elevator state to the master (when slave)
+//! - Dynamically adjusts retransmission redundancy via a PID controller
+//! - Periodically cleans up inactive slaves based on timeouts
+//!
+//! ## Role Detection
+//! Communication flow depends on node role:
+//! - **Master**: Accepts UDP packets from slaves and responds with ACKs
+//! - **Slave**: Periodically sends elevator state and waits for ACKs from master
+//!
+//! ## Why UDP?
+//! - Lightweight and connectionless, ideal for frequent, small messages
+//! - Avoids head-of-line blocking and congestion inherent in TCP
+//! - Redundancy and reliability are handled at application level (e.g. via PID tuning)
+//!
+//! ## Notable Features
+//! - Saturated PID control of redundancy for adaptive loss recovery
+//! - Graceful handling of temporary disconnections or packet loss
+//!
+//! ## Module Ownership
+//! This module lives under the `network` module hierarchy but encapsulates
+//! **all low-level UDP logic**, isolating it from higher-level worldview and elevator logic.
 use crate::config;
 use crate::ip_help_functions;
 use crate::network;
@@ -19,8 +56,10 @@ use std::{
 use once_cell::sync::Lazy;
 
 
-const INACTIVITY_TIMEOUT: Duration = Duration::from_secs(5); // Tidsgrense for inaktivitet
-const CLEANUP_INTERVAL: Duration = Duration::from_secs(1); // Hvor ofte inaktive sendere fjernes
+/// Maximum allowed inactivity duration before a slave is considered disconnected.
+const INACTIVITY_TIMEOUT: Duration = Duration::from_secs(5);
+/// Interval between cleanup checks for inactive slave nodes.
+const CLEANUP_INTERVAL: Duration = Duration::from_secs(1);
 
 /// Initializes and manages a direct UDP network "connection" for communication between master and slave nodes.
 /// 
