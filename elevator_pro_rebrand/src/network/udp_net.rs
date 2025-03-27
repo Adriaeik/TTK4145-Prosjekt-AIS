@@ -455,7 +455,7 @@ impl PID {
     }
 
     fn update(&mut self, setpoint: f64, measurement: f64, now: Instant) -> f64 {
-        let error = (setpoint - measurement).abs();
+        let error = (setpoint - measurement);
         let dt = self.last_time.map_or(0.1, |last| {
             let secs = now.duration_since(last).as_secs_f64();
             if secs < 0.001 { 0.001 } else { secs }
