@@ -4,7 +4,6 @@
 //! The module has a lot of responsibilities, and is therefore splittet into a few sub-modules.
 //! 
 //! ## Sub-modules
-//! - [tcp_network]
 //! - [udp_network]
 //! - [local_network]
 //! 
@@ -18,7 +17,6 @@
 //! - `watch_ethernet`: Updates the network status, making sure the program detects connection loss and high packet loss
 //! - `read_network_status`: Gives a boolean indicating if your network connection is operatable.
 
-pub mod tcp_network;
 pub mod udp_network;
 pub mod local_network;
 pub mod udp_net;

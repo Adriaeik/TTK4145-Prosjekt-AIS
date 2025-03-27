@@ -17,12 +17,10 @@
 //! Note:
 //! - TCP-based communication is deprecated and currently inactive
 //! - This function never returns; it enters an infinite loop after initializing all tasks
-use tokio::sync::mpsc;
-use tokio::net::TcpStream;
-use std::net::SocketAddr;
+
 use tokio::sync::watch;
 
-use elevatorpro::{backup, elevator_logic, manager, network::{self, local_network, tcp_network, udp_network}, world_view};
+use elevatorpro::{backup, elevator_logic, manager, network::{self, local_network, udp_network}, world_view};
 use elevatorpro::init;
 use elevatorpro::print;
 
@@ -89,7 +87,6 @@ async fn main() {
     let udp_wv_tx = main_mpscs.txs.udp_wv;
     let remove_container_tx = main_mpscs.txs.remove_container;
     let container_tx = main_mpscs.txs.container;
-    let connection_to_master_failed_tx_clone = main_mpscs.txs.connection_to_master_failed.clone(); //TODO:: remove
     let sent_container_tx = main_mpscs.txs.sent_container;
     let connection_to_master_failed_tx = main_mpscs.txs.connection_to_master_failed;
     let new_wv_after_offline_tx = main_mpscs.txs.new_wv_after_offline;
@@ -210,31 +207,6 @@ async fn main() {
         });
     }
 
-    // TCP NED
-    // {
-    //     //Task handling TCP connections
-    //     let wv_watch_rx = wv_watch_rx.clone();
-    //     let _tcp_task = tokio::spawn(async move {
-    //         print::info("Starting TCP handler".to_string());
-    //         let _ = tcp_network::tcp_handler(wv_watch_rx, remove_container_tx, container_tx, connection_to_master_failed_tx, sent_container_tx, socket_rx).await;
-    //     });
-    // }
-    
-    // {
-    //     //Task handling the TCP-listener
-    //     let _listener_handle = tokio::spawn(async move {
-    //         print::info("Starting tcp listener".to_string());
-    //         let _ = tcp_network::listener_task(socket_tx).await;
-    //     });
-    // }
-
-    // {
-    //     //UDP Watchdog
-    //     let _udp_watchdog = tokio::spawn(async move {
-    //         print::info("Starting udp watchdog".to_string());
-    //         let _ = udp_network::udp_watchdog(connection_to_master_failed_tx_clone).await;
-    //     });
-    // }
     /* END ----------- Network related tasks ---------------------- */
 
 
