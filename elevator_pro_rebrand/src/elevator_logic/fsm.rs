@@ -75,7 +75,8 @@ pub async fn on_init(
     self_container.behaviour = ElevatorBehaviour::Moving;
     self_container.dirn = Dirn::Down;
 
-    while self_container.last_floor_sensor == u8::MAX {
+    while self_container.last_floor_sensor == u8::MAX 
+    {
         self_elevator::update_elev_container_from_msgs(
             local_elev_rx,
             self_container,
@@ -116,12 +117,14 @@ pub async fn handle_floor_sensor_update(
     prev_floor: &mut u8,
     timers: &mut ElevatorTimers,
 ) {
-    if *prev_floor != self_container.last_floor_sensor {
+    if *prev_floor != self_container.last_floor_sensor 
+    {
         on_floor_arrival(self_container, e, &mut timers.door, &mut timers.cab_priority).await;
         timers.error.timer_start();
 
         // Ignore cab call timeout if request came from inside button
-        if !request::was_outside(self_container) {
+        if !request::was_outside(self_container) 
+        {
             timers.cab_priority.release_timer();
         }
 
@@ -138,12 +141,15 @@ pub async fn handle_stop_button(
     e: Elevator,
     prev_stop_btn: &mut bool,
 ) {
-    if *prev_stop_btn != self_container.stop {
-        if self_container.stop {
+    if *prev_stop_btn != self_container.stop 
+    {
+        if self_container.stop 
+        {
             lights::set_stop_button_light(e.clone());
             self_container.behaviour = ElevatorBehaviour::CosmicError; 
             e.motor_direction(Dirn::Stop as u8);
-        } else {
+        } else 
+        {
             lights::clear_stop_button_light(e.clone());
             self_container.behaviour = ElevatorBehaviour::Idle;
         }
@@ -171,12 +177,15 @@ pub async fn handle_door_timeout(
     door_timer: &Timer,
     cab_priority_timer: &mut Timer,
 ) {
-    if door_timer.timer_timeouted() && !self_container.obstruction {
-        if request::moving_towards_cab_call(&self_container.clone()) {
+    if door_timer.timer_timeouted() && !self_container.obstruction 
+    {
+        if request::moving_towards_cab_call(&self_container.clone()) 
+        {
             cab_priority_timer.release_timer();
         }
 
-        if cab_priority_timer.timer_timeouted() {
+        if cab_priority_timer.timer_timeouted() 
+        {
             on_door_timeout(self_container, e.clone()).await;
         }
     }
@@ -202,12 +211,13 @@ pub fn handle_error_timeout(
     error_timer: &mut Timer,
     prev_cab_priority_timer_stat: bool,
 ) {
-    if !cab_priority_timer.timer_timeouted() || self_container.behaviour == ElevatorBehaviour::Idle {
+    if !cab_priority_timer.timer_timeouted() || self_container.behaviour == ElevatorBehaviour::Idle 
+    {
         error_timer.timer_start();
     }
 
-
-    if error_timer.timer_timeouted() && !prev_cab_priority_timer_stat {
+    if error_timer.timer_timeouted() && !prev_cab_priority_timer_stat 
+    {
         if !self_container.obstruction && (self_container.behaviour == ElevatorBehaviour::DoorOpen) {
             error_timer.timer_start();
         } else {
@@ -237,10 +247,12 @@ pub fn handle_idle_state(
     e: Elevator,
     door_timer: &mut Timer,
 ) {
-    if self_container.behaviour == ElevatorBehaviour::Idle {
+    if self_container.behaviour == ElevatorBehaviour::Idle 
+    {
         let status_pair = request::choose_direction(&self_container.clone());
 
-        if status_pair.behaviour != ElevatorBehaviour::Idle {
+        if status_pair.behaviour != ElevatorBehaviour::Idle 
+        {
             print::err(format!("Skal nå være: {:?}", status_pair.behaviour));
             self_container.dirn = status_pair.dirn;
             self_container.behaviour = status_pair.behaviour;
@@ -281,16 +293,20 @@ async fn on_floor_arrival(
     cab_priority_timer: &mut Timer,
 ) {
     // Fix startup case: sensor value is 255 when between floors → set to top floor
-    if elevator.last_floor_sensor > elevator.num_floors {
+    if elevator.last_floor_sensor > elevator.num_floors 
+    {
         elevator.last_floor_sensor = elevator.num_floors - 1;
     }
 
     // Turn on light for active cab request (if any)
     lights::set_cab_light(e.clone(), elevator.last_floor_sensor);
 
-    match elevator.behaviour {
-        ElevatorBehaviour::Moving | ElevatorBehaviour::ObstructionError | ElevatorBehaviour::TravelError => {
-            if request::should_stop(&elevator.clone()) {
+    match elevator.behaviour 
+    {
+        ElevatorBehaviour::Moving | ElevatorBehaviour::ObstructionError | ElevatorBehaviour::TravelError => 
+        {
+            if request::should_stop(&elevator.clone()) 
+            {
                 e.motor_direction(Dirn::Stop as u8);
                 request::clear_at_current_floor(elevator);
                 door_timer.timer_start();
@@ -316,20 +332,26 @@ async fn on_floor_arrival(
 /// # Parameters
 /// - `elevator`: Mutable reference to the elevator's internal state.
 /// - `e`: Elevator hardware interface, used to control lights and motor.
-async fn on_door_timeout(elevator: &mut ElevatorContainer, e: Elevator) {
-    match elevator.behaviour {
-        ElevatorBehaviour::DoorOpen => {
+async fn on_door_timeout(elevator: &mut ElevatorContainer, e: Elevator) 
+{
+    match elevator.behaviour 
+    {
+        ElevatorBehaviour::DoorOpen => 
+        {
             let state_pair = request::choose_direction(&elevator.clone());
 
             
             elevator.behaviour = state_pair.behaviour;
             elevator.dirn = state_pair.dirn;
 
-            match elevator.behaviour {
-                ElevatorBehaviour::DoorOpen => {
+            match elevator.behaviour 
+            {
+                ElevatorBehaviour::DoorOpen => 
+                {
                     request::clear_at_current_floor(elevator);
                 }
-                _ => {
+                _ => 
+                {
                     e.motor_direction(elevator.dirn as u8);
                 }
             }

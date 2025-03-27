@@ -156,11 +156,11 @@ async fn main() {
         // It is currently used only as a GUI visualizer and debugging tool
         //
         // For more, see `mod backup`: `//! # ⚠️ NOT part of the final solution – Legacy backup module`
-        let wv_watch_rx = wv_watch_rx.clone();
-        let _backup_task = tokio::spawn(async move {
-            print::info("Starting backup".to_string());
-            tokio::spawn(backup::start_backup_server(wv_watch_rx, network_watch_rx));
-        });
+        // let wv_watch_rx = wv_watch_rx.clone();
+        // let _backup_task = tokio::spawn(async move {
+        //     print::info("Starting backup".to_string());
+        //     tokio::spawn(backup::start_backup_server(wv_watch_rx, network_watch_rx));
+        // });
     }
     /* END ----------- Backup server ----------- */
         
