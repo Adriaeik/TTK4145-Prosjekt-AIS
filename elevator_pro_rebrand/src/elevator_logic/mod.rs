@@ -63,7 +63,8 @@ pub async fn run_local_elevator(
     {
         let elevator_c = elevator.clone();
         let wv_watch_rx_c = wv_watch_rx.clone();
-        let _handle_task = tokio::spawn(async move {
+        tokio::spawn(async move 
+            {
             let _ = handle_elevator(wv_watch_rx_c, elevator_states_tx, local_elev_rx, elevator_c).await;
         });
     }  
@@ -74,14 +75,18 @@ pub async fn run_local_elevator(
         // Task som setter på hall_lights
         tokio::spawn(async move {
             let mut wv = world_view::get_wv(wv_watch_rx);
-            loop {
+            loop 
+            {
                 world_view::update_wv(wv_watch_rx_c.clone(), &mut wv).await;
-                match world_view::extract_self_elevator_container(&wv) {
-                    Some(cont) => {
+                match world_view::extract_self_elevator_container(&wv) 
+                {
+                    Some(cont) => 
+                    {
                         lights::set_hall_lights(&wv, e.clone(), &cont);
                         
                     }
-                    None => {
+                    None => 
+                    {
                         print::warn(format!("Failed to extract self elevator container"));
                     }
                 }
@@ -90,10 +95,10 @@ pub async fn run_local_elevator(
         });
     }  
 
-    loop {
+    loop 
+    {
         yield_now().await;
     }
-    
 }
 
 
@@ -150,7 +155,8 @@ async fn handle_elevator(
     let mut prev_floor: u8 = self_container.last_floor_sensor;
     let mut prev_stop_btn: bool = self_container.stop;
     
-    loop {        
+    loop 
+    {        
         self_elevator::update_elev_container_from_msgs(
             &mut local_elev_rx, 
             &mut self_container, 
@@ -202,7 +208,8 @@ async fn handle_elevator(
         self_container.last_behaviour = last_behavior;
         
         //Hent nyeste worldview
-        if world_view::update_wv(wv_watch_rx.clone(), &mut wv).await{
+        if world_view::update_wv(wv_watch_rx.clone(), &mut wv).await
+        {
             update_tasks_and_hall_requests(&mut self_container, &wv).await;
         }
         //Send til update_wv -> nye self_container
@@ -238,11 +245,13 @@ async fn update_tasks_and_hall_requests(
     self_container: &mut ElevatorContainer, 
     wv: &WorldView
 ){
-    if let Some(task_container) = world_view::extract_self_elevator_container(wv) {
+    if let Some(task_container) = world_view::extract_self_elevator_container(wv) 
+    {
         self_container.tasks = task_container.tasks.clone();
         self_container.cab_requests = task_container.cab_requests.clone();
         self_container.unsent_hall_request = task_container.unsent_hall_request.clone();
-    } else {
+    } else 
+    {
         print::warn(format!("Failed to extract self elevator container – keeping previous value"));
     }
 }
@@ -272,9 +281,11 @@ async fn await_valid_self_container(
 ) -> ElevatorContainer {
     loop {
         let wv = world_view::get_wv(wv_rx.clone());
-        if let Some(container) = world_view::extract_self_elevator_container(&wv) {
+        if let Some(container) = world_view::extract_self_elevator_container(&wv) 
+        {
             return container.clone();
-        } else {
+        } else 
+        {
             print::warn(format!("Failed to extract self elevator container, retrying..."));
             sleep(Duration::from_millis(100)).await;
         }
@@ -294,8 +305,12 @@ async fn await_valid_self_container(
 /// # Behavior
 /// - Prevents motor updates while the door is open.
 /// - Useful for ensuring motor is only active during appropriate states.
-fn update_motor_direction_if_needed(self_container: &ElevatorContainer, e: &Elevator) {
-    if self_container.behaviour != ElevatorBehaviour::DoorOpen {
+fn update_motor_direction_if_needed(
+    self_container: &ElevatorContainer, 
+    e: &Elevator
+) {
+    if self_container.behaviour != ElevatorBehaviour::DoorOpen 
+    {
         e.motor_direction(self_container.dirn as u8);
     }
 }
@@ -319,23 +334,32 @@ fn update_error_state(
     prev_cab_priority_timer_stat: &mut bool,
     prev_behavior: &ElevatorBehaviour,
 ) {
-    if error_timer.timer_timeouted() {
+    if error_timer.timer_timeouted() 
+    {
         if was_prew_state_error(prev_behavior){ return;}
+
         *prev_cab_priority_timer_stat = true;
-        if *prev_behavior == ElevatorBehaviour::DoorOpen {
+        
+        if *prev_behavior == ElevatorBehaviour::DoorOpen 
+        {
             self_container.behaviour = ElevatorBehaviour::ObstructionError;
             
-        } else if *prev_behavior == ElevatorBehaviour::Moving {
+        } else if *prev_behavior == ElevatorBehaviour::Moving 
+        {
             self_container.behaviour = ElevatorBehaviour::TravelError;
-        } else {
+        } else 
+        {
             self_container.behaviour = ElevatorBehaviour::CosmicError;
         }
-    } else {
+    } else 
+    {
         *prev_cab_priority_timer_stat = false;
     }
 }
 
-fn was_prew_state_error(prev_behavior:  &ElevatorBehaviour) -> bool{
+fn was_prew_state_error(
+    prev_behavior:  &ElevatorBehaviour
+) -> bool {
     *prev_behavior == ElevatorBehaviour::ObstructionError || 
     *prev_behavior == ElevatorBehaviour::TravelError || 
     *prev_behavior == ElevatorBehaviour::CosmicError 
@@ -361,7 +385,8 @@ fn track_behavior_change(
 ) -> ElevatorBehaviour {
     let last_behavior = *prev_behavior;
 
-    if *prev_behavior != self_container.behaviour {
+    if *prev_behavior != self_container.behaviour 
+    {
         *prev_behavior = self_container.behaviour;
         println!("Endra status: {:?} -> {:?}", last_behavior, self_container.behaviour);
     }
@@ -386,7 +411,8 @@ fn stop_motor_on_dooropen_to_error(
     last_behavior: ElevatorBehaviour,
     current_behavior: ElevatorBehaviour,
 ) {
-    if last_behavior == ElevatorBehaviour::DoorOpen && current_behavior == ElevatorBehaviour::ObstructionError {
+    if last_behavior == ElevatorBehaviour::DoorOpen && current_behavior == ElevatorBehaviour::ObstructionError 
+    {
         self_container.dirn = Dirn::Stop;
     }
 }

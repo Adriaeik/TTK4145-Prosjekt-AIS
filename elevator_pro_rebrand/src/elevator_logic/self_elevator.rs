@@ -34,33 +34,39 @@ use tokio::sync::mpsc;
 
 
 
-struct LocalElevTxs {
+struct LocalElevTxs 
+{
     call_button: cbc::Sender<elevio::CallButton>,
     floor_sensor: cbc::Sender<u8>,
     stop_button: cbc::Sender<bool>,
     obstruction: cbc::Sender<bool>,
 }
 
-struct LocalElevRxs {
+struct LocalElevRxs 
+{
     call_button: cbc::Receiver<elevio::CallButton>,
     floor_sensor: cbc::Receiver<u8>,
     stop_button: cbc::Receiver<bool>,
     obstruction: cbc::Receiver<bool>,
 }
 
-struct LocalElevChannels {
+struct LocalElevChannels 
+{
     pub rxs: LocalElevRxs,
     pub txs: LocalElevTxs,
 }
 
-impl LocalElevChannels {
-    pub fn new() -> Self {
+impl LocalElevChannels 
+{
+    pub fn new() -> Self 
+    {
         let (call_button_tx, call_button_rx) = cbc::unbounded::<elevio::CallButton>();
         let (floor_sensor_tx, floor_sensor_rx) = cbc::unbounded::<u8>();
         let (stop_button_tx, stop_button_rx) = cbc::unbounded::<bool>();
         let (obstruction_tx, obstruction_rx) = cbc::unbounded::<bool>();
 
-        LocalElevChannels { 
+        LocalElevChannels 
+        { 
             rxs: LocalElevRxs { call_button: call_button_rx, floor_sensor: floor_sensor_rx, stop_button: stop_button_rx, obstruction: obstruction_rx }, 
             txs: LocalElevTxs { call_button: call_button_tx, floor_sensor: floor_sensor_tx, stop_button: stop_button_tx, obstruction: obstruction_tx } 
         }
@@ -69,23 +75,27 @@ impl LocalElevChannels {
 
 
 /// ### Get local IP address
-fn get_ip_address() -> String {
+fn get_ip_address() -> String 
+{
     let self_id = network::read_self_id();
     format!("{}.{}", config::NETWORK_PREFIX, self_id)
 }
 
 /// ### Starts the elevator_server
-async fn start_elevator_server() {
+async fn start_elevator_server() 
+{
     let ip_address = get_ip_address();
-    let ssh_password = "Sanntid15"; // Hardkodet passord, vurder sikkerhetsrisiko
+    let ssh_password = config::SSH_PASSWORD; 
 
-    if cfg!(target_os = "windows") {
+    if cfg!(target_os = "windows") 
+    {
         print::info(format!("Starting elevatorserver on Windows..."));
         Command::new("cmd")
             .args(&["/C", "start", "elevatorserver"])
             .spawn()
             .expect("Failed to start elevator server");
-    } else {
+    } else 
+    {
         print::info(format!("Starting elevatorserver on Linux..."));
         
         // Start the elevator server without opening a terminal
@@ -122,16 +132,18 @@ async fn start_elevator_server() {
 /// 
 /// ## Note
 /// This function loops over a tokio::yield_now(). This is added in case further implementation is added which makes the function permanently-blocking, forcing the user to spawn this function in a tokio task. In theroy, this could be removed, but for now: call this function asynchronously
-pub async fn init(local_elev_tx: mpsc::Sender<elevio::ElevMessage>) -> e::Elevator {
-    // Start elevator-serveren
+pub async fn init(
+    local_elev_tx: mpsc::Sender<elevio::ElevMessage>
+) -> e::Elevator {
+    // Start elevator-serveren. 
     start_elevator_server().await;
     let local_elev_channels: LocalElevChannels = LocalElevChannels::new();
     let _ = sleep(config::SLAVE_TIMEOUT);
     let elevator: e::Elevator = e::Elevator::init(config::LOCAL_ELEV_IP, config::DEFAULT_NUM_FLOORS)
         .expect("Error while initiating elevator");
     
-    // Start polling på meldinger fra heisen
-    // ______START:: LESE KNAPPER_______________
+    // Start polling messages from elevator
+    // ______START:: READ BUTTONS_______________
     {
         let elevator = elevator.clone();
         tokio::spawn(async move {
@@ -156,10 +168,10 @@ pub async fn init(local_elev_tx: mpsc::Sender<elevio::ElevMessage>) -> e::Elevat
             elevio::poll::obstruction(elevator, local_elev_channels.txs.stop_button, config::ELEV_POLL)
         });
     }
-    // ______STOPP:: LESE KNAPPER_______________
+    // ______STOPP:: READ BUTTONS_______________
    
     {
-        let _listen_task = tokio::spawn(async move {
+        tokio::spawn(async move {
             let _ = read_from_local_elevator(local_elev_channels.rxs, local_elev_tx).await;
         });
     } 

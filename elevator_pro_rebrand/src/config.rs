@@ -47,6 +47,9 @@ pub static LOCAL_ELEV_IP: &str = "localhost:15657";
 /// Broadcast key used to filter out invalid worldview messages
 pub const KEY_STR: &str = "Secret Key";
 
+/// SSH password
+pub const SSH_PASSWORD: &str = "Your_Password";
+
 //
 // ──────────────────────────────────────────────────────────────
 //   2. SYSTEM & ELEVATOR PARAMETERS

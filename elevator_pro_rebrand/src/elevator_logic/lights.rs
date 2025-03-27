@@ -41,50 +41,68 @@ use crate::world_view::WorldView;
 /// 
 /// ## Note
 /// The function only sets the lights once per call, and should therefore be called continiously
-pub fn set_hall_lights(wv: &WorldView, e: Elevator, self_container: &ElevatorContainer) {
-    for (i, [up, down]) in wv.hall_request.iter().enumerate() {
+pub fn set_hall_lights(
+    wv: &WorldView, 
+    e: Elevator, 
+    self_container: &ElevatorContainer
+) {
+    for (i, [up, down]) in wv.hall_request.iter().enumerate() 
+    {
         let floor = i as u8;
-        if floor > e.num_floors {
-            break;
-        }
+        if floor > e.num_floors {break;}
     
         e.call_button_light(floor, 2, self_container.cab_requests[i]);
-        if floor != 0 {
+        if floor != 0 
+        {
             e.call_button_light(floor, 1, *down);
         }
-        if floor != e.num_floors {
+        if floor != e.num_floors 
+        {
             e.call_button_light(floor, 0, *up);
         }
     }
 
-    if self_container.behaviour == ElevatorBehaviour::DoorOpen || self_container.behaviour == ElevatorBehaviour::ObstructionError {
+    if self_container.behaviour == ElevatorBehaviour::DoorOpen || self_container.behaviour == ElevatorBehaviour::ObstructionError 
+    {
         set_door_open_light(e.clone());
-    } else {
+    } else 
+    {
         clear_door_open_light(e.clone());
     }
 }
 
 /// The function sets the cab light on last_floor_sensor
-pub fn set_cab_light(e: Elevator, last_floor: u8) {
+pub fn set_cab_light(
+    e: Elevator, 
+    last_floor: u8
+) {
     e.floor_indicator(last_floor);
 }
 
 /// The function sets the door open light on
-pub fn set_door_open_light(e: Elevator) {
+pub fn set_door_open_light(
+    e: Elevator
+) {
     e.door_light(true);
 }
 
 /// The function sets the door open light off
-pub fn clear_door_open_light(e: Elevator) {
+pub fn clear_door_open_light(
+    e: Elevator
+) {
     e.door_light(false);
 }
 
 /// The function sets the stop button light on
-pub fn set_stop_button_light(e: Elevator) {
+pub fn set_stop_button_light(
+    e: Elevator
+) {
     e.stop_button_light(true);
 }
 
 /// The function sets the stop button light off
-pub fn clear_stop_button_light(e: Elevator) {
+pub fn clear_stop_button_light(
+    e: Elevator
+) {
     e.stop_button_light(false);
 }
