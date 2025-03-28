@@ -88,3 +88,5 @@ To enhance your understanding of the system's architecture and behavior, we have
 | [Elevator FSM and Logic](Flowcharts/elev_fsm_and_logic.png) | Presents the local elevator’s control flow, timers, and decision-making based on events. |
 | [Elevator State Machine Overview](Flowcharts/FSM.png) | A concise overview of high-level elevator states and transitions (e.g., moving, door open, error). |
 
+We also have a picture of our amazing GUI:
+[System-state Print Example](pic/ElevatorGUI.png)
