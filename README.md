@@ -89,5 +89,5 @@ To enhance your understanding of the system's architecture and behavior, we have
 | [Elevator State Machine Overview](Flowcharts/FSM.png) | A concise overview of high-level elevator states and transitions (e.g., moving, door open, error). |
 
 We also have a picture of our amazing GUI:
-[System-state Print Example](Pic/ElevatorGUI.png)
+[System-state Print Example](pic/ElevatorGUI.png)
 
