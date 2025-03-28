@@ -224,14 +224,14 @@ pub fn slave(msg: String)
 /// Prints an error message with a cosmic twist, displaying the message in a rainbow of colors.
 ///
 /// This function prints a message when something happens that is theoretically impossible, 
-/// such as a "cosmic ray flipping a bit" scenario. It starts with a red "[ERROR]:" label and 
+/// such as a "cosmic ray flipping a bit" scenario. It starts with a red "\[ERROR\]:" label and 
 /// follows with the rest of the message displayed in a rainbow pattern.
 ///
 /// # Parameters
 /// - `fun`: The function name or description of the issue that led to this cosmic error. 
 ///
 /// ## Terminal output
-/// - "[ERROR]: Cosmic rays flipped a bit! 👽 ⚛️ 🔄 1️⃣ 0️⃣ IN: {fun}"
+/// - "\[ERROR\]: Cosmic rays flipped a bit! 👽 ⚛️ 🔄 1️⃣ 0️⃣ IN: {fun}"
 ///   Where `{fun}` is replaced by the provided `fun` parameter, and the rest of the message is displayed in rainbow colors.
 ///
 /// # Example

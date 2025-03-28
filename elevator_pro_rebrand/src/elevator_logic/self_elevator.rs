@@ -122,12 +122,12 @@ async fn start_elevator_server()
 /// 
 /// ## Parameters
 /// `wv_watch_rx`: Rx on watch the worldview is being sent on in the system  
-/// `update_elev_state_tx`: mpsc sender used to update [local_network::update_wv_watch] when the elevator is in a new state  
-/// `local_elev_tx`: mpsc sender used to update [local_network::update_wv_watch] when a message has been recieved form the elevator  
+/// `update_elev_state_tx`: mpsc sender used to update [network::local_network::update_wv_watch] when the elevator is in a new state  
+/// `local_elev_tx`: mpsc sender used to update [network::local_network::update_wv_watch] when a message has been recieved form the elevator  
 /// 
 /// ## Behavior
 /// - The function starts the elevatorserver on the machine, and starts polling for messages  
-/// - The function starts a thread which forwards messages from the elevator to [local_network::update_wv_watch]
+/// - The function starts a thread which forwards messages from the elevator to [network::local_network::update_wv_watch]
 /// - The function starts a thread which executes the first task for your own elevator in the worldview
 /// 
 /// ## Note

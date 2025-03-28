@@ -110,7 +110,7 @@ pub async fn start_udp_broadcaster(
 /// 
 /// ## Parameters
 /// `wv_watch_rx`: Rx on watch the worldview is being sent on in the system  
-/// `udp_wv_tx`: mpsc sender used to update [local_network::update_wv_watch] about new worldviews recieved over UDP
+/// `udp_wv_tx`: mpsc sender used to update [network::local_network::update_wv_watch] about new worldviews recieved over UDP
 /// 
 /// ## Behaviour
 /// - Sets up a reusable listener listening for udp-broadcasts

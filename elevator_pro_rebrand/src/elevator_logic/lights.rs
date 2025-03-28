@@ -18,9 +18,7 @@
 //! lights::set_hall_lights(wv, e.clone());
 //! lights::set_cab_light(e.clone(), 2);
 //! ```
-//!
-//! # Related
-//! See [`world_view`] for worldview structure and serialization logic.
+
 
 use crate::elevator_logic::ElevatorBehaviour;
 use crate::elevio::elev::Elevator; 
