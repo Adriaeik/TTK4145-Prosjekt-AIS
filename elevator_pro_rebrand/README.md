@@ -82,9 +82,9 @@ To enhance your understanding of the system's architecture and behavior, we have
 
 | Flowchart | Description |
 |----------|-------------|
-| [System Broadcast Mechanism](elevator_pro_rebrand/Flowcharts/Broadcast_direct.png) | Shows the master-slave communication via direct UDP and handling of sequence numbers and redundancy. |
-| [UDP Broadcast Process](elevator_pro_rebrand/Flowcharts/UDP_broadcast.png) | Describes how the system listens to and sends broadcast packets for discovery and synchronization. |
-| [Worldview Update Process](elevator_pro_rebrand/Flowcharts/update_wv.png) | Details the logic behind updating the `WorldView` when receiving new data or experiencing disconnects. |
-| [Elevator FSM and Logic](elevator_pro_rebrand/Flowcharts/elev_fsm_and_logic.png) | Presents the local elevator’s control flow, timers, and decision-making based on events. |
-| [Elevator State Machine Overview](elevator_pro_rebrand/Flowcharts/FSM.png) | A concise overview of high-level elevator states and transitions (e.g., moving, door open, error). |
+| [System Broadcast Mechanism](Flowcharts/Broadcast_direct.png) | Shows the master-slave communication via direct UDP and handling of sequence numbers and redundancy. |
+| [UDP Broadcast Process](Flowcharts/UDP_broadcast.png) | Describes how the system listens to and sends broadcast packets for discovery and synchronization. |
+| [Worldview Update Process](Flowcharts/update_wv.png) | Details the logic behind updating the `WorldView` when receiving new data or experiencing disconnects. |
+| [Elevator FSM and Logic](Flowcharts/elev_fsm_and_logic.png) | Presents the local elevator’s control flow, timers, and decision-making based on events. |
+| [Elevator State Machine Overview](Flowcharts/FSM.png) | A concise overview of high-level elevator states and transitions (e.g., moving, door open, error). |
 
