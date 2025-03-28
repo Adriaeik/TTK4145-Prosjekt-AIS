@@ -3,11 +3,6 @@
 ## Project Overview
 This project implements a distributed elevator control system in Rust as part of the TTK4145 Real-Time Programming course at NTNU. The system is designed to manage multiple elevators in parallel with a focus on robustness and fault handling. It aims to guarantee no loss of service even during network disruptions, software crashes, or hardware failures. The system supports configurations with more than three elevators and four floors.
 
-The core goals of the system are:
-- **No single point of failure**: Any node can become the master.
-- **Dynamic recovery**: System continues to function seamlessly through node crashes, disconnections, or restarts.
-- **Redundancy-aware communication**: Robust handling of extreme packet loss.
-- **Scalability**: Supports 3+ elevators and 4+ floors out of the box.
 
 
 ### Requirements
@@ -37,19 +32,10 @@ The core goals of the system are:
 
 ## Our Solution
 
-### Dynamic Master/Slave Role Allocation
-Each node derives a unique ID based on its IP address. The **node with the lowest ID automatically becomes master**, with all others operating as slaves. Roles may change dynamically in response to failures or disconnections.
-
-- **Master-node**:
-  - Assigns tasks
-  - Synchronizes state through UDP-broadcasts
-  - Receives updates directly from slaves (via UDP direct messaging)
-
-- **Slave-nodes**:
-  - Manage their own elevator locally
-  - Report status and hall requests to the master
-  - Switch role if they detect master failure
-
+**Dynamic Master/Slave-nodes**  
+Each node in the network is assigned an ID based on its IP address. The master-node is dynamically selected as the node with the lowest ID. The system operates on a hybrid master-slave model, where certain tasks (like handling cab calls) are executed by the slave-nodes .
+- The master-node manages system-wide coordination and delegates tasks via UDP-broadcast.
+- The slave-nodes  performs local elevator handling and sends status updates to the master-node via direct UDP messaging
 
 **UDP broadcast**  
 The master-node periodically broadcasts the latest system state (the worldview), which allows new nodes to discover and join the network. Each node listens for these broadcasts to stay synchronized with the master’s state.
@@ -60,7 +46,6 @@ The master-node listens for incoming UDP messages from the slave-nodes , contain
 **Dynamic packet redundancy**  
 To ensure reliable communication even with extreme packet loss, the system employs a dynamic redundancy mechanism. Before sending a packet, the sender calculates a redundancy factor, determining how many copies of the packet to send. This redundancy is controlled via a PID controller to adapt to varying network conditions, ensuring that enough messages are sent and acknowledged, even under high packet loss.
 
----
 
 ### Recommended Development Setup
 
@@ -72,19 +57,3 @@ With `rust-analyzer`, you can:
 - Access auto-completion, type hints, and other helpful language features.
 
 We've invested effort in writing thorough in-code documentation. Using a tool like `rust-analyzer` ensures you benefit from it while exploring or modifying the code.
-
----
-
-## Visual Documentation
-
-To enhance your understanding of the system's architecture and behavior, we have included several flowcharts in the `Flowcharts` directory. Below are the links to these flowcharts along with brief descriptions:
-
-
-| Flowchart | Description |
-|----------|-------------|
-| [System Broadcast Mechanism](elevator_pro_rebrand/Flowcharts/Broadcast_direct.png) | Shows the master-slave communication via direct UDP and handling of sequence numbers and redundancy. |
-| [UDP Broadcast Process](elevator_pro_rebrand/Flowcharts/UDP_broadcast.png) | Describes how the system listens to and sends broadcast packets for discovery and synchronization. |
-| [Worldview Update Process](elevator_pro_rebrand/Flowcharts/update_wv.png) | Details the logic behind updating the `WorldView` when receiving new data or experiencing disconnects. |
-| [Elevator FSM and Logic](elevator_pro_rebrand/Flowcharts/elev_fsm_and_logic.png) | Presents the local elevator’s control flow, timers, and decision-making based on events. |
-| [Elevator State Machine Overview](elevator_pro_rebrand/Flowcharts/FSM.png) | A concise overview of high-level elevator states and transitions (e.g., moving, door open, error). |
-

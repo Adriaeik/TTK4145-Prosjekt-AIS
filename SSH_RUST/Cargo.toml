@@ -1,7 +1,0 @@
-[package]
-name = "SSH_RUST"
-version = "0.1.0"
-edition = "2021"
-
-[dependencies]
-mio = { version = "0.8", optional = true }
